@@ -1,0 +1,2585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Dashboard Paiements Pro</title>
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts - Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  
+  <!-- Import Map Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js",
+        "firebase/auth": "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"
+      }
+    }
+  </script>
+  
+  <style>
+    /* ========== VARIABLES ========== */
+    :root {
+      --primary: #0A0A0A;
+      --primary-light: #1A1A1A;
+      --secondary: #C6A75E;
+      --secondary-light: #D4B67C;
+      --background: #F8F9FA;
+      --surface: #FFFFFF;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --text-tertiary: #94A3B8;
+      --border: #E2E8F0;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+    }
+    
+    /* ========== BASE ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: var(--background);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+    
+    /* ========== LAYOUT ========== */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+      z-index: 50;
+    }
+    
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .main-content {
+        margin-left: 0 !important;
+      }
+    }
+    
+    .main-content {
+      flex: 1;
+      margin-left: 280px;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    
+    /* ========== CARDS ========== */
+    .stat-card {
+      background: var(--surface);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+    }
+    
+    .content-card {
+      background: var(--surface);
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    
+    /* ========== TABLE ========== */
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th {
+      text-align: left;
+      padding: 1rem 1.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+    }
+    
+    td {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+      font-size: 0.875rem;
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tr:hover td {
+      background: var(--background);
+    }
+    
+    /* ========== BADGES ========== */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .badge-pending {
+      background: #FEF3C7;
+      color: #92400E;
+    }
+    
+    .badge-review {
+      background: #DBEAFE;
+      color: #1E40AF;
+    }
+    
+    .badge-approved {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+    
+    .badge-rejected {
+      background: #FEE2E2;
+      color: #991B1B;
+    }
+    
+    /* ========== BUTTONS ========== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--background);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-icon {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    
+    .btn-icon:hover {
+      background: var(--background);
+      color: var(--text-primary);
+    }
+    
+    /* ========== TOAST NOTIFICATION ========== */
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 1rem 2rem;
+      border-radius: 0.5rem;
+      color: white;
+      z-index: 9999;
+      animation: slideIn 0.3s ease;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+    
+    .toast-success {
+      background: var(--success);
+    }
+    
+    .toast-error {
+      background: var(--danger);
+    }
+    
+    .toast-info {
+      background: var(--info);
+    }
+    
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    /* ========== FORM ========== */
+    .form-input {
+      width: 100%;
+      padding: 0.625rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      background: var(--surface);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--secondary);
+      box-shadow: 0 0 0 3px rgba(198, 167, 94, 0.1);
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 0.625rem 2.5rem 0.625rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      background: var(--surface);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1.25rem;
+    }
+    
+    /* ========== MODAL ========== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    .modal-container {
+      background: var(--surface);
+      border-radius: 1rem;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+    }
+    
+    /* ========== PDF PREVIEW ========== */
+    .pdf-preview {
+      background: white;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .pdf-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid var(--secondary);
+      margin-bottom: 1.5rem;
+    }
+    
+    .pdf-logo {
+      width: 60px;
+      height: 60px;
+      background: var(--secondary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: bold;
+      overflow: hidden;
+    }
+    
+    .pdf-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .pdf-qr {
+      display: flex;
+      justify-content: center;
+      margin: 1.5rem 0;
+    }
+    
+    .pdf-code {
+      background: var(--background);
+      padding: 0.5rem 1rem;
+      border-radius: 2rem;
+      font-family: monospace;
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      color: var(--secondary);
+    }
+    
+    /* ========== USER INFO ========== */
+    .user-info {
+      background: var(--background);
+      border-radius: 2rem;
+      padding: 0.25rem 0.25rem 0.25rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--secondary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+    
+    /* ========== STEP CARD ========== */
+    .step-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      cursor: move;
+    }
+    
+    .step-number {
+      width: 28px;
+      height: 28px;
+      background: var(--secondary);
+      color: white;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+    
+    /* ========== LOADING SPINNER ========== */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-8">
+          <div class="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
+            <i class="fas fa-credit-card text-white text-xl"></i>
+          </div>
+          <div>
+            <h1 class="font-semibold text-lg">Vitch Studio</h1>
+            <p class="text-xs text-text-secondary">Paiements Pro</p>
+          </div>
+        </div>
+        
+        <nav class="space-y-1">
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn active" data-tab="dashboard">
+            <i class="fas fa-chart-line w-5 text-text-secondary"></i>
+            <span class="flex-1">Tableau de bord</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="clients">
+            <i class="fas fa-users w-5 text-text-secondary"></i>
+            <span class="flex-1">Clients</span>
+            <span class="text-xs bg-background px-2 py-1 rounded-full" id="clients-count">0</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="orders">
+            <i class="fas fa-shopping-cart w-5 text-text-secondary"></i>
+            <span class="flex-1">Commandes</span>
+            <span class="text-xs bg-background px-2 py-1 rounded-full" id="orders-count">0</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="methods">
+            <i class="fas fa-credit-card w-5 text-text-secondary"></i>
+            <span class="flex-1">Moyens de paiement</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="pdf">
+            <i class="fas fa-file-pdf w-5 text-text-secondary"></i>
+            <span class="flex-1">Gestion PDF</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="settings">
+            <i class="fas fa-cog w-5 text-text-secondary"></i>
+            <span>Paramètres</span>
+          </button>
+
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors tab-btn" data-tab="notifications">
+            <i class="fas fa-bell w-5 text-text-secondary"></i>
+            <span>Notifications</span>
+          </button>
+        </nav>
+      </div>
+      
+      <div class="absolute bottom-0 left-0 right-0 p-6 border-t border-border">
+        <div class="flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full" id="connection-status" style="background: var(--success);"></div>
+          <span class="text-sm text-text-secondary" id="connection-text">Firebase connecté</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header flex items-center justify-between">
+        <button id="menuToggle" class="lg:hidden btn-icon">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+        
+        <h2 id="currentTabTitle" class="text-xl font-semibold">Tableau de bord</h2>
+        
+        <div class="flex items-center gap-3"></div>
+      </header>
+
+      <!-- Content -->
+      <div class="p-4 md:p-6">
+        <!-- ========== TAB DASHBOARD ========== -->
+        <div id="tab-dashboard" class="tab-content">
+          <!-- Stats principales -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">Total clients</p>
+              <p class="text-2xl font-semibold" id="totalClients">0</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">Commandes total</p>
+              <p class="text-2xl font-semibold" id="totalOrders">0</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">Montant total</p>
+              <p class="text-2xl font-semibold" id="totalAmount">0 HTG</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">En attente</p>
+              <p class="text-2xl font-semibold text-warning" id="pendingOrders">0</p>
+            </div>
+          </div>
+
+          <!-- Graphique simple -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Statuts des commandes</h3>
+              <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                  <span>En attente</span>
+                  <span class="font-semibold" id="chartPending">0</span>
+                </div>
+                <div class="w-full bg-background rounded-full h-2">
+                  <div class="bg-warning h-2 rounded-full" id="pendingBar" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2">
+                  <span>En examen</span>
+                  <span class="font-semibold" id="chartReview">0</span>
+                </div>
+                <div class="w-full bg-background rounded-full h-2">
+                  <div class="bg-info h-2 rounded-full" id="reviewBar" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2">
+                  <span>Approuvées</span>
+                  <span class="font-semibold" id="chartApproved">0</span>
+                </div>
+                <div class="w-full bg-background rounded-full h-2">
+                  <div class="bg-success h-2 rounded-full" id="approvedBar" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-between items-center mt-2">
+                  <span>Rejetées</span>
+                  <span class="font-semibold" id="chartRejected">0</span>
+                </div>
+                <div class="w-full bg-background rounded-full h-2">
+                  <div class="bg-danger h-2 rounded-full" id="rejectedBar" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Dernières commandes</h3>
+              <div id="recentOrders" class="space-y-3">
+                <!-- Injecté par JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== TAB CLIENTS ========== -->
+        <div id="tab-clients" class="tab-content hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold">Clients</h2>
+            <div class="flex gap-3">
+              <input type="text" id="searchClient" placeholder="Rechercher client..." class="form-input w-64">
+            </div>
+          </div>
+
+          <!-- Clients grid -->
+          <div id="clientsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- ========== TAB ORDERS ========== -->
+        <div id="tab-orders" class="tab-content hidden">
+          <div class="flex flex-wrap gap-3 mb-6">
+            <select id="orderStatusFilter" class="form-select w-40">
+              <option value="all">Tous les statuts</option>
+              <option value="pending">En attente</option>
+              <option value="review">En examen</option>
+              <option value="approved">Approuvé</option>
+              <option value="rejected">Rejeté</option>
+            </select>
+            
+            <select id="orderClientFilter" class="form-select w-48">
+              <option value="all">Tous les clients</option>
+            </select>
+            
+            <input type="text" id="searchOrder" placeholder="Rechercher commande..." class="form-input flex-1">
+            
+            <button id="refreshOrdersBtn" class="btn btn-secondary">
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+
+          <!-- Orders table -->
+          <div class="content-card">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Email</th>
+                    <th>Montant</th>
+                    <th>Méthode</th>
+                    <th>Statut</th>
+                    <th>Code unique</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody"></tbody>
+              </table>
+            </div>
+            
+            <div id="ordersEmpty" class="hidden text-center py-12">
+              <i class="fas fa-shopping-cart text-4xl text-text-tertiary mb-3"></i>
+              <p class="text-text-secondary">Aucune commande trouvée</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== TAB METHODS ========== -->
+        <div id="tab-methods" class="tab-content hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold">Moyens de paiement</h2>
+            <button id="addMethodBtn" class="btn btn-primary">
+              <i class="fas fa-plus"></i>
+              Nouveau moyen
+            </button>
+          </div>
+
+          <!-- Methods grid -->
+          <div id="methodsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- ========== TAB PDF ========== -->
+        <div id="tab-pdf" class="tab-content hidden">
+          <h2 class="text-xl font-semibold mb-6">Configuration du PDF de reçu</h2>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Configuration -->
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Informations entreprise</h3>
+              
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Nom de l'entreprise</label>
+                  <input type="text" id="companyName" class="form-input" value="Vitch Studio">
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Logo</label>
+                  <div class="flex gap-2">
+                    <input type="text" id="companyLogo" class="form-input flex-1" placeholder="URL ou base64">
+                    <button id="uploadLogoBtn" class="btn btn-secondary">
+                      <i class="fas fa-upload"></i>
+                    </button>
+                  </div>
+                  <p class="text-xs text-text-secondary mt-1">Uploader une image ou entrer une URL</p>
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Adresse</label>
+                  <input type="text" id="companyAddress" class="form-input" value="123 Rue du Commerce">
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Téléphone</label>
+                  <input type="text" id="companyPhone" class="form-input" value="+509 00 00 0000">
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Email</label>
+                  <input type="email" id="companyEmail" class="form-input" value="contact@veltrixa.com">
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Message de remerciement</label>
+                  <textarea id="thankYouMessage" class="form-input" rows="2">Merci pour votre confiance !</textarea>
+                </div>
+
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Couleur principale</label>
+                  <input type="color" id="pdfPrimaryColor" class="form-input w-20 h-10 p-1" value="#C6A75E">
+                </div>
+
+                <div>
+                  <label class="flex items-center gap-2">
+                    <input type="checkbox" id="showQrCode" checked>
+                    <span class="text-sm">Afficher le QR code</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Aperçu PDF -->
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Aperçu du PDF</h3>
+              
+              <div id="pdfPreview" class="pdf-preview">
+                <div class="pdf-header" style="border-bottom-color: var(--pdf-primary, #C6A75E);">
+                  <div class="pdf-logo" id="previewLogo">
+                    <span id="previewLogoText">V</span>
+                    <img id="previewLogoImage" src="" style="display: none;">
+                  </div>
+                  <div>
+                    <h4 id="previewCompanyName" class="font-bold text-lg">Vitch Studio</h4>
+                    <p id="previewAddress" class="text-xs text-text-secondary">123 Rue du Commerce</p>
+                    <p id="previewPhone" class="text-xs text-text-secondary">+509 00 00 0000</p>
+                  </div>
+                </div>
+                
+                <div class="text-center mb-4">
+                  <h3 class="font-bold text-xl">REÇU DE PAIEMENT</h3>
+                  <p id="previewDate" class="text-sm text-text-secondary"></p>
+                </div>
+                
+                <div class="pdf-qr" id="qrCodePreview"></div>
+                
+                <div class="text-center mb-4">
+                  <span class="pdf-code" id="previewCode">VLX-ABCD-1234</span>
+                </div>
+                
+                <div class="border-t border-border pt-4 mt-4">
+                  <div class="flex justify-between mb-2">
+                    <span>Client:</span>
+                    <span id="previewClient" class="font-medium">Jean Dupont</span>
+                  </div>
+                  <div class="flex justify-between mb-2">
+                    <span>Email:</span>
+                    <span id="previewEmail" class="text-sm">jean.dupont@email.com</span>
+                  </div>
+                  <div class="flex justify-between mb-2">
+                    <span>Téléphone:</span>
+                    <span id="previewPhoneClient" class="text-sm">+509 38 48 1234</span>
+                  </div>
+                  <div class="flex justify-between mb-2">
+                    <span>Montant:</span>
+                    <span id="previewAmount" class="font-bold text-lg">1 500 HTG</span>
+                  </div>
+                  <div class="flex justify-between mb-2">
+                    <span>Statut:</span>
+                    <span class="badge badge-approved">Approuvé</span>
+                  </div>
+                </div>
+                
+                <div class="text-center text-sm text-text-secondary mt-4">
+                  <p id="previewThankYou">Merci pour votre confiance !</p>
+                </div>
+              </div>
+              
+              <div class="flex gap-3 mt-4">
+                <button id="savePdfConfig" class="btn btn-primary flex-1">
+                  <i class="fas fa-save"></i>
+                  Enregistrer
+                </button>
+                <button id="testPdfBtn" class="btn btn-secondary">
+                  <i class="fas fa-file-pdf"></i>
+                  Tester
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== TAB SETTINGS ========== -->
+        <div id="tab-settings" class="tab-content hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Configuration générale</h3>
+              
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Durée de vérification</label>
+                  <div class="flex items-center gap-2">
+                    <input type="number" id="verificationHours" class="form-input w-24" value="12" min="1" max="72">
+                    <span class="text-text-secondary">heures</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Message d'expiration</label>
+                  <textarea id="expiredMessage" class="form-input" rows="3">Le délai de vérification est dépassé. Contactez le support.</textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="content-card p-6">
+              <h3 class="font-semibold mb-4">Notifications</h3>
+              
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm text-text-secondary mb-1">Email de notification</label>
+                  <input type="email" id="notificationEmail" class="form-input" placeholder="admin@exemple.com">
+                </div>
+                <div class="pt-2 border-t border-border">
+                  <label class="flex items-center gap-2 mb-3">
+                    <input type="checkbox" id="dashboardNotifToggle">
+                    <span class="text-sm">Activer notifications nouvelles commandes</span>
+                  </label>
+                  <p id="dashboardNotifStatus" class="text-sm text-text-secondary mb-2">Notifications navigateur: non activées</p>
+                  <button id="enableDashboardNotifBtn" class="btn btn-secondary">
+                    <i class="fas fa-bell"></i>
+                    Activer les notifications navigateur
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="lg:col-span-2">
+              <button id="saveSettings" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Enregistrer les modifications
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== TAB NOTIFICATIONS ========== -->
+        <div id="tab-notifications" class="tab-content hidden">
+          <div class="content-card p-6">
+            <h3 class="font-semibold mb-4">Envoyer une notification personnalisée</h3>
+            <p class="text-sm text-text-secondary mb-4">
+              Cette notification sera envoyée aux utilisateurs ayant autorisé les notifications.
+            </p>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm text-text-secondary mb-1">Titre</label>
+                <input type="text" id="customNotifTitle" class="form-input" placeholder="Ex: Information importante">
+              </div>
+              <div>
+                <label class="block text-sm text-text-secondary mb-1">Message</label>
+                <textarea id="customNotifBody" class="form-input" rows="4" placeholder="Votre message..."></textarea>
+              </div>
+              <div>
+                <label class="block text-sm text-text-secondary mb-1">Lien (optionnel)</label>
+                <input type="text" id="customNotifUrl" class="form-input" placeholder="./index.html">
+              </div>
+              <div class="flex justify-end">
+                <button id="sendCustomNotifBtn" class="btn btn-primary">
+                  <i class="fas fa-paper-plane"></i>
+                  Envoyer la notification
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: Ajout/Édition moyen de paiement -->
+  <div id="methodModal" class="modal-overlay">
+    <div class="modal-container p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 id="modalTitle" class="text-xl font-semibold">Ajouter un moyen</h3>
+        <button id="closeModalBtn" class="btn-icon">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="methodForm" class="space-y-6">
+        <input type="hidden" id="methodId">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Nom *</label>
+            <input type="text" id="methodName" class="form-input" required>
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Compte *</label>
+            <input type="text" id="accountName" class="form-input" required>
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Téléphone *</label>
+            <input type="text" id="phoneNumber" class="form-input" required>
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Logo</label>
+            <input type="text" id="methodImage" class="form-input" placeholder="logo.png">
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm text-text-secondary mb-1">Instructions</label>
+          <textarea id="instructions" class="form-input" rows="2"></textarea>
+        </div>
+        
+        <label class="flex items-center gap-2">
+          <input type="checkbox" id="isActive" checked>
+          <span class="text-sm">Actif</span>
+        </label>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn btn-primary flex-1">
+            Enregistrer
+          </button>
+          <button type="button" id="cancelMethod" class="btn btn-secondary">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Détails commande -->
+  <div id="orderDetailModal" class="modal-overlay">
+    <div class="modal-container p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-semibold">Détails de la commande</h3>
+        <button id="closeOrderModal" class="btn-icon">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <div id="orderDetailContent" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"></div>
+      
+      <div class="flex justify-end gap-3 mt-6 pt-4 border-t border-border">
+        <button id="approveOrder" class="btn btn-success">
+          <i class="fas fa-check-circle"></i>
+          Approuver
+        </button>
+        <button id="rejectOrder" class="btn btn-danger">
+          <i class="fas fa-times-circle"></i>
+          Rejeter
+        </button>
+        <button id="closeOrderDetail" class="btn btn-secondary">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { sendBroadcastNotification, NotificationComponent } from './notification.js';
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      orderBy,
+      where,
+      onSnapshot 
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+    import { 
+      getAuth, 
+      onAuthStateChanged,
+      signOut 
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+
+    // ========== CONFIG ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const dashboardNotifier = new NotificationComponent({
+      mode: 'dashboard',
+      defaultUrl: './Dpayment.html',
+      enabledStorageKey: 'veltrixa_dashboard_payment_notif_enabled'
+    });
+    dashboardNotifier.init();
+    
+    // Collections
+    const CLIENTS = "clients";
+    const PAYMENT_METHODS = "paymentMethods";
+    const PDF_CONFIG = "pdfConfig";
+    const SETTINGS = "settings";
+
+    // ========== ÉTAT ==========
+    let clients = [];
+    let orders = [];
+    let methods = [];
+    let pdfConfig = null;
+    let settings = null;
+    let currentOrderId = null;
+    let currentClientId = null;
+    let orderUnsubscribers = [];
+    let ordersReloadTimeout = null;
+    let seenOrderIds = new Set();
+    let ordersNotifReady = false;
+
+    // ========== DOM ==========
+    const elements = {
+      sidebar: document.getElementById('sidebar'),
+      menuToggle: document.getElementById('menuToggle'),
+      tabBtns: document.querySelectorAll('.tab-btn'),
+      tabContents: document.querySelectorAll('.tab-content'),
+      currentTabTitle: document.getElementById('currentTabTitle'),
+      
+      // Connection
+      connectionStatus: document.getElementById('connection-status'),
+      connectionText: document.getElementById('connection-text'),
+      
+      // User info
+      
+      // Stats
+      totalClients: document.getElementById('totalClients'),
+      totalOrders: document.getElementById('totalOrders'),
+      totalAmount: document.getElementById('totalAmount'),
+      pendingOrders: document.getElementById('pendingOrders'),
+      
+      // Charts
+      chartPending: document.getElementById('chartPending'),
+      chartReview: document.getElementById('chartReview'),
+      chartApproved: document.getElementById('chartApproved'),
+      chartRejected: document.getElementById('chartRejected'),
+      pendingBar: document.getElementById('pendingBar'),
+      reviewBar: document.getElementById('reviewBar'),
+      approvedBar: document.getElementById('approvedBar'),
+      rejectedBar: document.getElementById('rejectedBar'),
+      recentOrders: document.getElementById('recentOrders'),
+      
+      // Clients
+      clientsList: document.getElementById('clientsList'),
+      searchClient: document.getElementById('searchClient'),
+      clientsCount: document.getElementById('clients-count'),
+      
+      // Orders
+      ordersTable: document.getElementById('ordersTableBody'),
+      ordersEmpty: document.getElementById('ordersEmpty'),
+      orderStatusFilter: document.getElementById('orderStatusFilter'),
+      orderClientFilter: document.getElementById('orderClientFilter'),
+      searchOrder: document.getElementById('searchOrder'),
+      refreshOrdersBtn: document.getElementById('refreshOrdersBtn'),
+      ordersCount: document.getElementById('orders-count'),
+      
+      // Methods
+      methodsList: document.getElementById('methodsList'),
+      addMethodBtn: document.getElementById('addMethodBtn'),
+      
+      // PDF
+      companyName: document.getElementById('companyName'),
+      companyLogo: document.getElementById('companyLogo'),
+      companyAddress: document.getElementById('companyAddress'),
+      companyPhone: document.getElementById('companyPhone'),
+      companyEmail: document.getElementById('companyEmail'),
+      thankYouMessage: document.getElementById('thankYouMessage'),
+      pdfPrimaryColor: document.getElementById('pdfPrimaryColor'),
+      showQrCode: document.getElementById('showQrCode'),
+      uploadLogoBtn: document.getElementById('uploadLogoBtn'),
+      
+      previewCompanyName: document.getElementById('previewCompanyName'),
+      previewAddress: document.getElementById('previewAddress'),
+      previewPhone: document.getElementById('previewPhone'),
+      previewDate: document.getElementById('previewDate'),
+      previewCode: document.getElementById('previewCode'),
+      previewClient: document.getElementById('previewClient'),
+      previewEmail: document.getElementById('previewEmail'),
+      previewPhoneClient: document.getElementById('previewPhoneClient'),
+      previewAmount: document.getElementById('previewAmount'),
+      previewThankYou: document.getElementById('previewThankYou'),
+      previewLogoText: document.getElementById('previewLogoText'),
+      previewLogoImage: document.getElementById('previewLogoImage'),
+      qrCodePreview: document.getElementById('qrCodePreview'),
+      
+      savePdfConfig: document.getElementById('savePdfConfig'),
+      testPdfBtn: document.getElementById('testPdfBtn'),
+      
+      // Settings
+      verificationHours: document.getElementById('verificationHours'),
+      expiredMessage: document.getElementById('expiredMessage'),
+      notificationEmail: document.getElementById('notificationEmail'),
+      saveSettingsBtn: document.getElementById('saveSettings'),
+      dashboardNotifToggle: document.getElementById('dashboardNotifToggle'),
+      dashboardNotifStatus: document.getElementById('dashboardNotifStatus'),
+      enableDashboardNotifBtn: document.getElementById('enableDashboardNotifBtn'),
+      customNotifTitle: document.getElementById('customNotifTitle'),
+      customNotifBody: document.getElementById('customNotifBody'),
+      customNotifUrl: document.getElementById('customNotifUrl'),
+      sendCustomNotifBtn: document.getElementById('sendCustomNotifBtn'),
+      
+      // Modal méthode
+      methodModal: document.getElementById('methodModal'),
+      modalTitle: document.getElementById('modalTitle'),
+      methodId: document.getElementById('methodId'),
+      methodName: document.getElementById('methodName'),
+      accountName: document.getElementById('accountName'),
+      phoneNumber: document.getElementById('phoneNumber'),
+      methodImage: document.getElementById('methodImage'),
+      instructions: document.getElementById('instructions'),
+      isActive: document.getElementById('isActive'),
+      saveMethod: document.querySelector('#methodForm button[type="submit"]'),
+      closeModalBtn: document.getElementById('closeModalBtn'),
+      cancelMethod: document.getElementById('cancelMethod'),
+      
+      // Modal commande
+      orderModal: document.getElementById('orderDetailModal'),
+      orderContent: document.getElementById('orderDetailContent'),
+      closeOrderModal: document.getElementById('closeOrderModal'),
+      closeOrderDetail: document.getElementById('closeOrderDetail'),
+      approveOrder: document.getElementById('approveOrder'),
+      rejectOrder: document.getElementById('rejectOrder')
+    };
+
+    // ========== FONCTIONS UTILITAIRES ==========
+    
+    function showToast(message, type = 'success') {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+    
+    function hexToRgb(hex) {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 198, g: 167, b: 94 };
+    }
+    
+    function formatPrice(price) {
+      return new Intl.NumberFormat('fr-FR', { 
+        style: 'currency', 
+        currency: 'HTG',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(price || 0);
+    }
+    
+    function getStatusText(status) {
+      const texts = { 
+        pending: 'En attente', 
+        review: 'En examen', 
+        approved: 'Approuvé', 
+        rejected: 'Rejeté',
+        expired: 'Expiré'
+      };
+      return texts[status] || status;
+    }
+
+    function getOrderItems(order) {
+      return Array.isArray(order?.items) ? order.items : [];
+    }
+
+    function getOrderComputedAmount(order) {
+      if (typeof order?.amount === 'number' && Number.isFinite(order.amount)) return order.amount;
+      return getOrderItems(order).reduce((sum, item) => {
+        const price = Number(item?.price) || 0;
+        const qty = Number(item?.quantity) || 1;
+        return sum + (price * qty);
+      }, 0);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function formatItemOptions(item) {
+      const opts = item?.selectedOptions;
+      if (!Array.isArray(opts) || opts.length === 0) return '-';
+      return opts.map((opt) => {
+        if (typeof opt === 'string') return opt;
+        if (opt && typeof opt === 'object') {
+          const key = opt.name || opt.label || opt.key || opt.type || 'Option';
+          const val = opt.value || opt.val || opt.option || '';
+          return val ? `${key}: ${val}` : key;
+        }
+        return String(opt);
+      }).join(' | ');
+    }
+
+    function clearOrderRealtimeListeners() {
+      orderUnsubscribers.forEach((unsubscribe) => {
+        try { unsubscribe(); } catch (_) {}
+      });
+      orderUnsubscribers = [];
+    }
+
+    function scheduleOrdersReload() {
+      if (ordersReloadTimeout) clearTimeout(ordersReloadTimeout);
+      ordersReloadTimeout = setTimeout(async () => {
+        await loadOrders();
+      }, 250);
+    }
+
+    function setupOrdersRealtimeListeners() {
+      clearOrderRealtimeListeners();
+      clients.forEach((client) => {
+        const unsub = onSnapshot(collection(db, CLIENTS, client.id, 'orders'), () => {
+          scheduleOrdersReload();
+        });
+        orderUnsubscribers.push(unsub);
+      });
+    }
+
+    // ========== CHARGEMENT DES DONNÉES ==========
+    
+    async function loadClients() {
+      try {
+        const snapshot = await getDocs(collection(db, CLIENTS));
+        clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderClients();
+        updateClientFilter();
+        return clients;
+      } catch (error) {
+        console.error('❌ Erreur chargement clients:', error);
+        showToast('Erreur chargement clients', 'error');
+        return [];
+      }
+    }
+
+    async function loadOrders() {
+      try {
+        const allOrders = [];
+        
+        // Charger les commandes pour chaque client
+        for (const client of clients) {
+          try {
+            const ordersRef = collection(db, CLIENTS, client.id, 'orders');
+            const snapshot = await getDocs(query(ordersRef, orderBy('createdAt', 'desc')));
+            
+            snapshot.docs.forEach(doc => {
+              allOrders.push({
+                id: doc.id,
+                clientId: client.id,
+                ...doc.data()
+              });
+            });
+          } catch (error) {
+            console.error(`❌ Erreur chargement commandes pour client ${client.id}:`, error);
+          }
+        }
+        
+        // Trier par date
+        orders = allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        if (!ordersNotifReady) {
+          orders.forEach((o) => seenOrderIds.add(o.id));
+          ordersNotifReady = true;
+        } else if (dashboardNotifier.isEnabled()) {
+          for (const o of orders) {
+            if (!seenOrderIds.has(o.id)) {
+              seenOrderIds.add(o.id);
+              dashboardNotifier.notify(
+                'Nouvelle commande',
+                `Commande reçue ${o.uniqueCode || o.id}.`,
+                { url: './Dpayment.html', tag: `dashboard_order_${o.id}` }
+              );
+            }
+          }
+        }
+        
+        renderOrders();
+        updateDashboard();
+        return orders;
+      } catch (error) {
+        console.error('❌ Erreur chargement commandes:', error);
+        showToast('Erreur chargement commandes', 'error');
+        return [];
+      }
+    }
+
+    async function loadMethods() {
+      try {
+        const snapshot = await getDocs(collection(db, PAYMENT_METHODS));
+        methods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderMethods();
+        return methods;
+      } catch (error) {
+        console.error('❌ Erreur chargement méthodes:', error);
+        return [];
+      }
+    }
+
+    async function loadPdfConfig() {
+      try {
+        const snapshot = await getDocs(collection(db, PDF_CONFIG));
+        if (!snapshot.empty) {
+          pdfConfig = snapshot.docs[0].data();
+          applyPdfConfig();
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement config PDF:', error);
+      }
+    }
+
+    async function loadSettings() {
+      try {
+        const snapshot = await getDocs(collection(db, SETTINGS));
+        if (!snapshot.empty) {
+          settings = snapshot.docs[0].data();
+          elements.verificationHours.value = settings.verificationHours || 12;
+          elements.expiredMessage.value = settings.expiredMessage || '';
+          elements.notificationEmail.value = settings.notificationEmail || '';
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement paramètres:', error);
+      }
+    }
+
+    async function loadAllData() {
+      showToast('Chargement des données...', 'info');
+      await loadClients();
+      await loadOrders();
+      await loadMethods();
+      await loadPdfConfig();
+      await loadSettings();
+    }
+
+    // ========== AUTH ==========
+    function setupAuth() {}
+
+    // ========== TABS ==========
+    function setupTabs() {
+      elements.tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabName = btn.dataset.tab;
+          
+          elements.tabBtns.forEach(b => b.classList.remove('active', 'bg-background'));
+          btn.classList.add('active', 'bg-background');
+          
+          elements.tabContents.forEach(content => content.classList.add('hidden'));
+          document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+          
+          const titles = {
+            dashboard: 'Tableau de bord',
+            clients: 'Clients',
+            orders: 'Commandes',
+            methods: 'Moyens de paiement',
+            pdf: 'Gestion PDF',
+            settings: 'Paramètres',
+            notifications: 'Notifications'
+          };
+          elements.currentTabTitle.textContent = titles[tabName];
+        });
+      });
+    }
+
+    function updateDashboardNotificationStatus() {
+      const enabled = dashboardNotifier.isEnabled();
+      if (elements.dashboardNotifToggle) {
+        elements.dashboardNotifToggle.checked = enabled;
+      }
+      if (!('Notification' in window)) {
+        elements.dashboardNotifStatus.textContent = enabled
+          ? 'Notifications commandes: activées, mais navigateur non supporté'
+          : 'Notifications commandes: désactivées (navigateur non supporté)';
+        elements.enableDashboardNotifBtn.disabled = true;
+        return;
+      }
+      const p = Notification.permission;
+      if (p === 'granted') {
+        elements.dashboardNotifStatus.textContent = enabled
+          ? 'Notifications commandes: activées'
+          : 'Notifications commandes: désactivées';
+        elements.enableDashboardNotifBtn.disabled = !enabled;
+      } else if (p === 'denied') {
+        elements.dashboardNotifStatus.textContent = enabled
+          ? 'Notifications commandes activées, mais bloquées par le navigateur'
+          : 'Notifications commandes désactivées';
+        elements.enableDashboardNotifBtn.disabled = true;
+      } else {
+        elements.dashboardNotifStatus.textContent = enabled
+          ? 'Notifications commandes activées, permission navigateur requise'
+          : 'Notifications commandes désactivées';
+        elements.enableDashboardNotifBtn.disabled = !enabled;
+      }
+    }
+
+    function toggleDashboardNotifications() {
+      const enabled = !!elements.dashboardNotifToggle?.checked;
+      dashboardNotifier.setEnabled(enabled);
+      if (!enabled) {
+        showToast('Notifications commandes désactivées', 'info');
+      } else {
+        showToast('Notifications commandes activées', 'success');
+      }
+      updateDashboardNotificationStatus();
+    }
+
+    async function enableDashboardNotifications() {
+      try {
+        const permission = await dashboardNotifier.requestPermission();
+        if (permission === 'granted') {
+          showToast('Notifications navigateur activées', 'success');
+        } else if (permission === 'denied') {
+          showToast('Notifications bloquées par le navigateur', 'error');
+        } else {
+          showToast('Activation annulée', 'info');
+        }
+      } catch (error) {
+        console.error('❌ Erreur activation notifications dashboard:', error);
+        showToast('Erreur activation notifications', 'error');
+      } finally {
+        updateDashboardNotificationStatus();
+      }
+    }
+
+    // ========== RENDU ==========
+    
+    function renderClients() {
+      const search = elements.searchClient?.value.toLowerCase() || '';
+      const filtered = clients.filter(c => 
+        c.name?.toLowerCase().includes(search) || 
+        c.email?.toLowerCase().includes(search)
+      );
+
+      elements.clientsCount.textContent = clients.length;
+
+      if (filtered.length === 0) {
+        elements.clientsList.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <i class="fas fa-users text-4xl text-text-tertiary mb-3"></i>
+            <p class="text-text-secondary">Aucun client trouvé</p>
+          </div>
+        `;
+        return;
+      }
+
+      elements.clientsList.innerHTML = filtered.map(client => {
+        const clientOrders = orders.filter(o => o.clientId === client.id);
+        const totalSpent = clientOrders.reduce((sum, o) => sum + getOrderComputedAmount(o), 0);
+        
+        return `
+          <div class="content-card p-4">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-white font-bold">
+                ${(client.name || 'C')[0].toUpperCase()}
+              </div>
+              <div>
+                <h3 class="font-medium">${client.name || 'N/A'}</h3>
+                <p class="text-xs text-text-secondary">${client.email || ''}</p>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <p class="text-text-secondary">Téléphone</p>
+                <p>${client.phone || '-'}</p>
+              </div>
+              <div>
+                <p class="text-text-secondary">Commandes</p>
+                <p>${clientOrders.length}</p>
+              </div>
+              <div>
+                <p class="text-text-secondary">Total dépensé</p>
+                <p class="font-semibold">${formatPrice(totalSpent)}</p>
+              </div>
+              <div>
+                <p class="text-text-secondary">Membre depuis</p>
+                <p>${new Date(client.createdAt).toLocaleDateString('fr-FR')}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderOrders() {
+      const statusFilter = elements.orderStatusFilter.value;
+      const clientFilter = elements.orderClientFilter.value;
+      const search = elements.searchOrder.value.toLowerCase();
+      
+      let filtered = orders;
+      
+      if (statusFilter !== 'all') {
+        filtered = filtered.filter(o => o.status === statusFilter);
+      }
+      if (clientFilter !== 'all') {
+        filtered = filtered.filter(o => o.clientId === clientFilter);
+      }
+      if (search) {
+        filtered = filtered.filter(o => 
+          o.uniqueCode?.toLowerCase().includes(search) ||
+          o.customerName?.toLowerCase().includes(search) ||
+          o.customerEmail?.toLowerCase().includes(search)
+        );
+      }
+
+      elements.ordersCount.textContent = orders.length;
+
+      if (filtered.length === 0) {
+        elements.ordersTable.innerHTML = '';
+        elements.ordersEmpty.classList.remove('hidden');
+        return;
+      }
+
+      elements.ordersEmpty.classList.add('hidden');
+      
+      elements.ordersTable.innerHTML = filtered.map(order => {
+        const client = clients.find(c => c.id === order.clientId);
+        
+        return `
+          <tr class="cursor-pointer hover:bg-background/50 order-row" data-id="${order.id}" data-client-id="${order.clientId}">
+            <td>${new Date(order.createdAt).toLocaleDateString('fr-FR')}</td>
+            <td class="font-medium">${order.customerName || client?.name || 'N/A'}</td>
+            <td>${order.customerEmail || client?.email || '-'}</td>
+            <td class="font-medium">${formatPrice(getOrderComputedAmount(order))}</td>
+            <td>${order.methodName || 'N/A'}</td>
+            <td>
+              <span class="badge badge-${order.status || 'pending'}">
+                ${getStatusText(order.status)}
+              </span>
+            </td>
+            <td>
+              <span class="font-mono text-sm">${order.uniqueCode || '-'}</span>
+            </td>
+            <td>
+              <div class="flex gap-2" onclick="event.stopPropagation()">
+                <button class="view-order btn-icon" data-id="${order.id}" data-client-id="${order.clientId}" title="Voir">
+                  <i class="fas fa-eye"></i>
+                </button>
+                ${order.status === 'approved' ? `
+                  <button class="download-pdf btn-icon text-success" data-id="${order.id}" data-client-id="${order.clientId}" title="Télécharger PDF">
+                    <i class="fas fa-file-pdf"></i>
+                  </button>
+                ` : ''}
+                <button class="delete-order btn-icon text-danger" data-id="${order.id}" data-client-id="${order.clientId}" title="Supprimer définitivement">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      attachOrderEvents();
+    }
+
+    function renderMethods() {
+      if (methods.length === 0) {
+        elements.methodsList.innerHTML = `
+          <div class="col-span-full text-center py-12">
+            <i class="fas fa-credit-card text-4xl text-text-tertiary mb-3"></i>
+            <p class="text-text-secondary">Aucun moyen de paiement</p>
+          </div>
+        `;
+        return;
+      }
+
+      elements.methodsList.innerHTML = methods.map(method => `
+        <div class="content-card p-4 relative group">
+          <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 flex gap-1">
+            <button class="edit-method btn-icon" data-id="${method.id}">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="delete-method btn-icon text-danger" data-id="${method.id}">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-background rounded-xl flex items-center justify-center">
+              <i class="fas fa-credit-card text-text-secondary"></i>
+            </div>
+            <div>
+              <h3 class="font-medium">${method.name}</h3>
+              <span class="badge ${method.isActive ? 'badge-approved' : 'badge-pending'}">
+                ${method.isActive ? 'Actif' : 'Inactif'}
+              </span>
+            </div>
+          </div>
+          
+          <div class="text-sm">
+            <p class="text-text-secondary">${method.accountName}</p>
+            <p class="text-text-secondary">${method.phoneNumber}</p>
+          </div>
+        </div>
+      `).join('');
+
+      attachMethodEvents();
+    }
+
+    function updateDashboard() {
+      const totalClients = clients.length;
+      const totalOrders = orders.length;
+      const totalAmount = orders.reduce((sum, o) => sum + getOrderComputedAmount(o), 0);
+      const pending = orders.filter(o => o.status === 'pending').length;
+      const review = orders.filter(o => o.status === 'review').length;
+      const approved = orders.filter(o => o.status === 'approved').length;
+      const rejected = orders.filter(o => o.status === 'rejected').length;
+      const total = orders.length || 1;
+
+      elements.totalClients.textContent = totalClients;
+      elements.totalOrders.textContent = totalOrders;
+      elements.totalAmount.textContent = formatPrice(totalAmount);
+      elements.pendingOrders.textContent = pending;
+
+      elements.chartPending.textContent = pending;
+      elements.chartReview.textContent = review;
+      elements.chartApproved.textContent = approved;
+      elements.chartRejected.textContent = rejected;
+
+      elements.pendingBar.style.width = (pending / total * 100) + '%';
+      elements.reviewBar.style.width = (review / total * 100) + '%';
+      elements.approvedBar.style.width = (approved / total * 100) + '%';
+      elements.rejectedBar.style.width = (rejected / total * 100) + '%';
+
+      // Dernières commandes
+      const recent = orders.slice(0, 5);
+      elements.recentOrders.innerHTML = recent.map(order => `
+        <div class="flex justify-between items-center p-2 hover:bg-background rounded">
+          <div>
+            <p class="font-medium">${order.customerName || 'Client'}</p>
+            <p class="text-xs text-text-secondary">${new Date(order.createdAt).toLocaleDateString()}</p>
+          </div>
+          <div class="text-right">
+            <p class="font-semibold">${formatPrice(getOrderComputedAmount(order))}</p>
+            <span class="badge badge-${order.status}">${getStatusText(order.status)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateClientFilter() {
+      const select = elements.orderClientFilter;
+      select.innerHTML = '<option value="all">Tous les clients</option>';
+      clients.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c.id;
+        option.textContent = c.name || c.email;
+        select.appendChild(option);
+      });
+    }
+
+    function updatePdfPreview() {
+      // Date
+      elements.previewDate.textContent = new Date().toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      
+      // QR Code
+      if (elements.showQrCode.checked) {
+        elements.qrCodePreview.innerHTML = '';
+        new QRCode(elements.qrCodePreview, {
+          text: 'VLX-ABCD-1234',
+          width: 100,
+          height: 100
+        });
+        elements.qrCodePreview.style.display = 'flex';
+      } else {
+        elements.qrCodePreview.style.display = 'none';
+      }
+      
+      // Logo
+      updateLogoPreview();
+    }
+
+    function updateLogoPreview() {
+      const logoValue = elements.companyLogo.value.trim();
+      if (logoValue && (logoValue.startsWith('data:image') || logoValue.match(/\.(jpg|jpeg|png|gif|webp)$/i))) {
+        elements.previewLogoImage.src = logoValue;
+        elements.previewLogoImage.style.display = 'block';
+        elements.previewLogoText.style.display = 'none';
+      } else {
+        elements.previewLogoImage.style.display = 'none';
+        elements.previewLogoText.style.display = 'block';
+        elements.previewLogoText.textContent = (elements.companyName.value || 'V')[0].toUpperCase();
+      }
+    }
+
+    function applyPdfConfig() {
+      if (!pdfConfig) return;
+      
+      elements.companyName.value = pdfConfig.companyName || 'Vitch Studio';
+      elements.companyLogo.value = pdfConfig.companyLogo || '';
+      elements.companyAddress.value = pdfConfig.companyAddress || '';
+      elements.companyPhone.value = pdfConfig.companyPhone || '';
+      elements.companyEmail.value = pdfConfig.companyEmail || '';
+      elements.thankYouMessage.value = pdfConfig.thankYouMessage || 'Merci pour votre confiance !';
+      elements.pdfPrimaryColor.value = pdfConfig.primaryColor || '#C6A75E';
+      elements.showQrCode.checked = pdfConfig.showQrCode !== false;
+      
+      elements.previewCompanyName.textContent = pdfConfig.companyName || 'Vitch Studio';
+      elements.previewAddress.textContent = pdfConfig.companyAddress || '';
+      elements.previewPhone.textContent = pdfConfig.companyPhone || '';
+      elements.previewThankYou.textContent = pdfConfig.thankYouMessage || 'Merci pour votre confiance !';
+      
+      updateLogoPreview();
+      updatePdfPreview();
+    }
+
+    // ========== GÉNÉRATION PDF ==========
+    
+    async function generateOrderPdf(orderId, clientId) {
+      try {
+        const order = orders.find(o => o.id === orderId && o.clientId === clientId);
+        if (!order) {
+          showToast('Commande non trouvée', 'error');
+          return;
+        }
+
+        const client = clients.find(c => c.id === clientId);
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Couleur principale
+        const primaryColor = pdfConfig?.primaryColor || '#C6A75E';
+        const rgb = hexToRgb(primaryColor);
+        
+        // En-tête
+        doc.setFillColor(rgb.r, rgb.g, rgb.b);
+        doc.rect(0, 0, doc.internal.pageSize.width, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(20);
+        doc.setFont('helvetica', 'bold');
+        doc.text(pdfConfig?.companyName || 'Vitch Studio', 20, 25);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(pdfConfig?.companyAddress || '', 20, 35);
+        
+        // Titre
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REÇU DE PAIEMENT', 20, 60);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString('fr-FR', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        })}`, 20, 70);
+        
+        // Code unique
+        doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(20, 80, 170, 15, 3, 3, 'S');
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text(order.uniqueCode || 'N/A', 105, 90, { align: 'center' });
+        
+        // Informations client
+        const orderItems = getOrderItems(order);
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Informations client', 20, 110);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Nom: ${order.customerName || client?.name || 'N/A'}`, 20, 120);
+        doc.text(`Email: ${order.customerEmail || client?.email || '-'}`, 20, 130);
+        doc.text(`Téléphone: ${order.customerPhone || client?.phone || '-'}`, 20, 140);
+        doc.text(`Adresse: ${order.customerAddress || client?.address || '-'}`, 20, 150);
+        doc.text(`Ville: ${order.customerCity || client?.city || '-'}`, 20, 160);
+        
+        // Livraison
+        let y = 172;
+        const delivery = order.delivery || null;
+        if (delivery) {
+          const deliveryLabel = delivery.method === 'home'
+            ? 'Livraison à domicile'
+            : delivery.method === 'pickup'
+              ? 'Retrait en point de vente'
+              : delivery.method === 'meetup'
+                ? 'Rencontre livreur'
+                : 'Livraison';
+          const deliveryTarget = delivery.method === 'home'
+            ? (delivery.homeZone?.city || delivery.homeZone?.zone || '')
+            : delivery.method === 'pickup'
+              ? (delivery.pickupPoint?.name || '')
+              : delivery.method === 'meetup'
+                ? (delivery.meetupZone?.zone || '')
+                : '';
+
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text('Livraison', 20, y);
+          y += 8;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Méthode: ${deliveryLabel}`, 20, y);
+          y += 6;
+          if (deliveryTarget) {
+            doc.text(`Zone/Point: ${deliveryTarget}`.slice(0, 110), 20, y);
+            y += 6;
+          }
+          if (delivery.address) {
+            doc.text(`Adresse: ${delivery.address}`.slice(0, 110), 20, y);
+            y += 6;
+          }
+          if (delivery.phone || delivery.whatsapp) {
+            const contact = [delivery.phone ? `Tél: ${delivery.phone}` : '', delivery.whatsapp ? `WA: ${delivery.whatsapp}` : ''].filter(Boolean).join(' | ');
+            doc.text(contact.slice(0, 110), 20, y);
+            y += 6;
+          }
+          if (delivery.meetupProposal) {
+            doc.text(`Proposition: ${delivery.meetupProposal}`.slice(0, 110), 20, y);
+            y += 6;
+          }
+          if (Number(delivery.totalFee || 0) > 0) {
+            doc.text(`Frais livraison: ${formatPrice(Number(delivery.totalFee || 0))}`, 20, y);
+            y += 8;
+          } else {
+            y += 2;
+          }
+        }
+
+        // Montant
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Paiement', 20, y);
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Méthode: ${order.methodName || 'N/A'}`, 20, y + 10);
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(rgb.r, rgb.g, rgb.b);
+        doc.text(`Montant: ${formatPrice(getOrderComputedAmount(order))}`, 20, y + 24);
+
+        // Produits commandés
+        y = y + 36;
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Produits commandés', 20, y);
+        y += 7;
+
+        if (orderItems.length === 0) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'normal');
+          doc.text('Aucun détail produit enregistré.', 20, y);
+          y += 6;
+        } else {
+          orderItems.forEach((item, index) => {
+            if (y > 262) {
+              doc.addPage();
+              y = 20;
+            }
+            const qty = Number(item?.quantity) || 1;
+            const unitPrice = Number(item?.price) || 0;
+            const lineTotal = qty * unitPrice;
+            const itemName = String(item?.name || 'Produit').slice(0, 70);
+            const productId = item?.productId ? ` | ID: ${item.productId}` : '';
+            const sku = item?.sku ? ` | SKU: ${item.sku}` : '';
+            const options = formatItemOptions(item);
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${index + 1}. ${itemName}`, 20, y);
+            y += 4.5;
+
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Qté: ${qty} | PU: ${formatPrice(unitPrice)} | Total: ${formatPrice(lineTotal)}${productId}${sku}`.slice(0, 110), 24, y);
+            y += 4.2;
+
+            if (options && options !== '-') {
+              doc.text(`Options: ${options}`.slice(0, 110), 24, y);
+              y += 4.2;
+            }
+            y += 1.8;
+          });
+        }
+
+        // Preuve et extraction OCR
+        if (y > 252) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Preuve de paiement', 20, y);
+        y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Nom sur la preuve: ${order.proofName || '-'}`, 20, y);
+        y += 5;
+        const extracted = String(order.extractedText || '').replace(/\s+/g, ' ').trim();
+        doc.text(`Texte OCR: ${extracted ? extracted.slice(0, 130) : '-'}`, 20, y);
+        y += 8;
+        
+        // Message de remerciement
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'italic');
+        doc.text(pdfConfig?.thankYouMessage || 'Merci pour votre confiance !', 20, Math.min(y, 270));
+        
+        // Pied de page
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text('Ce document est un reçu officiel de paiement.', 20, 280);
+        doc.text(`Code de vérification: ${order.uniqueCode || 'N/A'}`, 20, 285);
+        
+        doc.save(`recu-${order.uniqueCode || order.id}.pdf`);
+        showToast('PDF généré avec succès !', 'success');
+        
+      } catch (error) {
+        console.error('❌ Erreur génération PDF:', error);
+        showToast('Erreur lors de la génération du PDF', 'error');
+      }
+    }
+
+    // ========== ACTIONS ==========
+    
+    function showOrderDetails(id, clientId) {
+      const order = orders.find(o => o.id === id && o.clientId === clientId);
+      if (!order) return;
+      
+      currentOrderId = id;
+      currentClientId = clientId;
+      const client = clients.find(c => c.id === clientId);
+      const method = methods.find(m => m.id === order.methodId);
+      const delivery = order.delivery || null;
+      const deliveryLabel = delivery
+        ? (delivery.method === 'home'
+          ? 'Livraison à domicile'
+          : delivery.method === 'pickup'
+            ? 'Retrait en point de vente'
+            : delivery.method === 'meetup'
+              ? 'Rencontre livreur'
+              : 'Livraison')
+        : null;
+      const deliveryTarget = delivery
+        ? (delivery.method === 'home'
+          ? (delivery.homeZone?.city || delivery.homeZone?.zone || '')
+          : delivery.method === 'pickup'
+            ? (delivery.pickupPoint?.name || '')
+            : delivery.method === 'meetup'
+              ? (delivery.meetupZone?.zone || '')
+              : '')
+        : '';
+      const deliveryContact = delivery
+        ? [delivery.phone ? `Tél: ${delivery.phone}` : '', delivery.whatsapp ? `WA: ${delivery.whatsapp}` : ''].filter(Boolean).join(' | ')
+        : '';
+      const deliveryFee = Number(delivery?.totalFee || 0);
+      
+      elements.orderContent.innerHTML = `
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-text-secondary">Client</p>
+              <p class="font-medium">${order.customerName || client?.name || 'N/A'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Email</p>
+              <p>${order.customerEmail || client?.email || '-'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Téléphone</p>
+              <p>${order.customerPhone || client?.phone || '-'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Montant</p>
+              <p class="font-semibold">${formatPrice(getOrderComputedAmount(order))}</p>
+            </div>
+          </div>
+          
+          <div>
+            <p class="text-xs text-text-secondary">Adresse</p>
+            <p>${order.customerAddress || client?.address || '-'}</p>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-secondary">Livraison</p>
+            ${delivery ? `
+              <div class="bg-background rounded-lg border border-border p-3 space-y-2 text-sm">
+                <div>
+                  <span class="text-text-secondary">Méthode:</span>
+                  <span class="font-medium">${escapeHtml(deliveryLabel || 'Livraison')}</span>
+                </div>
+                ${deliveryTarget ? `
+                  <div>
+                    <span class="text-text-secondary">Zone/Point:</span>
+                    <span>${escapeHtml(deliveryTarget)}</span>
+                  </div>
+                ` : ''}
+                ${delivery.address ? `
+                  <div>
+                    <span class="text-text-secondary">Adresse:</span>
+                    <span>${escapeHtml(delivery.address)}</span>
+                  </div>
+                ` : ''}
+                ${deliveryContact ? `
+                  <div>
+                    <span class="text-text-secondary">Contact:</span>
+                    <span>${escapeHtml(deliveryContact)}</span>
+                  </div>
+                ` : ''}
+                ${delivery.meetupProposal ? `
+                  <div>
+                    <span class="text-text-secondary">Proposition:</span>
+                    <span>${escapeHtml(delivery.meetupProposal)}</span>
+                  </div>
+                ` : ''}
+                ${deliveryFee > 0 ? `
+                  <div>
+                    <span class="text-text-secondary">Frais:</span>
+                    <span class="font-medium">${formatPrice(deliveryFee)}</span>
+                  </div>
+                ` : ''}
+              </div>
+            ` : '<p class="text-sm text-text-secondary">Aucune donnée de livraison.</p>'}
+          </div>
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-text-secondary">Méthode</p>
+              <p>${method?.name || order.methodName || 'N/A'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Code unique</p>
+              <p class="font-mono">${order.uniqueCode || '-'}</p>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-text-secondary mb-2">Produits (${getOrderItems(order).length})</p>
+            <div class="bg-background rounded-lg border border-border divide-y">
+              ${getOrderItems(order).length === 0 ? `
+                <div class="p-3 text-sm text-text-secondary">Aucun détail produit enregistré.</div>
+              ` : getOrderItems(order).map((item, idx) => `
+                <div class="p-3">
+                  <div class="flex items-start justify-between gap-3">
+                    ${item?.image ? `
+                      <img src="${escapeHtml(String(item.image))}" alt="${escapeHtml(item?.name || 'Produit')}" class="w-12 h-12 rounded object-cover border border-border"
+                        onerror="this.style.display='none'">
+                    ` : ''}
+                    <div class="flex-1">
+                      <p class="font-medium">${escapeHtml(item?.name || 'Produit')}</p>
+                      <p class="text-xs text-text-secondary">
+                        Qté: ${Number(item?.quantity) || 1}
+                        · PU: ${formatPrice(Number(item?.price) || 0)}
+                        · Total: ${formatPrice((Number(item?.quantity) || 1) * (Number(item?.price) || 0))}
+                        ${item?.productId ? ` · ID: ${escapeHtml(item.productId)}` : ''}
+                        ${item?.sku ? ` · SKU: ${escapeHtml(item.sku)}` : ''}
+                      </p>
+                      <p class="text-xs text-text-secondary mt-1">
+                        Options: ${escapeHtml(formatItemOptions(item))}
+                      </p>
+                    </div>
+                    <span class="text-xs text-text-secondary">#${idx + 1}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-text-secondary">Nom sur preuve</p>
+              <p>${order.proofName || '-'}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Ville</p>
+              <p>${order.customerCity || client?.city || '-'}</p>
+            </div>
+          </div>
+          
+          ${order.extractedText ? `
+            <div>
+              <p class="text-xs text-text-secondary">Texte extrait</p>
+              <div class="bg-background p-3 rounded-lg text-sm font-mono max-h-32 overflow-y-auto">
+                ${escapeHtml(order.extractedText)}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-xs text-text-secondary">Soumis le</p>
+              <p>${new Date(order.createdAt).toLocaleString('fr-FR')}</p>
+            </div>
+            <div>
+              <p class="text-xs text-text-secondary">Statut</p>
+              <span class="badge badge-${order.status || 'pending'}">
+                ${getStatusText(order.status)}
+              </span>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      elements.orderModal.style.display = 'flex';
+    }
+
+    async function updateOrderStatus(id, clientId, status) {
+      try {
+        const orderRef = doc(db, CLIENTS, clientId, 'orders', id);
+        await updateDoc(orderRef, {
+          status,
+          reviewedAt: new Date().toISOString()
+        });
+
+        const order = orders.find(o => o.id === id && o.clientId === clientId);
+        const client = clients.find(c => c.id === clientId);
+        const targetUid = client?.uid || null;
+        if (targetUid && (status === 'approved' || status === 'rejected' || status === 'review')) {
+          await sendBroadcastNotification({
+            type: 'order_status',
+            title: status === 'approved'
+              ? 'Commande approuvée'
+              : (status === 'rejected' ? 'Commande rejetée' : 'Commande en examen'),
+            body: `Votre commande ${order?.uniqueCode || id} est maintenant: ${getStatusText(status)}.`,
+            target: 'user',
+            targetUid,
+            url: './index.html',
+            createdBy: 'dashboard_payment'
+          });
+        }
+        
+        showToast(`Commande ${getStatusText(status)}`, 'success');
+        elements.orderModal.style.display = 'none';
+        
+        // Recharger les commandes
+        await loadOrders();
+        
+      } catch (error) {
+        console.error('❌ Erreur mise à jour statut:', error);
+        showToast('Erreur lors de la mise à jour', 'error');
+      }
+    }
+
+    async function sendCustomNotification() {
+      const title = (elements.customNotifTitle.value || '').trim();
+      const body = (elements.customNotifBody.value || '').trim();
+      const url = (elements.customNotifUrl.value || '').trim() || './index.html';
+
+      if (!title || !body) {
+        showToast('Titre et message requis', 'error');
+        return;
+      }
+
+      try {
+        await sendBroadcastNotification({
+          type: 'custom',
+          title,
+          body,
+          target: 'all',
+          url,
+          createdBy: 'dashboard_payment'
+        });
+        showToast('Notification envoyée', 'success');
+        elements.customNotifTitle.value = '';
+        elements.customNotifBody.value = '';
+        elements.customNotifUrl.value = '';
+      } catch (error) {
+        console.error('❌ Erreur envoi notification:', error);
+        showToast('Erreur lors de l’envoi', 'error');
+      }
+    }
+
+    async function deleteOrder(id, clientId) {
+      const confirmed = confirm(
+        'Supprimer définitivement cette commande de la base de données ?\n\n' +
+        'Cette action est irréversible.'
+      );
+      if (!confirmed) return;
+
+      try {
+        await deleteDoc(doc(db, CLIENTS, clientId, 'orders', id));
+        showToast('Commande supprimée définitivement', 'success');
+        if (currentOrderId === id && currentClientId === clientId) {
+          elements.orderModal.style.display = 'none';
+        }
+        await loadOrders();
+      } catch (error) {
+        console.error('❌ Erreur suppression commande:', error);
+        showToast('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    // ========== CRUD MÉTHODES ==========
+    
+    function openMethodModal(editMode = false, methodData = null) {
+      elements.modalTitle.textContent = editMode ? 'Modifier' : 'Nouveau moyen';
+      elements.methodModal.style.display = 'flex';
+      
+      if (editMode && methodData) {
+        elements.methodId.value = methodData.id;
+        elements.methodName.value = methodData.name || '';
+        elements.accountName.value = methodData.accountName || '';
+        elements.phoneNumber.value = methodData.phoneNumber || '';
+        elements.methodImage.value = methodData.image || '';
+        elements.instructions.value = methodData.instructions || '';
+        elements.isActive.checked = methodData.isActive !== false;
+      } else {
+        resetMethodForm();
+      }
+    }
+
+    function closeMethodModal() {
+      elements.methodModal.style.display = 'none';
+      resetMethodForm();
+    }
+
+    function resetMethodForm() {
+      elements.methodId.value = '';
+      elements.methodName.value = '';
+      elements.accountName.value = '';
+      elements.phoneNumber.value = '';
+      elements.methodImage.value = '';
+      elements.instructions.value = '';
+      elements.isActive.checked = true;
+    }
+
+    function attachOrderEvents() {
+      document.querySelectorAll('.order-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const id = row.dataset.id;
+          const clientId = row.dataset.clientId;
+          showOrderDetails(id, clientId);
+        });
+      });
+      
+      document.querySelectorAll('.view-order').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const clientId = btn.dataset.clientId;
+          showOrderDetails(id, clientId);
+        });
+      });
+      
+      document.querySelectorAll('.download-pdf').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const clientId = btn.dataset.clientId;
+          generateOrderPdf(id, clientId);
+        });
+      });
+
+      document.querySelectorAll('.delete-order').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const clientId = btn.dataset.clientId;
+          await deleteOrder(id, clientId);
+        });
+      });
+    }
+
+    function attachMethodEvents() {
+      document.querySelectorAll('.edit-method').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const method = methods.find(m => m.id === btn.dataset.id);
+          if (method) openMethodModal(true, method);
+        });
+      });
+      document.querySelectorAll('.delete-method').forEach(btn => {
+        btn.addEventListener('click', () => deleteMethod(btn.dataset.id));
+      });
+    }
+
+    async function deleteMethod(id) {
+      if (!confirm('Supprimer ce moyen de paiement ?')) return;
+      await deleteDoc(doc(db, PAYMENT_METHODS, id));
+      showToast('Moyen supprimé', 'success');
+    }
+
+    async function saveMethod(e) {
+      e.preventDefault();
+      
+      const methodData = {
+        name: elements.methodName.value.trim(),
+        accountName: elements.accountName.value.trim(),
+        phoneNumber: elements.phoneNumber.value.trim(),
+        image: elements.methodImage.value.trim() || null,
+        instructions: elements.instructions.value.trim(),
+        isActive: elements.isActive.checked,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!methodData.name || !methodData.accountName || !methodData.phoneNumber) {
+        showToast('Champs obligatoires', 'error');
+        return;
+      }
+
+      try {
+        if (elements.methodId.value) {
+          await updateDoc(doc(db, PAYMENT_METHODS, elements.methodId.value), methodData);
+          showToast('Moyen mis à jour', 'success');
+        } else {
+          await addDoc(collection(db, PAYMENT_METHODS), {
+            ...methodData,
+            createdAt: new Date().toISOString()
+          });
+          showToast('Moyen ajouté', 'success');
+        }
+        closeMethodModal();
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        showToast('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    async function savePdfConfig() {
+      const config = {
+        companyName: elements.companyName.value.trim(),
+        companyLogo: elements.companyLogo.value.trim(),
+        companyAddress: elements.companyAddress.value.trim(),
+        companyPhone: elements.companyPhone.value.trim(),
+        companyEmail: elements.companyEmail.value.trim(),
+        thankYouMessage: elements.thankYouMessage.value.trim(),
+        primaryColor: elements.pdfPrimaryColor.value,
+        showQrCode: elements.showQrCode.checked,
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        const snapshot = await getDocs(collection(db, PDF_CONFIG));
+        if (snapshot.empty) {
+          await addDoc(collection(db, PDF_CONFIG), {
+            ...config,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          await updateDoc(doc(db, PDF_CONFIG, snapshot.docs[0].id), config);
+        }
+        
+        pdfConfig = config;
+        applyPdfConfig();
+        showToast('Configuration PDF enregistrée', 'success');
+        
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        showToast('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    async function saveSettings() {
+      const settingsData = {
+        verificationHours: parseInt(elements.verificationHours.value) || 12,
+        expiredMessage: elements.expiredMessage.value.trim(),
+        notificationEmail: elements.notificationEmail.value.trim(),
+        updatedAt: new Date().toISOString()
+      };
+
+      try {
+        const snapshot = await getDocs(collection(db, SETTINGS));
+        if (snapshot.empty) {
+          await addDoc(collection(db, SETTINGS), {
+            ...settingsData,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          await updateDoc(doc(db, SETTINGS, snapshot.docs[0].id), settingsData);
+        }
+        
+        showToast('Paramètres enregistrés', 'success');
+        
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        showToast('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== ÉVÉNEMENTS ==========
+    
+    function setupEventListeners() {
+      // Sidebar
+      elements.menuToggle.addEventListener('click', () => {
+        elements.sidebar.classList.toggle('open');
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (!elements.sidebar.contains(e.target) && !elements.menuToggle.contains(e.target)) {
+          elements.sidebar.classList.remove('open');
+        }
+      });
+      
+      // Méthodes
+      elements.addMethodBtn.addEventListener('click', () => openMethodModal(false));
+      elements.closeModalBtn.addEventListener('click', closeMethodModal);
+      elements.cancelMethod.addEventListener('click', closeMethodModal);
+      elements.methodModal.addEventListener('click', (e) => {
+        if (e.target === elements.methodModal) closeMethodModal();
+      });
+      elements.saveMethod.addEventListener('click', saveMethod);
+      
+      // Commandes
+      elements.orderStatusFilter.addEventListener('change', renderOrders);
+      elements.orderClientFilter.addEventListener('change', renderOrders);
+      elements.searchOrder.addEventListener('input', renderOrders);
+      elements.refreshOrdersBtn.addEventListener('click', loadOrders);
+      
+      // Modal commande
+      elements.closeOrderModal.addEventListener('click', () => {
+        elements.orderModal.style.display = 'none';
+      });
+      elements.closeOrderDetail.addEventListener('click', () => {
+        elements.orderModal.style.display = 'none';
+      });
+      elements.orderModal.addEventListener('click', (e) => {
+        if (e.target === elements.orderModal) {
+          elements.orderModal.style.display = 'none';
+        }
+      });
+      
+      elements.approveOrder.addEventListener('click', () => {
+        if (currentOrderId && currentClientId) {
+          updateOrderStatus(currentOrderId, currentClientId, 'approved');
+        }
+      });
+      
+      elements.rejectOrder.addEventListener('click', () => {
+        if (currentOrderId && currentClientId) {
+          updateOrderStatus(currentOrderId, currentClientId, 'rejected');
+        }
+      });
+      
+      // Clients
+      elements.searchClient?.addEventListener('input', renderClients);
+      
+      // PDF
+      elements.uploadLogoBtn.addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              elements.companyLogo.value = e.target.result;
+              updateLogoPreview();
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      });
+      
+      ['companyName', 'companyAddress', 'companyPhone', 'companyEmail', 'thankYouMessage'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', (e) => {
+          const previewId = id === 'companyName' ? 'previewCompanyName' :
+                           id === 'companyAddress' ? 'previewAddress' :
+                           id === 'companyPhone' ? 'previewPhone' :
+                           id === 'companyEmail' ? 'previewEmail' :
+                           'previewThankYou';
+          document.getElementById(previewId).textContent = e.target.value || 
+            (id === 'thankYouMessage' ? 'Merci pour votre confiance !' : '');
+          
+          if (id === 'companyName') {
+            elements.previewLogoText.textContent = e.target.value[0]?.toUpperCase() || 'V';
+          }
+        });
+      });
+      
+      elements.companyLogo.addEventListener('input', updateLogoPreview);
+      elements.pdfPrimaryColor.addEventListener('input', updatePdfPreview);
+      elements.showQrCode.addEventListener('change', updatePdfPreview);
+      
+      elements.savePdfConfig.addEventListener('click', savePdfConfig);
+      
+      elements.testPdfBtn.addEventListener('click', () => {
+        if (orders.length > 0) {
+          const testOrder = orders[0];
+          generateOrderPdf(testOrder.id, testOrder.clientId);
+        } else {
+          // Créer un exemple pour tester
+          const testOrderExample = {
+            id: 'test',
+            clientId: 'test',
+            customerName: 'Jean Dupont',
+            customerEmail: 'jean.dupont@email.com',
+            customerPhone: '+509 38 48 1234',
+            customerAddress: '123 Rue de la Paix',
+            amount: 1500,
+            methodName: 'MonCash',
+            status: 'approved',
+            uniqueCode: 'VLX-TEST-1234',
+            createdAt: new Date().toISOString()
+          };
+          generateOrderPdf(testOrderExample.id, testOrderExample.clientId);
+        }
+      });
+      
+      // Paramètres
+      elements.saveSettingsBtn.addEventListener('click', saveSettings);
+      elements.dashboardNotifToggle.addEventListener('change', toggleDashboardNotifications);
+      elements.enableDashboardNotifBtn.addEventListener('click', enableDashboardNotifications);
+      elements.sendCustomNotifBtn.addEventListener('click', sendCustomNotification);
+    }
+
+    // ========== INITIALISATION ==========
+    
+    async function init() {
+      await loadAllData();
+      setupOrdersRealtimeListeners();
+      setupTabs();
+      setupEventListeners();
+      updatePdfPreview();
+      updateDashboardNotificationStatus();
+      document.addEventListener('visibilitychange', updateDashboardNotificationStatus);
+      
+      // Écouter en temps réel les changements
+      onSnapshot(collection(db, CLIENTS), async () => {
+        await loadClients();
+        await loadOrders();
+        setupOrdersRealtimeListeners();
+      });
+    }
+
+    // ========== LANCEMENT ==========
+    init();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

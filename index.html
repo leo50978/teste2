@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1F1E1C">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Smart Cut Services</title>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Lato:wght@300;400;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;500;600&family=Raleway:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  
+  <!-- Anime.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <!-- Import Map Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#2C2A29',
+            secondary: '#C6A75E',
+            accent: '#7A746B',
+            luxury: '#1F1E1C',
+            ivory: '#F5F1E8'
+          },
+          fontFamily: {
+            serif: ['Cormorant Garamond', 'serif'],
+            sans: ['Manrope', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; min-width: 0; }
+    html, body {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: clip;
+    }
+    body {
+      font-family: 'Manrope', sans-serif;
+      background: #f9f7f4;
+      overflow-x: clip;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    img, video, canvas, svg {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      max-width: 100%;
+    }
+
+    #sierra-hero-root,
+    #sierra-categories-root,
+    #sierra-gallery-root,
+    #sierra-products-root,
+    #sierra-actualites-root,
+    #sierra-commentaire-root,
+    #sierra-footer-root {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    /* Overlays / modales: base mobile-first robuste */
+    [class*="product-modal-overlay-"],
+    [class*="product-modal-container-"],
+    .cart-overlay,
+    .cart-container,
+    .auth-overlay,
+    .auth-container,
+    [class*="checkout-overlay"],
+    [class*="checkout-container-"],
+    #megaPortalLux21,
+    #mobileMenuFullscreenOrion99 {
+      max-width: 100vw !important;
+    }
+
+    [class*="product-modal-overlay-"],
+    .cart-overlay,
+    .auth-overlay,
+    [class*="checkout-overlay"],
+    #megaPortalLux21,
+    #mobileMenuFullscreenOrion99 {
+      height: 100dvh !important;
+      min-height: 100dvh !important;
+    }
+
+    [class*="product-modal-container-"],
+    .cart-container,
+    .auth-container,
+    [class*="checkout-container-"] {
+      width: 100vw !important;
+      max-height: 100dvh !important;
+    }
+
+    .cart-container {
+      max-width: 100vw !important;
+      border-radius: 0 !important;
+    }
+
+    .auth-container {
+      width: min(100vw - 1rem, 440px) !important;
+      max-width: min(100vw - 1rem, 440px) !important;
+      max-height: calc(100dvh - 1rem) !important;
+      overflow: auto !important;
+    }
+
+    /* Mobile first spacing */
+    #sierra-gallery-root,
+    #sierra-products-root,
+    #sierra-actualites-root,
+    #sierra-commentaire-root {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
+    @media (min-width: 768px) {
+      #sierra-gallery-root,
+      #sierra-products-root,
+      #sierra-actualites-root,
+      #sierra-commentaire-root {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+
+      .cart-container {
+        width: min(450px, 100vw) !important;
+        max-width: min(450px, 100vw) !important;
+      }
+    }
+    
+    /* Styles pour la galerie */
+    .gallery-image-error {
+      background: linear-gradient(135deg, #f5f5f5 25%, #e0e0e0 50%, #f5f5f5 75%);
+      background-size: 200% 100%;
+      animation: galleryLoading 1.5s infinite;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #7A746B;
+      font-size: 0.875rem;
+    }
+    
+    @keyframes galleryLoading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    #site-scroll-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      z-index: 4000;
+      background: rgba(31, 30, 28, 0.12);
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    #site-scroll-progress .progress-track {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #C6A75E 0%, #E3C37E 45%, #C6A75E 100%);
+      box-shadow: 0 0 10px rgba(198, 167, 94, 0.75), 0 0 18px rgba(198, 167, 94, 0.35);
+      transition: width 0.08s linear;
+    }
+
+    @media (max-width: 768px) {
+      #site-scroll-progress {
+        height: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="site-scroll-progress" aria-hidden="true"><div class="progress-track"></div></div>
+  <!-- POINTS D'INJECTION POUR CHAQUE COMPOSANT -->
+  
+  <!-- 1. Header -->
+  <div id="sierra-header-root"></div>
+  
+  <!-- 2. Hero Section -->
+  <div id="sierra-hero-root"></div>
+  
+  <!-- 3. Catégories -->
+  <div id="sierra-categories-root"></div>
+  
+  <!-- 4. Gallery Section -->
+  <div id="sierra-gallery-root" class="my-8"></div>
+  
+  <!-- 5. Products Section -->
+  <div id="sierra-products-root" class="my-12"></div>
+  <!-- 6. Actualités Section -->
+<div id="sierra-actualites-root" class="my-12"></div>
+  <!-- 7. Commentaire Section - NOUVEAU POINT D'INJECTION -->
+  <div id="sierra-commentaire-root" class="my-12 max-w-2xl mx-auto px-4"></div>
+<!-- 8. Footer Section - NOUVEAU POINT D'INJECTION -->
+<div id="sierra-footer-root" class="mt-auto"></div>
+  <!-- Scripts principaux -->
+  <script type="module">
+    import './firebase-init.js';
+
+    const loaded = new Set();
+    const shouldIdle = window.innerWidth > 900;
+
+    const runTask = (task) => {
+      if (!shouldIdle || typeof window.requestIdleCallback !== 'function') {
+        task();
+        return;
+      }
+      window.requestIdleCallback(() => task(), { timeout: 1200 });
+    };
+
+    const mount = async (key, rootId, loader, options = {}) => {
+      if (loaded.has(key)) return;
+      const root = document.getElementById(rootId);
+      if (!root) return;
+      loaded.add(key);
+      try {
+        const mod = await loader();
+        new mod.default(rootId, options);
+      } catch (err) {
+        console.error(`❌ Erreur composant ${key}:`, err);
+      }
+    };
+
+    const mountOnVisible = (key, rootId, loader, options = {}, margin = '300px') => {
+      const root = document.getElementById(rootId);
+      if (!root || loaded.has(key)) return;
+
+      const observer = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer.disconnect();
+          runTask(() => mount(key, rootId, loader, options));
+          break;
+        }
+      }, { rootMargin: margin, threshold: 0.01 });
+
+      observer.observe(root);
+    };
+
+    runTask(() => mount('header', 'sierra-header-root', () => import('./header.js')));
+    runTask(() => mount('hero', 'sierra-hero-root', () => import('./hero.js')));
+
+    mountOnVisible('categories', 'sierra-categories-root', () => import('./categories.js'), {
+      collectionName: 'categorieindex',
+      docId: 'sectionConfig',
+      imagePath: ''
+    }, '800px');
+
+    mountOnVisible('gallery', 'sierra-gallery-root', () => import('./gallery.js'), {
+      collectionName: 'veltrixaGallerySectionMatrix7721',
+      filterActive: true,
+      imageBasePath: './',
+      animationDuration: 800
+    });
+
+    mountOnVisible('products', 'sierra-products-root', () => import('./products.js'), {
+      collectionName: 'products',
+      filterActive: true,
+      imageBasePath: './',
+      animationDuration: 800,
+      visibleProductsDesktop: 4,
+      visibleProductsMobile: 1.2,
+      scrollIndicator: true
+    });
+
+    mountOnVisible('actualites', 'sierra-actualites-root', () => import('./actualites.js'), {
+      collectionName: 'presentations',
+      imageBasePath: './'
+    });
+
+    mountOnVisible('commentaire', 'sierra-commentaire-root', () => import('./coment.js'), {
+      title: 'Commentaires en direct',
+      placeholder: 'Écrivez votre message...',
+      buttonText: 'Envoyer',
+      maxComments: 30,
+      scrollInterval: 3000,
+      visibleMessages: 3
+    });
+
+    mountOnVisible('footer', 'sierra-footer-root', () => import('./footer.js'), {
+      imageBasePath: './',
+      showSocial: true,
+      showContact: true,
+      showInfos: true,
+      showPayments: true,
+      showCopyright: true
+    }, '1200px');
+
+    if (!window.__articleOpenListenerBound) {
+      window.__articleOpenListenerBound = true;
+      document.addEventListener('openArticle', async (e) => {
+        try {
+          const mod = await import('./article.js');
+          new mod.default({
+            articleId: e.detail.articleId,
+            imageBasePath: './'
+          });
+        } catch (err) {
+          console.error('❌ Erreur chargement article.js:', err);
+        }
+      });
+    }
+  </script>
+  <script type="module">
+    if (!window.__veltrixaNotificationsBooted) {
+      window.__veltrixaNotificationsBooted = true;
+      import('./notification.js')
+        .then(({ NotificationComponent }) => {
+          const center = new NotificationComponent({ mode: 'client', defaultUrl: './index.html' });
+          center.init();
+          window.veltrixaNotificationCenter = center;
+        })
+        .catch((err) => console.error('❌ Erreur notification component:', err));
+    }
+  </script>
+  <script type="module">
+    if (!window.__vitchMusicBooted) {
+      window.__vitchMusicBooted = true;
+      import('./musique.js')
+        .then(({ default: MusiqueComponent }) => {
+          new MusiqueComponent({
+            configCollection: 'siteMusicConfig',
+            configDocId: 'main',
+            audioBasePath: './',
+            defaultVolume: 0.35
+          });
+        })
+        .catch((err) => console.error('❌ Erreur musique component:', err));
+    }
+  </script>
+  <!-- Styles additionnels -->
+  <style>
+    /* Container products */
+    #sierra-products-root {
+      width: 100%;
+      max-width: 1280px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    /* Container commentaire */
+    #sierra-commentaire-root {
+      width: 100%;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    /* Line-clamp utility */
+    .line-clamp-2 {
+      display: -webkit-box;
+      
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    
+    /* Animation de pulsation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    
+    .animate-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+  <script>
+    (() => {
+      const progressRoot = document.getElementById('site-scroll-progress');
+      const progressTrack = progressRoot ? progressRoot.querySelector('.progress-track') : null;
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+
+      const updateThemeColor = () => {
+        if (!themeMeta) return;
+        const computed = getComputedStyle(document.documentElement).getPropertyValue('--luxury').trim();
+        themeMeta.setAttribute('content', computed || '#1F1E1C');
+      };
+
+      const updateScrollProgress = () => {
+        if (!progressTrack) return;
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        progressTrack.style.width = `${Math.min(100, Math.max(0, progress))}%`;
+      };
+
+      let ticking = false;
+      window.addEventListener('scroll', () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          updateScrollProgress();
+          ticking = false;
+        });
+      }, { passive: true });
+
+      window.addEventListener('resize', updateScrollProgress, { passive: true });
+      window.addEventListener('load', () => {
+        updateThemeColor();
+        updateScrollProgress();
+      });
+
+      setTimeout(updateThemeColor, 350);
+    })();
+  </script>
+</body>
+</html>

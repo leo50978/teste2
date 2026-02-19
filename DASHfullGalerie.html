@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Gallery Manager Pro</title>
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Firebase v10 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <style>
+    /* ========== VARIABLES ========== */
+    :root {
+      --font-primary: 'Cormorant Garamond', serif;
+      --font-secondary: 'Manrope', sans-serif;
+      --color-luxury: #1F1E1C;
+      --color-secondary: #C6A75E;
+      --color-ivory: #F5F1E8;
+      --color-accent: #8B7E6B;
+      --color-danger: #7F1D1D;
+      --color-success: #2E5D3A;
+    }
+    
+    /* ========== RESET & BASE ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      overflow-x: hidden;
+    }
+
+    body {
+      background: var(--color-ivory);
+      font-family: var(--font-secondary);
+      color: var(--color-luxury);
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+    
+    /* ========== ANIMATIONS ========== */
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideUp {
+      from { 
+        transform: translateY(20px);
+        opacity: 0;
+      }
+      to { 
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes slideInLeft {
+      from {
+        transform: translateX(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    
+    .fade-in { animation: fadeIn 0.5s ease; }
+    .slide-up { animation: slideUp 0.4s ease; }
+    .slide-left { animation: slideInLeft 0.4s ease; }
+    .pulse-hover:hover { animation: pulse 0.5s ease; }
+    
+    /* ========== COMPOSANTS ========== */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+    }
+    
+    .btn-primary {
+      background: var(--color-luxury);
+      color: var(--color-ivory);
+      padding: 0.75rem 1.5rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+    }
+    
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--color-luxury);
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-secondary);
+      color: var(--color-ivory);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(198, 167, 94, 0.3);
+      border-radius: 0.25rem;
+      background: rgba(245, 241, 232, 0.5);
+      font-family: var(--font-secondary);
+      transition: all 0.3s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+      box-shadow: 0 0 0 2px rgba(198, 167, 94, 0.2);
+    }
+    
+    .form-input.error {
+      border-color: var(--color-danger);
+      background: #fff5f5;
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(198, 167, 94, 0.3);
+      border-radius: 0.25rem;
+      background: rgba(245, 241, 232, 0.5);
+      font-family: var(--font-secondary);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23C6A75E'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1.5rem;
+    }
+    
+    /* ========== STYLES DE GUILLEMETS ========== */
+    .quote-style-classic {
+      font-family: var(--font-primary);
+      font-size: 1.2em;
+      position: relative;
+      padding: 0 20px;
+    }
+    
+    .quote-style-classic::before {
+      content: '"';
+      font-size: 3em;
+      color: var(--color-secondary);
+      position: absolute;
+      left: -10px;
+      top: -15px;
+      opacity: 0.5;
+    }
+    
+    .quote-style-classic::after {
+      content: '"';
+      font-size: 3em;
+      color: var(--color-secondary);
+      position: absolute;
+      right: -10px;
+      bottom: -30px;
+      opacity: 0.5;
+    }
+    
+    .quote-style-modern {
+      font-family: var(--font-secondary);
+      font-weight: 300;
+      font-style: italic;
+      border-left: 4px solid var(--color-secondary);
+      padding-left: 20px;
+    }
+    
+    .quote-style-elegant {
+      font-family: var(--font-primary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      position: relative;
+    }
+    
+    .quote-style-elegant::before {
+      content: "❝";
+      font-size: 2.5em;
+      color: var(--color-secondary);
+      margin-right: 10px;
+    }
+    
+    .quote-style-elegant::after {
+      content: "❞";
+      font-size: 2.5em;
+      color: var(--color-secondary);
+      margin-left: 10px;
+    }
+    
+    .quote-style-minimal {
+      font-family: var(--font-secondary);
+      font-size: 1.1em;
+      color: var(--color-accent);
+    }
+    
+    .quote-style-minimal::before {
+      content: "“";
+      font-size: 2em;
+      color: var(--color-secondary);
+      margin-right: 5px;
+    }
+    
+    .quote-style-minimal::after {
+      content: "”";
+      font-size: 2em;
+      color: var(--color-secondary);
+      margin-left: 5px;
+      vertical-align: top;
+    }
+    
+    .quote-style-bold {
+      font-family: var(--font-primary);
+      font-weight: 700;
+      font-size: 1.3em;
+      background: linear-gradient(135deg, var(--color-luxury) 0%, var(--color-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      position: relative;
+    }
+    
+    .quote-style-bold::before {
+      content: "❝";
+      font-size: 2em;
+      background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-luxury) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-right: 10px;
+    }
+    
+    /* ========== PREVIEW IMAGES ========== */
+    .image-preview-container {
+      width: 100%;
+      height: 120px;
+      border: 2px dashed rgba(198, 167, 94, 0.3);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      position: relative;
+      background: rgba(245, 241, 232, 0.5);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .image-preview-container:hover {
+      border-color: var(--color-secondary);
+      background: rgba(198, 167, 94, 0.05);
+    }
+    
+    .image-preview-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .image-preview-container .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--color-accent);
+      font-size: 0.875rem;
+    }
+    
+    .image-preview-container .placeholder i {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      opacity: 0.5;
+    }
+    
+    .image-preview-container .file-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 0.25rem;
+      font-size: 0.7rem;
+      text-align: center;
+      transform: translateY(100%);
+      transition: transform 0.3s;
+    }
+    
+    .image-preview-container:hover .file-info {
+      transform: translateY(0);
+    }
+    
+    /* ========== BOUTON PREVIEW ========== */
+    .btn-preview {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: var(--color-luxury);
+      color: var(--color-ivory);
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: all 0.3s;
+    }
+    
+    .btn-preview:hover {
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+    }
+    
+    /* ========== SPA LAYOUT (MOBILE FIRST) ========== */
+    .app-shell {
+      position: relative;
+      width: 100%;
+      height: calc(100dvh - 64px);
+      overflow: hidden;
+      background:
+        radial-gradient(1200px 500px at 10% -20%, rgba(198, 167, 94, 0.16), transparent 60%),
+        radial-gradient(700px 420px at 100% 0%, rgba(31, 30, 28, 0.08), transparent 55%),
+        var(--color-ivory);
+    }
+
+    .dashboard-mobile-topbar {
+      display: flex;
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      height: 64px;
+      background: rgba(245, 241, 232, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(198, 167, 94, 0.25);
+      padding: 0.65rem 1rem;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 16, 14, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 45;
+    }
+
+    .sidebar-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: min(86vw, 360px);
+      height: 100dvh;
+      z-index: 50;
+      transform: translateX(-100%);
+      transition: transform 0.24s ease;
+      overflow-y: auto;
+      border-right: 1px solid rgba(198, 167, 94, 0.22);
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+    }
+
+    #sidebar.open {
+      transform: translateX(0);
+    }
+
+    .main-content {
+      height: 100dvh;
+      min-width: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-top: 0;
+    }
+
+    .page-container {
+      width: min(1200px, calc(100% - 1.25rem));
+      margin: 0.625rem auto 1rem;
+    }
+
+    .page-container .grid > * {
+      min-width: 0;
+    }
+
+    .panel-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 14px;
+      box-shadow: 0 12px 28px rgba(31, 30, 28, 0.08);
+    }
+
+    @media (min-width: 1024px) {
+      .app-shell {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        height: 100dvh;
+      }
+
+      .dashboard-mobile-topbar {
+        display: none;
+      }
+
+      .sidebar-backdrop {
+        display: none;
+      }
+
+      #sidebar {
+        position: sticky;
+        top: 0;
+        transform: none !important;
+        width: 100%;
+        height: 100dvh;
+        box-shadow: none;
+      }
+
+      .main-content {
+        height: 100dvh;
+        min-width: 0;
+        overflow-x: hidden;
+      }
+
+      .page-container {
+        width: min(1360px, calc(100% - 2rem));
+        margin: 1rem auto 1.25rem;
+      }
+    }
+    
+    /* ========== SCROLLBAR ========== */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: var(--color-ivory);
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--color-secondary);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-accent);
+    }
+    
+    /* ========== LOADING ========== */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--color-ivory);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* ========== BADGES ========== */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .badge-active {
+      background: rgba(46, 93, 58, 0.1);
+      color: var(--color-success);
+    }
+    
+    .badge-inactive {
+      background: rgba(127, 29, 29, 0.1);
+      color: var(--color-danger);
+    }
+
+    /* ========== GLOBAL PALETTE ALIGNMENT ========== */
+    :root {
+      --color-luxury: #1F1E1C;
+      --color-secondary: #C6A75E;
+      --color-ivory: #F5F1E8;
+      --color-accent: #7A746B;
+      --color-danger: #7F1D1D;
+      --color-success: #2E5D3A;
+    }
+
+    body {
+      background: var(--color-ivory);
+      color: var(--color-luxury);
+      overflow-x: hidden;
+    }
+
+    .dashboard-mobile-topbar {
+      background: rgba(245, 241, 232, 0.95);
+      border-bottom: 1px solid rgba(198, 167, 94, 0.25);
+      box-shadow: 0 8px 22px rgba(31, 30, 28, 0.08);
+    }
+
+    .app-shell {
+      background:
+        radial-gradient(900px 420px at -10% -20%, rgba(198, 167, 94, 0.14), transparent 60%),
+        radial-gradient(700px 380px at 100% 0%, rgba(31, 30, 28, 0.08), transparent 55%),
+        var(--color-ivory);
+    }
+
+    #sidebar {
+      background: linear-gradient(180deg, #1F1E1C 0%, #2C2A29 100%);
+      border-right: 1px solid rgba(198, 167, 94, 0.24);
+    }
+
+    #sidebar,
+    #sidebar * {
+      color: rgba(255, 255, 255, 0.96);
+    }
+
+    #sidebar .border-b,
+    #sidebar .border-t {
+      border-color: rgba(198, 167, 94, 0.2) !important;
+    }
+
+    #sidebar .text-secondary {
+      color: #FFFFFF !important;
+    }
+
+    #sidebar .bg-secondary\/10 {
+      background: rgba(198, 167, 94, 0.14) !important;
+      border-left-color: #C6A75E !important;
+    }
+
+    .panel-card {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(198, 167, 94, 0.22);
+      border-radius: 16px;
+      box-shadow: 0 14px 32px rgba(31, 30, 28, 0.08);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #1F1E1C 0%, #2C2A29 100%);
+      color: #F5F1E8;
+      border: 1px solid #C6A75E;
+      border-radius: 10px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #C6A75E 0%, #B89B7B 100%);
+      color: #1F1E1C;
+    }
+
+    .btn-secondary {
+      border: 1px solid rgba(198, 167, 94, 0.6);
+      color: #1F1E1C;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(198, 167, 94, 0.16);
+      color: #1F1E1C;
+    }
+
+    .form-input,
+    .form-select {
+      background: #ffffff;
+      border: 1px solid rgba(198, 167, 94, 0.4);
+      border-radius: 10px;
+      color: #1F1E1C;
+    }
+
+    .form-input:focus,
+    .form-select:focus {
+      border-color: #C6A75E;
+      box-shadow: 0 0 0 3px rgba(198, 167, 94, 0.2);
+    }
+
+    .image-preview-container {
+      border: 1px dashed rgba(198, 167, 94, 0.5);
+      border-radius: 12px;
+      background: rgba(245, 241, 232, 0.8);
+    }
+
+    .image-preview-container:hover {
+      border-color: #C6A75E;
+      background: rgba(198, 167, 94, 0.08);
+    }
+
+    .block-item {
+      border-radius: 10px;
+      margin: 0.35rem 0.4rem;
+      border-left-width: 3px;
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      box-shadow: 0 6px 16px rgba(31, 30, 28, 0.05);
+    }
+
+    .block-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(31, 30, 28, 0.08);
+    }
+
+    .block-item.drag-over {
+      outline: 2px solid #C6A75E;
+      outline-offset: 2px;
+    }
+
+    .edit-btn,
+    .delete-btn {
+      border: 1px solid rgba(198, 167, 94, 0.24);
+      background: #ffffff;
+    }
+
+    .edit-btn:hover {
+      background: rgba(198, 167, 94, 0.18) !important;
+    }
+
+    .delete-btn:hover {
+      background: #fee2e2 !important;
+    }
+  </style>
+</head>
+<body>
+  <!-- ========== HEADER MOBILE ========== -->
+  <header class="dashboard-mobile-topbar">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="font-primary text-xl">veltrixa<span class="text-secondary text-sm ml-1">▲</span></h1>
+        <p class="text-[10px] uppercase tracking-wider text-accent/70">gallery manager</p>
+      </div>
+      <button id="menuToggle" class="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center hover:bg-secondary/30 transition-colors">
+        <i class="fas fa-bars text-luxury"></i>
+      </button>
+    </div>
+  </header>
+
+  <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+  <div class="app-shell">
+
+  <!-- ========== SIDEBAR ========== -->
+  <aside id="sidebar" class="bg-luxury text-ivory flex flex-col">
+    <div class="p-6 md:p-8 border-b border-secondary/30">
+      <div class="flex justify-between items-center">
+        <h1 class="font-primary text-2xl md:text-3xl tracking-wide text-secondary">
+          veltrixa<span class="text-ivory text-xl">▲</span>
+        </h1>
+        <button id="closeSidebar" class="lg:hidden text-ivory/70 hover:text-secondary text-2xl">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <p class="text-xs uppercase tracking-[0.3em] mt-2 text-ivory/70">gallery matrix pro</p>
+    </div>
+    
+    <nav class="flex-1 px-4 py-6 space-y-6">
+      <div class="flex items-center gap-4 py-3 px-4 bg-secondary/10 rounded-sm border-l-4 border-secondary">
+        <i class="fas fa-images w-5 h-5 text-secondary"></i>
+        <span class="font-medium">Gestionnaire de blocs</span>
+      </div>
+      
+      <!-- Stats -->
+      <div class="space-y-4">
+        <h3 class="text-xs uppercase tracking-wider text-ivory/50">Statistiques</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-ivory/70">Total blocs</span>
+            <span id="totalBlocks" class="font-bold text-secondary text-lg">0</span>
+          </div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-ivory/70">Blocs actifs</span>
+            <span id="activeBlocks" class="font-bold text-secondary">0</span>
+          </div>
+          <div class="flex justify-between items-center text-sm">
+            <span class="text-ivory/70">Blocs inactifs</span>
+            <span id="inactiveBlocks" class="font-bold text-ivory/50">0</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Info dossier images -->
+      <div class="bg-ivory/10 p-4 rounded-lg">
+        <div class="flex items-center gap-2 mb-2">
+          <i class="fas fa-folder-open text-secondary"></i>
+          <span class="text-sm font-medium">Dossier images</span>
+        </div>
+        <p class="text-xs text-ivory/70 leading-relaxed">
+          Les images sont chargées depuis la racine du projet.<br>
+          <span class="text-secondary">Format supporté:</span> .jpg, .jpeg, .png, .webp, .gif
+        </p>
+      </div>
+    </nav>
+    
+    <div class="p-4 text-xs text-ivory/50 border-t border-ivory/10">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        <span>Firestore connecté</span>
+      </div>
+      <div>Collection: veltrixaGallerySectionMatrix7721</div>
+    </div>
+  </aside>
+
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="main-content" id="mainContent">
+    <!-- Header desktop -->
+    <header class="hidden lg:flex h-24 bg-ivory border-b border-secondary/20 items-center justify-between px-10 sticky top-0 z-30 shadow-sm">
+      <div class="flex items-center gap-6">
+        <span class="bg-secondary w-2 h-2 rounded-full animate-pulse"></span>
+        <h2 class="font-primary text-2xl text-luxury">Gallery · Dashboard</h2>
+      </div>
+      <div class="flex items-center gap-6">
+        <span class="text-sm tracking-wider hidden lg:block">Éditeur multi-blocs</span>
+        <div class="h-10 w-10 rounded-full bg-secondary/30 flex items-center justify-center border border-secondary">
+          <i class="fas fa-user-circle text-luxury text-xl"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenu principal -->
+    <div class="page-container">
+      <!-- Grille responsive -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- ========== COLONNE LISTE BLOCS ========== -->
+        <div class="lg:col-span-1 space-y-4">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <h3 class="font-primary text-xl text-luxury border-b border-secondary pb-1">
+              Blocs · <span id="blocksCount" class="text-secondary">0</span>
+            </h3>
+            <button id="addBlockBtn" class="
+              w-full sm:w-auto
+              bg-secondary text-luxury 
+              px-4 py-2.5
+              text-sm uppercase tracking-wider 
+              hover:bg-accent hover:text-ivory
+              transition-all duration-300
+              flex items-center justify-center gap-2
+              shadow-md rounded-sm
+              active:scale-95
+            ">
+              <i class="fas fa-plus"></i>
+              <span>Nouveau bloc</span>
+            </button>
+          </div>
+
+          <!-- Liste des blocs -->
+          <div class="panel-card overflow-hidden">
+            <ul id="blocksList" class="divide-y divide-secondary/10 max-h-[500px] overflow-y-auto">
+              <!-- Injecté par JS -->
+            </ul>
+            
+            <div id="emptyState" class="hidden p-8 text-center text-accent/70">
+              <i class="fas fa-images text-4xl mb-3 opacity-50"></i>
+              <p>Aucun bloc pour le moment</p>
+              <p class="text-sm mt-2">Cliquez sur "Nouveau bloc" pour commencer</p>
+            </div>
+          </div>
+          
+          <p class="text-xs text-accent/80 flex items-center gap-2">
+            <i class="fas fa-arrows-alt"></i>
+            Glisser pour réordonner
+          </p>
+        </div>
+
+        <!-- ========== COLONNE ÉDITION + PREVIEW ========== -->
+        <div class="lg:col-span-2 space-y-6">
+          
+          <!-- Panel d'édition -->
+          <div id="editPanel" class="panel-card p-4 md:p-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+              <h4 id="editPanelTitle" class="font-primary text-lg text-luxury">
+                <i class="fas fa-pen-alt text-secondary mr-2"></i>
+                <span>✧ Nouveau bloc</span>
+              </h4>
+              
+              <!-- Toggle actif -->
+              <div class="flex items-center gap-3">
+                <span class="text-sm text-accent">Statut</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="blockActive" class="sr-only peer" checked>
+                  <div class="
+                    w-12 h-6 
+                    bg-accent/30 
+                    peer-checked:bg-secondary 
+                    rounded-full 
+                    after:content-[''] 
+                    after:absolute 
+                    after:top-[2px] 
+                    after:left-[2px] 
+                    after:bg-ivory 
+                    after:border 
+                    after:rounded-full 
+                    after:h-5 
+                    after:w-5 
+                    after:transition-all
+                    peer-checked:after:translate-x-6
+                  "></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Formulaire -->
+            <div class="space-y-5">
+              <!-- Images -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Image gauche -->
+                <div class="space-y-2">
+                  <label class="block text-xs uppercase tracking-wider text-accent">
+                    <i class="fas fa-image mr-1"></i> Image gauche
+                  </label>
+                  
+                  <div id="leftPreviewContainer" class="image-preview-container" onclick="document.getElementById('leftFileName').click()">
+                    <img id="leftPreview" src="" alt="Preview" class="hidden w-full h-full object-cover">
+                    <div id="leftPlaceholder" class="placeholder">
+                      <i class="fas fa-cloud-upload-alt"></i>
+                      <span>Cliquer pour parcourir</span>
+                    </div>
+                    <div id="leftFileInfo" class="file-info"></div>
+                  </div>
+                  
+                  <input type="file" id="leftFileName" accept="image/*" class="hidden">
+                  
+                  <input type="text" id="leftImageName" placeholder="Nom du fichier (ex: image.jpg)" class="form-input text-sm" value="">
+                  
+                  <button type="button" onclick="document.getElementById('leftFileName').click()" class="text-xs text-secondary hover:text-accent flex items-center gap-1">
+                    <i class="fas fa-search"></i>
+                    Parcourir les fichiers
+                  </button>
+                </div>
+
+                <!-- Image droite -->
+                <div class="space-y-2">
+                  <label class="block text-xs uppercase tracking-wider text-accent">
+                    <i class="fas fa-image mr-1"></i> Image droite
+                  </label>
+                  
+                  <div id="rightPreviewContainer" class="image-preview-container" onclick="document.getElementById('rightFileName').click()">
+                    <img id="rightPreview" src="" alt="Preview" class="hidden w-full h-full object-cover">
+                    <div id="rightPlaceholder" class="placeholder">
+                      <i class="fas fa-cloud-upload-alt"></i>
+                      <span>Cliquer pour parcourir</span>
+                    </div>
+                    <div id="rightFileInfo" class="file-info"></div>
+                  </div>
+                  
+                  <input type="file" id="rightFileName" accept="image/*" class="hidden">
+                  
+                  <input type="text" id="rightImageName" placeholder="Nom du fichier (ex: image.jpg)" class="form-input text-sm" value="">
+                  
+                  <button type="button" onclick="document.getElementById('rightFileName').click()" class="text-xs text-secondary hover:text-accent flex items-center gap-1">
+                    <i class="fas fa-search"></i>
+                    Parcourir les fichiers
+                  </button>
+                </div>
+              </div>
+
+              <!-- Citation avec style de guillemets -->
+              <div class="space-y-3">
+                <label class="block text-xs uppercase tracking-wider text-accent">
+                  <i class="fas fa-quote-right mr-1"></i> Citation
+                </label>
+                
+                <textarea id="centerText" rows="3" class="form-input" placeholder="Entrez votre citation..."></textarea>
+                
+                <!-- Sélecteur de style de guillemets -->
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs text-accent mb-1">Style de guillemets</label>
+                    <select id="quoteStyle" class="form-select">
+                      <option value="classic">Classique " "</option>
+                      <option value="modern">Moderne (tiret)</option>
+                      <option value="elegant">Élégant ❝ ❞</option>
+                      <option value="minimal">Minimal “ ”</option>
+                      <option value="bold">Bold (dégradé)</option>
+                      <option value="none">Aucun</option>
+                    </select>
+                  </div>
+                  
+                  <!-- Preview du style -->
+                  <div class="flex items-end">
+                    <div class="text-xs text-accent p-2 bg-ivory/50 rounded w-full">
+                      <span>Aperçu: </span>
+                      <span id="quoteStylePreview" class="text-luxury">“citation”</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bouton personnalisable -->
+              <div class="space-y-3 border-t border-secondary/20 pt-4">
+                <label class="block text-xs uppercase tracking-wider text-accent">
+                  <i class="fas fa-link mr-1"></i> Bouton d'action
+                </label>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs text-accent mb-1">Texte du bouton</label>
+                    <input type="text" id="buttonText" placeholder="Ex: En savoir plus" class="form-input text-sm">
+                  </div>
+                  
+                  <div>
+                    <label class="block text-xs text-accent mb-1">Action du bouton</label>
+                    <select id="buttonActionType" class="form-select text-sm">
+                      <option value="url">Ouvrir un lien URL</option>
+                      <option value="article">Ouvrir un article</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div id="buttonUrlField">
+                    <label class="block text-xs text-accent mb-1">Lien du bouton</label>
+                    <input type="url" id="buttonLink" placeholder="https://..." class="form-input text-sm">
+                  </div>
+
+                  <div id="buttonArticleField" class="hidden">
+                    <label class="block text-xs text-accent mb-1">Article cible</label>
+                    <select id="buttonArticleSelect" class="form-select text-sm">
+                      <option value="">Sélectionner un article</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <!-- Preview du bouton -->
+                <div class="mt-2 p-3 bg-ivory/50 rounded-lg">
+                  <label class="block text-xs text-accent mb-2">Aperçu du bouton:</label>
+                  <a id="buttonPreview" href="#" class="btn-preview inline-block" target="_blank">
+                    <i class="fas fa-link mr-1"></i>
+                    <span id="buttonTextPreview">En savoir plus</span>
+                  </a>
+                </div>
+              </div>
+
+              <!-- Ordre et sauvegarde -->
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div>
+                  <label class="block text-xs uppercase tracking-wider text-accent mb-1">Ordre</label>
+                  <input type="number" id="blockOrder" value="0" min="0" class="form-input">
+                </div>
+                <div class="sm:col-span-2">
+                  <button id="saveBlock" class="btn-primary w-full">
+                    <i class="fas fa-save"></i>
+                    <span>Enregistrer le bloc</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Feedback -->
+              <div id="formFeedback" class="text-sm min-h-[24px]"></div>
+            </div>
+          </div>
+
+          <!-- Previews -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Desktop -->
+            <div class="panel-card p-4">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-xs uppercase tracking-wider text-accent">
+                  <i class="fas fa-desktop mr-1"></i> Desktop
+                </span>
+                <span class="w-2 h-2 bg-secondary rounded-full"></span>
+              </div>
+              
+              <div class="bg-ivory rounded-lg overflow-hidden border border-secondary/30">
+                <div class="flex h-48">
+                  <div class="w-1/2 bg-ivory/80 flex items-center justify-center p-2 border-r border-secondary/30">
+                    <img id="desktopLeftImg" src="" alt="" class="max-w-full max-h-full object-contain">
+                  </div>
+                  <div class="w-1/2 bg-ivory/80 flex items-center justify-center p-2">
+                    <img id="desktopRightImg" src="" alt="" class="max-w-full max-h-full object-contain">
+                  </div>
+                </div>
+                <div class="p-4 bg-white border-t border-secondary/30">
+                  <!-- Citation avec style -->
+                  <div id="desktopQuoteContainer" class="text-center">
+                    <p id="desktopText" class="font-primary text-base italic mb-3">—</p>
+                  </div>
+                  
+                  <!-- Bouton desktop -->
+                  <div id="desktopButtonContainer" class="text-center hidden">
+                    <a id="desktopButtonLink" href="#" class="btn-preview" target="_blank">
+                      <i class="fas fa-link mr-1"></i>
+                      <span id="desktopButtonText">Bouton</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mobile -->
+            <div class="panel-card p-4">
+              <div class="flex justify-between items-center mb-3">
+                <span class="text-xs uppercase tracking-wider text-accent">
+                  <i class="fas fa-mobile-alt mr-1"></i> Mobile
+                </span>
+                <span class="w-2 h-2 bg-secondary rounded-full"></span>
+              </div>
+              
+              <div class="bg-ivory rounded-lg overflow-hidden border border-secondary/30 max-w-[240px] mx-auto">
+                <div class="h-24 bg-ivory/80 flex items-center justify-center p-2 border-b border-secondary/30">
+                  <img id="mobileLeftImg" src="" alt="" class="max-w-full max-h-full object-contain">
+                </div>
+                <div class="h-24 bg-ivory/80 flex items-center justify-center p-2 border-b border-secondary/30">
+                  <img id="mobileRightImg" src="" alt="" class="max-w-full max-h-full object-contain">
+                </div>
+                <div class="p-3 bg-white">
+                  <!-- Citation mobile -->
+                  <div id="mobileQuoteContainer" class="text-center">
+                    <p id="mobileText" class="font-primary text-sm mb-2">—</p>
+                  </div>
+                  
+                  <!-- Bouton mobile -->
+                  <div id="mobileButtonContainer" class="text-center hidden">
+                    <a id="mobileButtonLink" href="#" class="btn-preview text-xs" target="_blank">
+                      <i class="fas fa-link mr-1"></i>
+                      <span id="mobileButtonText">Bouton</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  </div>
+
+  <!-- ========== SCRIPT PRINCIPAL ========== -->
+  <script type="module">
+    import { initializeApp } from 'firebase/app';
+    import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const COLLECTION_NAME = "veltrixaGallerySectionMatrix7721";
+    const ARTICLES_COLLECTION = "articles";
+
+    // ========== ÉTAT GLOBAL ==========
+    let blocks = [];
+    let articles = [];
+    let currentEditId = null;
+    let isSaving = false;
+
+    // ========== ÉLÉMENTS DOM ==========
+    const elements = {
+      // Sidebar
+      sidebar: document.getElementById('sidebar'),
+      sidebarBackdrop: document.getElementById('sidebarBackdrop'),
+      menuToggle: document.getElementById('menuToggle'),
+      closeSidebar: document.getElementById('closeSidebar'),
+      
+      // Stats
+      totalBlocks: document.getElementById('totalBlocks'),
+      activeBlocks: document.getElementById('activeBlocks'),
+      inactiveBlocks: document.getElementById('inactiveBlocks'),
+      blocksCount: document.getElementById('blocksCount'),
+      
+      // Liste
+      blocksList: document.getElementById('blocksList'),
+      emptyState: document.getElementById('emptyState'),
+      
+      // Formulaire
+      leftImageName: document.getElementById('leftImageName'),
+      rightImageName: document.getElementById('rightImageName'),
+      centerText: document.getElementById('centerText'),
+      quoteStyle: document.getElementById('quoteStyle'),
+      buttonText: document.getElementById('buttonText'),
+      buttonActionType: document.getElementById('buttonActionType'),
+      buttonLink: document.getElementById('buttonLink'),
+      buttonArticleSelect: document.getElementById('buttonArticleSelect'),
+      buttonUrlField: document.getElementById('buttonUrlField'),
+      buttonArticleField: document.getElementById('buttonArticleField'),
+      blockOrder: document.getElementById('blockOrder'),
+      blockActive: document.getElementById('blockActive'),
+      
+      // Previews formulaire
+      leftPreview: document.getElementById('leftPreview'),
+      leftPlaceholder: document.getElementById('leftPlaceholder'),
+      leftFileInfo: document.getElementById('leftFileInfo'),
+      rightPreview: document.getElementById('rightPreview'),
+      rightPlaceholder: document.getElementById('rightPlaceholder'),
+      rightFileInfo: document.getElementById('rightFileInfo'),
+      
+      // Previews globales
+      desktopLeft: document.getElementById('desktopLeftImg'),
+      desktopRight: document.getElementById('desktopRightImg'),
+      desktopText: document.getElementById('desktopText'),
+      desktopQuoteContainer: document.getElementById('desktopQuoteContainer'),
+      desktopButtonContainer: document.getElementById('desktopButtonContainer'),
+      desktopButtonLink: document.getElementById('desktopButtonLink'),
+      desktopButtonText: document.getElementById('desktopButtonText'),
+      
+      mobileLeft: document.getElementById('mobileLeftImg'),
+      mobileRight: document.getElementById('mobileRightImg'),
+      mobileText: document.getElementById('mobileText'),
+      mobileQuoteContainer: document.getElementById('mobileQuoteContainer'),
+      mobileButtonContainer: document.getElementById('mobileButtonContainer'),
+      mobileButtonLink: document.getElementById('mobileButtonLink'),
+      mobileButtonText: document.getElementById('mobileButtonText'),
+      
+      // Boutons
+      addBlockBtn: document.getElementById('addBlockBtn'),
+      saveBlock: document.getElementById('saveBlock'),
+      
+      // Inputs fichiers
+      leftFileName: document.getElementById('leftFileName'),
+      rightFileName: document.getElementById('rightFileName'),
+      
+      // Panels
+      editPanelTitle: document.getElementById('editPanelTitle'),
+      formFeedback: document.getElementById('formFeedback'),
+      
+      // Preview bouton
+      buttonPreview: document.getElementById('buttonPreview'),
+      buttonTextPreview: document.getElementById('buttonTextPreview'),
+      quoteStylePreview: document.getElementById('quoteStylePreview')
+    };
+
+    // ========== FONCTIONS UTILITAIRES ==========
+    
+    function getImagePath(filename) {
+      if (!filename) return '';
+      const cleanName = filename.split('/').pop();
+      return `./${cleanName}`;
+    }
+
+    function isArticleActionLink(link) {
+      return typeof link === 'string' && link.startsWith('article:');
+    }
+
+    function extractArticleIdFromLink(link) {
+      if (!isArticleActionLink(link)) return '';
+      return link.slice('article:'.length).trim();
+    }
+
+    function getResolvedButtonLink() {
+      const actionType = elements.buttonActionType.value;
+      if (actionType === 'article') {
+        const articleId = elements.buttonArticleSelect.value;
+        return articleId ? `article:${articleId}` : '';
+      }
+      return elements.buttonLink.value.trim();
+    }
+
+    function updateButtonActionFields() {
+      const isArticleAction = elements.buttonActionType.value === 'article';
+      elements.buttonUrlField.classList.toggle('hidden', isArticleAction);
+      elements.buttonArticleField.classList.toggle('hidden', !isArticleAction);
+    }
+
+    async function loadArticlesForButtonSelect() {
+      try {
+        const q = query(collection(db, ARTICLES_COLLECTION), orderBy('createdAt', 'desc'));
+        const snap = await getDocs(q);
+        articles = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      } catch (_) {
+        try {
+          const snap = await getDocs(collection(db, ARTICLES_COLLECTION));
+          articles = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        } catch (error) {
+          console.error('Erreur chargement articles pour bouton:', error);
+          articles = [];
+        }
+      }
+
+      const currentValue = elements.buttonArticleSelect.value;
+      elements.buttonArticleSelect.innerHTML = '<option value="">Sélectionner un article</option>';
+      articles.forEach((article) => {
+        const option = document.createElement('option');
+        option.value = article.id;
+        option.textContent = article.title || `Article ${article.id.slice(0, 8)}`;
+        elements.buttonArticleSelect.appendChild(option);
+      });
+      if (currentValue) {
+        elements.buttonArticleSelect.value = currentValue;
+      }
+    }
+
+    // Appliquer le style de guillemets
+    function applyQuoteStyle(text, style) {
+      if (!text) return '—';
+      
+      const styles = {
+        classic: `"${text}"`,
+        modern: `— ${text} —`,
+        elegant: `❝ ${text} ❞`,
+        minimal: `“${text}”`,
+        bold: `<span style="background: linear-gradient(135deg, #1F1E1C, #C6A75E); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">❝ ${text} ❞</span>`,
+        none: text
+      };
+      
+      return styles[style] || text;
+    }
+
+    // Mettre à jour toutes les previews
+    function updateAllPreviews() {
+      const leftName = elements.leftImageName.value.trim();
+      const rightName = elements.rightImageName.value.trim();
+      const text = elements.centerText.value.trim();
+      const style = elements.quoteStyle.value;
+      const btnText = elements.buttonText.value.trim();
+      const resolvedButtonLink = getResolvedButtonLink();
+      
+      // Preview formulaire
+      if (leftName) {
+        const path = getImagePath(leftName);
+        elements.leftPreview.src = path;
+        elements.leftPreview.classList.remove('hidden');
+        elements.leftPlaceholder.classList.add('hidden');
+        elements.leftFileInfo.textContent = leftName.split('/').pop();
+      } else {
+        elements.leftPreview.classList.add('hidden');
+        elements.leftPlaceholder.classList.remove('hidden');
+      }
+      
+      if (rightName) {
+        const path = getImagePath(rightName);
+        elements.rightPreview.src = path;
+        elements.rightPreview.classList.remove('hidden');
+        elements.rightPlaceholder.classList.add('hidden');
+        elements.rightFileInfo.textContent = rightName.split('/').pop();
+      } else {
+        elements.rightPreview.classList.add('hidden');
+        elements.rightPlaceholder.classList.remove('hidden');
+      }
+      
+      // Preview des images
+      elements.desktopLeft.src = getImagePath(leftName);
+      elements.desktopRight.src = getImagePath(rightName);
+      elements.mobileLeft.src = getImagePath(leftName);
+      elements.mobileRight.src = getImagePath(rightName);
+      
+      // Preview de la citation avec style
+      const styledText = applyQuoteStyle(text, style);
+      elements.desktopText.innerHTML = styledText;
+      elements.mobileText.innerHTML = styledText;
+      
+      // Preview du style de guillemets
+      elements.quoteStylePreview.innerHTML = applyQuoteStyle('citation', style);
+      
+      // Preview du bouton
+      if (btnText) {
+        elements.buttonTextPreview.textContent = btnText;
+        elements.buttonPreview.href = resolvedButtonLink || '#';
+        
+        elements.desktopButtonContainer.classList.remove('hidden');
+        elements.desktopButtonText.textContent = btnText;
+        elements.desktopButtonLink.href = resolvedButtonLink || '#';
+        
+        elements.mobileButtonContainer.classList.remove('hidden');
+        elements.mobileButtonText.textContent = btnText;
+        elements.mobileButtonLink.href = resolvedButtonLink || '#';
+      } else {
+        elements.desktopButtonContainer.classList.add('hidden');
+        elements.mobileButtonContainer.classList.add('hidden');
+      }
+      
+      // Validation
+      [elements.leftImageName, elements.rightImageName].forEach(input => {
+        const val = input.value.trim().toLowerCase();
+        if (val && !/\.(jpe?g|png|webp|gif)$/.test(val)) {
+          input.classList.add('error');
+        } else {
+          input.classList.remove('error');
+        }
+      });
+    }
+
+    function showMessage(msg, isError = false) {
+      elements.formFeedback.textContent = msg;
+      elements.formFeedback.className = `text-sm min-h-[24px] ${isError ? 'text-danger' : 'text-green-600'}`;
+      
+      if (!isError) {
+        setTimeout(() => {
+          elements.formFeedback.textContent = '';
+        }, 3000);
+      }
+    }
+
+    function resetForm() {
+      currentEditId = null;
+      elements.leftImageName.value = '';
+      elements.rightImageName.value = '';
+      elements.centerText.value = '';
+      elements.quoteStyle.value = 'classic';
+      elements.buttonText.value = '';
+      elements.buttonActionType.value = 'url';
+      elements.buttonLink.value = '';
+      elements.buttonArticleSelect.value = '';
+      elements.blockOrder.value = blocks.length;
+      elements.blockActive.checked = true;
+      elements.editPanelTitle.innerHTML = '<i class="fas fa-pen-alt text-secondary mr-2"></i><span>✧ Nouveau bloc</span>';
+      
+      // Reset previews
+      elements.leftPreview.classList.add('hidden');
+      elements.leftPlaceholder.classList.remove('hidden');
+      elements.rightPreview.classList.add('hidden');
+      elements.rightPlaceholder.classList.remove('hidden');
+      
+      updateButtonActionFields();
+      updateAllPreviews();
+    }
+
+    function updateStats() {
+      const active = blocks.filter(b => b.galleryBlockIsActive321 !== false).length;
+      const inactive = blocks.length - active;
+      
+      elements.totalBlocks.textContent = blocks.length;
+      elements.activeBlocks.textContent = active;
+      elements.inactiveBlocks.textContent = inactive;
+      elements.blocksCount.textContent = blocks.length;
+    }
+
+    // ========== GESTION DES BLOCS ==========
+    
+    async function loadBlocks() {
+      try {
+        const q = query(collection(db, COLLECTION_NAME), orderBy('galleryBlockOrderIndex662', 'asc'));
+        const snapshot = await getDocs(q);
+        blocks = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        renderBlocks();
+        updateStats();
+      } catch (error) {
+        console.error('Erreur chargement:', error);
+        showMessage('Erreur de chargement', true);
+      }
+    }
+
+    function renderBlocks() {
+      if (blocks.length === 0) {
+        elements.blocksList.innerHTML = '';
+        elements.emptyState.classList.remove('hidden');
+        return;
+      }
+      
+      elements.emptyState.classList.add('hidden');
+      
+      elements.blocksList.innerHTML = blocks.map((block, index) => {
+        const isActive = block.galleryBlockIsActive321 !== false;
+        const hasButton = block.galleryBlockButtonText;
+        const quoteStyle = block.galleryBlockQuoteStyle || 'classic';
+        
+        return `
+          <li class="
+            block-item
+            p-3
+            bg-white/50
+            hover:bg-ivory/80
+            transition-all
+            cursor-grab
+            border-l-4
+            ${isActive ? 'border-secondary' : 'border-transparent'}
+            active:cursor-grabbing
+            slide-left
+          " 
+          draggable="true"
+          data-id="${block.id}"
+          data-index="${index}"
+          >
+            <div class="flex items-center gap-3">
+              <i class="fas fa-grip-vertical text-accent/50"></i>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-medium text-sm truncate">${block.galleryBlockCenterText728 || 'Sans titre'}</p>
+                  <span class="badge ${isActive ? 'badge-active' : 'badge-inactive'}">
+                    ${isActive ? 'Actif' : 'Inactif'}
+                  </span>
+                  ${hasButton ? '<span class="badge bg-secondary/20 text-luxury text-[10px]"><i class="fas fa-link mr-1"></i>Bouton</span>' : ''}
+                </div>
+                <div class="flex items-center gap-2 mt-1 text-xs text-accent">
+                  <span><i class="fas fa-quote-right"></i> ${quoteStyle}</span>
+                  <span>•</span>
+                  <span><i class="fas fa-image"></i> 2</span>
+                </div>
+              </div>
+              <div class="flex gap-1">
+                <button class="edit-btn w-8 h-8 rounded-full hover:bg-secondary/20 flex items-center justify-center" data-id="${block.id}">
+                  <i class="fas fa-edit text-accent"></i>
+                </button>
+                <button class="delete-btn w-8 h-8 rounded-full hover:bg-danger/10 flex items-center justify-center" data-id="${block.id}">
+                  <i class="fas fa-trash text-danger/70"></i>
+                </button>
+              </div>
+            </div>
+          </li>
+        `;
+      }).join('');
+      
+      attachBlockEvents();
+      setupDragAndDrop();
+    }
+
+    function attachBlockEvents() {
+      document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          editBlock(id);
+        });
+      });
+      
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          if (confirm('Supprimer ce bloc ?')) {
+            await deleteBlock(id);
+          }
+        });
+      });
+    }
+
+    function editBlock(id) {
+      const block = blocks.find(b => b.id === id);
+      if (!block) return;
+      
+      currentEditId = block.id;
+      elements.leftImageName.value = block.galleryBlockImageLeft839 || '';
+      elements.rightImageName.value = block.galleryBlockImageRight552 || '';
+      elements.centerText.value = block.galleryBlockCenterText728 || '';
+      elements.quoteStyle.value = block.galleryBlockQuoteStyle || 'classic';
+      elements.buttonText.value = block.galleryBlockButtonText || '';
+      elements.buttonLink.value = block.galleryBlockButtonLink || '';
+      elements.blockOrder.value = block.galleryBlockOrderIndex662 ?? 0;
+      elements.blockActive.checked = block.galleryBlockIsActive321 !== false;
+      
+      elements.editPanelTitle.innerHTML = `<i class="fas fa-pen-alt text-secondary mr-2"></i><span>✧ Édition: ${block.galleryBlockCenterText728?.substring(0, 20) || 'Bloc'}</span>`;
+
+      const savedLink = block.galleryBlockButtonLink || '';
+      const savedArticleId = block.galleryBlockButtonArticleId || '';
+      if (isArticleActionLink(savedLink) || (block.galleryBlockButtonActionType === 'article' && savedArticleId)) {
+        elements.buttonActionType.value = 'article';
+        elements.buttonArticleSelect.value = extractArticleIdFromLink(savedLink) || savedArticleId;
+        elements.buttonLink.value = '';
+      } else {
+        elements.buttonActionType.value = 'url';
+        elements.buttonLink.value = savedLink;
+        elements.buttonArticleSelect.value = '';
+      }
+      
+      updateButtonActionFields();
+      updateAllPreviews();
+      
+      if (window.innerWidth < 768) {
+        elements.editPanel.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    async function deleteBlock(id) {
+      try {
+        await deleteDoc(doc(db, COLLECTION_NAME, id));
+        showMessage('Bloc supprimé');
+        await loadBlocks();
+        
+        if (currentEditId === id) {
+          resetForm();
+        }
+      } catch (error) {
+        showMessage('Erreur suppression', true);
+      }
+    }
+
+    async function saveBlock() {
+      if (isSaving) return;
+      
+      const leftName = elements.leftImageName.value.trim();
+      const rightName = elements.rightImageName.value.trim();
+      const text = elements.centerText.value.trim();
+      const btnText = elements.buttonText.value.trim();
+      const btnLink = getResolvedButtonLink();
+      
+      if (!leftName || !rightName || !text) {
+        showMessage('Les images et la citation sont requises', true);
+        return;
+      }
+      
+      if (!/\.(jpe?g|png|webp|gif)$/i.test(leftName) || !/\.(jpe?g|png|webp|gif)$/i.test(rightName)) {
+        showMessage('Extensions valides: .jpg, .png, .webp, .gif', true);
+        return;
+      }
+
+      if (btnText && elements.buttonActionType.value === 'article' && !elements.buttonArticleSelect.value) {
+        showMessage('Sélectionnez un article cible pour ce bouton', true);
+        return;
+      }
+      
+      isSaving = true;
+      elements.saveBlock.disabled = true;
+      elements.saveBlock.innerHTML = '<div class="spinner"></div><span>Sauvegarde...</span>';
+      
+      const blockData = {
+        galleryBlockImageLeft839: leftName,
+        galleryBlockImageRight552: rightName,
+        galleryBlockCenterText728: text,
+        galleryBlockQuoteStyle: elements.quoteStyle.value,
+        galleryBlockButtonText: btnText || null,
+        galleryBlockButtonActionType: elements.buttonActionType.value,
+        galleryBlockButtonArticleId: elements.buttonActionType.value === 'article'
+          ? (elements.buttonArticleSelect.value || null)
+          : null,
+        galleryBlockButtonLink: btnLink || null,
+        galleryBlockOrderIndex662: parseInt(elements.blockOrder.value, 10) || 0,
+        galleryBlockIsActive321: elements.blockActive.checked,
+        galleryBlockLastUpdated777: new Date().toISOString()
+      };
+      
+      try {
+        if (currentEditId) {
+          await updateDoc(doc(db, COLLECTION_NAME, currentEditId), blockData);
+          showMessage('Bloc mis à jour');
+        } else {
+          await addDoc(collection(db, COLLECTION_NAME), blockData);
+          showMessage('Nouveau bloc créé');
+          resetForm();
+        }
+        
+        await loadBlocks();
+      } catch (error) {
+        showMessage('Erreur sauvegarde', true);
+      } finally {
+        isSaving = false;
+        elements.saveBlock.disabled = false;
+        elements.saveBlock.innerHTML = '<i class="fas fa-save"></i><span>Enregistrer le bloc</span>';
+      }
+    }
+
+    // ========== DRAG & DROP ==========
+    
+    function setupDragAndDrop() {
+      const items = document.querySelectorAll('.block-item');
+      let draggedItem = null;
+      
+      items.forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+          draggedItem = item;
+          item.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', item.dataset.id);
+        });
+        
+        item.addEventListener('dragend', () => {
+          item.classList.remove('dragging');
+          document.querySelectorAll('.block-item').forEach(i => {
+            i.classList.remove('drag-over');
+          });
+        });
+        
+        item.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (item !== draggedItem) {
+            item.classList.add('drag-over');
+          }
+        });
+        
+        item.addEventListener('dragleave', () => {
+          item.classList.remove('drag-over');
+        });
+        
+        item.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          item.classList.remove('drag-over');
+          
+          if (!draggedItem || draggedItem === item) return;
+          
+          const parent = elements.blocksList;
+          const items = Array.from(parent.children);
+          const fromIndex = items.indexOf(draggedItem);
+          const toIndex = items.indexOf(item);
+          
+          if (fromIndex > -1 && toIndex > -1) {
+            if (fromIndex < toIndex) {
+              parent.insertBefore(draggedItem, item.nextSibling);
+            } else {
+              parent.insertBefore(draggedItem, item);
+            }
+            
+            const newItems = Array.from(parent.children);
+            for (let i = 0; i < newItems.length; i++) {
+              const blockId = newItems[i].dataset.id;
+              if (blockId) {
+                await updateDoc(doc(db, COLLECTION_NAME, blockId), {
+                  galleryBlockOrderIndex662: i
+                });
+              }
+            }
+            
+            await loadBlocks();
+          }
+        });
+      });
+    }
+
+    // ========== GESTION FICHIERS ==========
+    
+    elements.leftFileName.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      elements.leftImageName.value = file.name;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        elements.leftPreview.src = e.target.result;
+        elements.leftPreview.classList.remove('hidden');
+        elements.leftPlaceholder.classList.add('hidden');
+        elements.leftFileInfo.textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+      
+      updateAllPreviews();
+    });
+    
+    elements.rightFileName.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      elements.rightImageName.value = file.name;
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        elements.rightPreview.src = e.target.result;
+        elements.rightPreview.classList.remove('hidden');
+        elements.rightPlaceholder.classList.add('hidden');
+        elements.rightFileInfo.textContent = file.name;
+      };
+      reader.readAsDataURL(file);
+      
+      updateAllPreviews();
+    });
+
+    // ========== ÉVÉNEMENTS ==========
+    
+    elements.leftImageName.addEventListener('input', updateAllPreviews);
+    elements.rightImageName.addEventListener('input', updateAllPreviews);
+    elements.centerText.addEventListener('input', updateAllPreviews);
+    elements.quoteStyle.addEventListener('change', updateAllPreviews);
+    elements.buttonText.addEventListener('input', updateAllPreviews);
+    elements.buttonActionType.addEventListener('change', () => {
+      updateButtonActionFields();
+      updateAllPreviews();
+    });
+    elements.buttonLink.addEventListener('input', updateAllPreviews);
+    elements.buttonArticleSelect.addEventListener('change', updateAllPreviews);
+    
+    elements.addBlockBtn.addEventListener('click', resetForm);
+    elements.saveBlock.addEventListener('click', saveBlock);
+    
+    // Menu mobile
+    elements.menuToggle.addEventListener('click', () => {
+      elements.sidebar.classList.add('open');
+      elements.sidebarBackdrop.classList.add('open');
+    });
+    
+    elements.closeSidebar.addEventListener('click', () => {
+      elements.sidebar.classList.remove('open');
+      elements.sidebarBackdrop.classList.remove('open');
+    });
+
+    elements.sidebarBackdrop.addEventListener('click', () => {
+      elements.sidebar.classList.remove('open');
+      elements.sidebarBackdrop.classList.remove('open');
+    });
+
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 1024) {
+        elements.sidebar.classList.remove('open');
+        elements.sidebarBackdrop.classList.remove('open');
+      }
+    });
+
+    // ========== INITIALISATION ==========
+    
+    window.addEventListener('load', async () => {
+      await loadArticlesForButtonSelect();
+      await loadBlocks();
+      resetForm();
+      updateButtonActionFields();
+    });
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

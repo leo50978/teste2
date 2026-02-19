@@ -1,0 +1,1893 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Dashboard Footer</title>
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  
+  <!-- Import Map Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <style>
+    /* ========== VARIABLES ========== */
+    :root {
+      --font-primary: 'Cormorant Garamond', serif;
+      --font-secondary: 'Manrope', sans-serif;
+      --color-luxury: #1F1E1C;
+      --color-secondary: #C6A75E;
+      --color-ivory: #F5F1E8;
+      --color-accent: #8B7E6B;
+      --color-danger: #7F1D1D;
+      --color-success: #2E5D3A;
+    }
+    
+    /* ========== BASE ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: var(--color-ivory);
+      font-family: var(--font-secondary);
+      color: var(--color-luxury);
+      min-height: 100vh;
+    }
+    
+    /* ========== ANIMATIONS ========== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.4s ease forwards;
+    }
+    
+    .slide-in {
+      animation: slideIn 0.3s ease forwards;
+    }
+    
+    /* ========== NAVIGATION MOBILE ========== */
+    .nav-tabs {
+      display: flex;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      white-space: nowrap;
+      padding-bottom: 0.5rem;
+    }
+    
+    .nav-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .nav-tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+    }
+    
+    .nav-tab.active {
+      border-bottom-color: var(--color-secondary);
+      color: var(--color-secondary);
+      font-weight: 500;
+    }
+    
+    @media (min-width: 768px) {
+      .nav-tabs {
+        overflow-x: visible;
+        flex-wrap: wrap;
+        white-space: normal;
+      }
+    }
+    
+    /* ========== SECTIONS ========== */
+    .section {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    
+    .section.active {
+      display: block;
+    }
+    
+    /* ========== COMPOSANTS ========== */
+    .btn-primary {
+      background: var(--color-luxury);
+      color: var(--color-ivory);
+      padding: 0.75rem 1.5rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--color-luxury);
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-secondary);
+      color: var(--color-ivory);
+    }
+    
+    .btn-danger {
+      background: var(--color-danger);
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .btn-danger:hover {
+      opacity: 0.9;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(198, 167, 94, 0.3);
+      border-radius: 0.25rem;
+      background: rgba(245, 241, 232, 0.5);
+      transition: all 0.3s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+      box-shadow: 0 0 0 2px rgba(198, 167, 94, 0.2);
+    }
+    
+    /* ========== PREVIEW IMAGES ========== */
+    .image-preview-container {
+      width: 60px;
+      height: 60px;
+      border: 2px dashed rgba(198, 167, 94, 0.3);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+    
+    .image-preview-container:hover {
+      border-color: var(--color-secondary);
+      background: rgba(198, 167, 94, 0.05);
+    }
+    
+    .image-preview-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .image-preview-container .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--color-accent);
+      font-size: 0.75rem;
+    }
+    
+    /* ========== CARDS ========== */
+    .social-card {
+      background: white;
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      transition: all 0.2s;
+    }
+    
+    .social-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border-color: var(--color-secondary);
+    }
+    
+    .info-card {
+      background: white;
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+    }
+    
+    /* ========== MODAL ========== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      z-index: 999999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    .modal-container {
+      background: var(--color-ivory);
+      border-radius: 1rem;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* ========== PREVIEW FOOTER ========== */
+    .preview-footer {
+      background: var(--color-luxury);
+      color: var(--color-ivory);
+      padding: 2rem 1.5rem 1.5rem;
+      border-radius: 1rem;
+      margin-top: 2rem;
+    }
+    
+    .preview-footer a {
+      color: rgba(245, 241, 232, 0.7);
+      transition: color 0.2s;
+      text-decoration: none;
+    }
+    
+    .preview-footer a:hover {
+      color: var(--color-secondary);
+    }
+    
+    .preview-social-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    
+    .preview-social-icon:hover {
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+    }
+    
+    .preview-payment-icon {
+      height: 30px;
+      width: auto;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    
+    .preview-payment-icon:hover {
+      opacity: 1;
+    }
+    
+    /* ========== GRILLE RESPONSIVE ========== */
+    .grid-preview {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    
+    @media (min-width: 768px) {
+      .grid-preview {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (min-width: 1024px) {
+      .grid-preview {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body class="bg-ivory">
+  <!-- Header -->
+  <header class="bg-luxury text-ivory py-4 px-6 shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="font-primary text-2xl text-secondary">veltrixa<span class="text-ivory text-xl">▲</span></h1>
+        <p class="text-xs uppercase tracking-wider text-ivory/70">Dashboard footer</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-2">
+          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          <span class="text-sm hidden md:inline">Firebase connecté</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <!-- Navigation Tabs (SPA) -->
+    <div class="nav-tabs bg-white rounded-t-lg border border-secondary/20 border-b-0 mb-6">
+      <button class="nav-tab active" data-section="general">Général</button>
+      <button class="nav-tab" data-section="social">Réseaux sociaux</button>
+      <button class="nav-tab" data-section="infos">Liens informations</button>
+      <button class="nav-tab" data-section="payment">Moyens de paiement</button>
+      <button class="nav-tab" data-section="copyright">Copyright</button>
+      <button class="nav-tab" data-section="preview">Aperçu complet</button>
+    </div>
+
+    <!-- ========== SECTION 1: GÉNÉRAL ========== -->
+    <div id="section-general" class="section active">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Configuration -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-primary text-xl mb-4">Informations générales</h3>
+          
+          <div class="space-y-4">
+            <!-- Logo -->
+            <div>
+              <label class="block text-sm font-medium text-accent mb-2">Logo de l'entreprise</label>
+              <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div id="logoPreview" class="image-preview-container">
+                  <img id="logoImg" src="" class="hidden w-full h-full object-cover">
+                  <div id="logoPlaceholder" class="placeholder">
+                    <i class="fas fa-image"></i>
+                    <span>Logo</span>
+                  </div>
+                </div>
+                <div class="w-full sm:flex-1">
+                  <input type="text" id="footerLogo" class="form-input" placeholder="logo.png">
+                  <p class="text-xs text-accent mt-1">Nom du fichier image à la racine</p>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Nom entreprise -->
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Nom de l'entreprise *</label>
+              <input type="text" id="companyName" class="form-input" required placeholder="Vitch Studio">
+            </div>
+            
+            <!-- Titre -->
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Titre / Slogan</label>
+              <input type="text" id="footerTitle" class="form-input" placeholder="L'excellence à la française">
+            </div>
+            
+            <!-- Description -->
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Description</label>
+              <textarea id="footerDescription" class="form-input" rows="3" placeholder="Description de l'entreprise..."></textarea>
+            </div>
+            
+            <!-- Coordonnées -->
+            <div>
+              <h4 class="font-medium mb-3">Coordonnées de contact</h4>
+              
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-xs text-accent mb-1">Adresse</label>
+                  <input type="text" id="contactAddress" class="form-input" placeholder="123 Rue du Commerce, 75001 Paris">
+                </div>
+                
+                <div>
+                  <label class="block text-xs text-accent mb-1">Téléphone</label>
+                  <input type="text" id="contactPhone" class="form-input" placeholder="+33 1 23 45 67 89">
+                </div>
+                
+                <div>
+                  <label class="block text-xs text-accent mb-1">Email</label>
+                  <input type="email" id="contactEmail" class="form-input" placeholder="contact@veltrixa.com">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Aperçu en direct -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-primary text-xl mb-4">Aperçu en direct</h3>
+          
+          <div id="generalPreview" class="space-y-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div class="w-12 h-12 bg-secondary/20 rounded-lg overflow-hidden flex items-center justify-center" id="previewLogoContainer">
+                <i class="fas fa-building text-secondary text-2xl"></i>
+              </div>
+              <div>
+                <div class="font-primary text-xl" id="previewCompanyName">Vitch Studio</div>
+                <div class="text-sm text-accent" id="previewFooterTitle">L'excellence à la française</div>
+              </div>
+            </div>
+            
+            <p class="text-sm text-luxury/80" id="previewDescription">Description de l'entreprise...</p>
+            
+            <div class="border-t border-secondary/20 pt-4">
+              <h4 class="font-medium mb-2">Coordonnées</h4>
+              <div class="space-y-2 text-sm">
+                <div class="flex items-start gap-2">
+                  <i class="fas fa-map-marker-alt text-secondary w-4 mt-1"></i>
+                  <span id="previewAddress">123 Rue du Commerce, 75001 Paris</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-phone text-secondary w-4"></i>
+                  <span id="previewPhone">+33 1 23 45 67 89</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-envelope text-secondary w-4"></i>
+                  <span id="previewEmail">contact@veltrixa.com</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SECTION 2: RÉSEAUX SOCIAUX ========== -->
+    <div id="section-social" class="section">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-primary text-2xl">Réseaux sociaux</h2>
+        <button id="addSocialBtn" class="btn-primary w-full sm:w-auto">
+          <i class="fas fa-plus"></i>
+          Ajouter un réseau
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Liste des réseaux -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Réseaux configurés</h3>
+          
+          <div id="socialList" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            <!-- Les réseaux seront ajoutés ici -->
+          </div>
+          
+          <div id="socialEmpty" class="hidden text-center py-8 text-accent">
+            <i class="fab fa-facebook text-4xl mb-3 opacity-50"></i>
+            <p>Aucun réseau social configuré</p>
+          </div>
+        </div>
+        
+        <!-- Aperçu -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Aperçu des icônes</h3>
+          
+          <div id="socialPreview" class="flex flex-wrap gap-3">
+            <!-- Aperçu dynamique -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SECTION 3: LIENS INFORMATIONS ========== -->
+    <div id="section-infos" class="section">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-primary text-2xl">Liens d'information</h2>
+        <button id="addInfoBtn" class="btn-primary w-full sm:w-auto">
+          <i class="fas fa-plus"></i>
+          Ajouter un lien
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Liste des liens -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Liens configurés</h3>
+          
+          <div id="infoList" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            <!-- Les liens seront ajoutés ici -->
+          </div>
+          
+          <div id="infoEmpty" class="hidden text-center py-8 text-accent">
+            <i class="fas fa-link text-4xl mb-3 opacity-50"></i>
+            <p>Aucun lien configuré</p>
+          </div>
+        </div>
+        
+        <!-- Aperçu -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Aperçu des liens</h3>
+          
+          <div id="infoPreview" class="space-y-2">
+            <!-- Aperçu dynamique -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SECTION 4: MOYENS DE PAIEMENT ========== -->
+    <div id="section-payment" class="section">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h2 class="font-primary text-2xl">Moyens de paiement</h2>
+        <button id="addPaymentBtn" class="btn-primary w-full sm:w-auto">
+          <i class="fas fa-plus"></i>
+          Ajouter un moyen
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Liste des moyens -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Moyens configurés</h3>
+          
+          <div id="paymentList" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            <!-- Les moyens seront ajoutés ici -->
+          </div>
+          
+          <div id="paymentEmpty" class="hidden text-center py-8 text-accent">
+            <i class="fas fa-credit-card text-4xl mb-3 opacity-50"></i>
+            <p>Aucun moyen de paiement configuré</p>
+          </div>
+        </div>
+        
+        <!-- Aperçu -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-medium mb-4">Aperçu des icônes</h3>
+          
+          <div id="paymentPreview" class="flex flex-wrap gap-3">
+            <!-- Aperçu dynamique -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SECTION 5: COPYRIGHT ========== -->
+    <div id="section-copyright" class="section">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Configuration -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-primary text-xl mb-4">Configuration du copyright</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Texte du copyright</label>
+              <input type="text" id="copyrightText" class="form-input" value="Tous droits réservés">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Année de début</label>
+              <input type="number" id="copyrightYear" class="form-input w-32" value="2026" min="2000" max="2100">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Texte personnalisé (optionnel)</label>
+              <input type="text" id="copyrightCustom" class="form-input" placeholder="Vitch Studio. Tous droits réservés.">
+            </div>
+            
+            <div class="bg-secondary/5 p-4 rounded-lg">
+              <p class="text-sm text-accent">Format final : © 2026 Vitch Studio. Tous droits réservés.</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Aperçu -->
+        <div class="bg-white rounded-lg border border-secondary/20 p-4 md:p-6">
+          <h3 class="font-primary text-xl mb-4">Aperçu</h3>
+          
+          <div class="bg-luxury text-ivory p-6 rounded-lg">
+            <p id="copyrightPreview">© 2026 Vitch Studio. Tous droits réservés.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SECTION 6: APERÇU COMPLET ========== -->
+    <div id="section-preview" class="section">
+      <h2 class="font-primary text-2xl mb-4">Aperçu complet du footer</h2>
+      <div id="fullFooterPreview" class="preview-footer">
+        <!-- Le footer complet sera injecté ici -->
+      </div>
+    </div>
+
+    <!-- Bouton de sauvegarde global -->
+    <div class="mt-8 flex justify-end">
+      <button id="saveAllBtn" class="btn-primary px-6 md:px-8 py-3 text-base md:text-lg w-full md:w-auto">
+        <i class="fas fa-save"></i>
+        Enregistrer toutes les modifications
+      </button>
+    </div>
+  </main>
+
+  <!-- MODAL: Ajout/Édition réseau social -->
+  <div id="socialModal" class="modal-overlay" style="display: none;">
+    <div class="modal-container p-4 md:p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="socialModalTitle" class="font-primary text-xl">Ajouter un réseau social</h3>
+        <button class="close-modal text-2xl text-accent hover:text-secondary">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="socialForm" class="space-y-4">
+        <input type="hidden" id="socialId">
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Réseau social *</label>
+          <select id="socialNetwork" class="form-select" required>
+            <option value="">Sélectionner...</option>
+            <option value="facebook">Facebook</option>
+            <option value="twitter">Twitter / X</option>
+            <option value="instagram">Instagram</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="youtube">YouTube</option>
+            <option value="pinterest">Pinterest</option>
+            <option value="tiktok">TikTok</option>
+            <option value="snapchat">Snapchat</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="telegram">Telegram</option>
+            <option value="custom">Personnalisé</option>
+          </select>
+        </div>
+        
+        <div id="customNetworkField" class="hidden">
+          <label class="block text-sm font-medium text-accent mb-1">Nom personnalisé</label>
+          <input type="text" id="customNetworkName" class="form-input" placeholder="Ex: Discord">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Icône (FontAwesome)</label>
+          <input type="text" id="socialIcon" class="form-input" placeholder="fab fa-facebook">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Image personnalisée</label>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div class="image-preview-container">
+              <img id="socialImageImg" src="" class="hidden w-full h-full object-cover">
+              <div class="placeholder">
+                <i class="fas fa-image"></i>
+              </div>
+            </div>
+            <input type="text" id="socialImage" class="form-input w-full sm:flex-1" placeholder="social-icon.png">
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Lien *</label>
+          <input type="text" id="socialLink" class="form-input" required placeholder="https://... ou /page ou #section">
+        </div>
+        
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="socialActive" checked>
+            <span class="text-sm">Actif</span>
+          </label>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1">
+            Enregistrer
+          </button>
+          <button type="button" class="btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Ajout/Édition lien information -->
+  <div id="infoModal" class="modal-overlay" style="display: none;">
+    <div class="modal-container p-4 md:p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="infoModalTitle" class="font-primary text-xl">Ajouter un lien</h3>
+        <button class="close-modal text-2xl text-accent hover:text-secondary">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="infoForm" class="space-y-4">
+        <input type="hidden" id="infoId">
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Titre du lien *</label>
+          <input type="text" id="infoTitle" class="form-input" required placeholder="Politique de livraison">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Lien *</label>
+          <input type="text" id="infoLink" class="form-input" required placeholder="/livraison ou #contact">
+          <p class="text-xs text-accent mt-1">Peut être une URL complète, un chemin relatif ou une ancre (#)</p>
+        </div>
+        
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="infoActive" checked>
+            <span class="text-sm">Actif</span>
+          </label>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1">
+            Enregistrer
+          </button>
+          <button type="button" class="btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Ajout/Édition moyen de paiement -->
+  <div id="paymentModal" class="modal-overlay" style="display: none;">
+    <div class="modal-container p-4 md:p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="paymentModalTitle" class="font-primary text-xl">Ajouter un moyen de paiement</h3>
+        <button class="close-modal text-2xl text-accent hover:text-secondary">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="paymentForm" class="space-y-4">
+        <input type="hidden" id="paymentId">
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Moyen de paiement *</label>
+          <select id="paymentType" class="form-select" required>
+            <option value="">Sélectionner...</option>
+            <option value="visa">Visa</option>
+            <option value="mastercard">Mastercard</option>
+            <option value="amex">American Express</option>
+            <option value="paypal">PayPal</option>
+            <option value="applepay">Apple Pay</option>
+            <option value="googlepay">Google Pay</option>
+            <option value="bitcoin">Bitcoin</option>
+            <option value="custom">Personnalisé</option>
+          </select>
+        </div>
+        
+        <div id="customPaymentField" class="hidden">
+          <label class="block text-sm font-medium text-accent mb-1">Nom personnalisé</label>
+          <input type="text" id="customPaymentName" class="form-input" placeholder="Ex: MonCash">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Image du logo</label>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div class="image-preview-container">
+              <img id="paymentImageImg" src="" class="hidden w-full h-full object-cover">
+              <div class="placeholder">
+                <i class="fas fa-credit-card"></i>
+              </div>
+            </div>
+            <input type="text" id="paymentImage" class="form-input w-full sm:flex-1" placeholder="visa.png">
+          </div>
+        </div>
+        
+        <div>
+          <label class="flex items-center gap-2">
+            <input type="checkbox" id="paymentActive" checked>
+            <span class="text-sm">Actif</span>
+          </label>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1">
+            Enregistrer
+          </button>
+          <button type="button" class="btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      orderBy 
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+
+    // ========== CONFIG FIREBASE ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Collections
+    const FOOTER_CONFIG = "footerConfig";
+    const FOOTER_SOCIAL = "footerSocial";
+    const FOOTER_INFOS = "footerInfos";
+    const FOOTER_PAYMENT = "footerPayment";
+
+    // ========== ÉTAT GLOBAL ==========
+    let footerConfig = {
+      logo: '',
+      companyName: 'Vitch Studio',
+      title: '',
+      description: '',
+      address: '',
+      phone: '',
+      email: '',
+      copyright: {
+        text: 'Tous droits réservés',
+        year: 2026,
+        custom: ''
+      }
+    };
+    
+    let socialNetworks = [];
+    let infoLinks = [];
+    let paymentMethods = [];
+    
+    let currentSocialId = null;
+    let currentInfoId = null;
+    let currentPaymentId = null;
+
+    // ========== ÉLÉMENTS DOM ==========
+    const elements = {
+      // Navigation
+      navTabs: document.querySelectorAll('.nav-tab'),
+      sections: {
+        general: document.getElementById('section-general'),
+        social: document.getElementById('section-social'),
+        infos: document.getElementById('section-infos'),
+        payment: document.getElementById('section-payment'),
+        copyright: document.getElementById('section-copyright'),
+        preview: document.getElementById('section-preview')
+      },
+      
+      // Général
+      footerLogo: document.getElementById('footerLogo'),
+      logoImg: document.getElementById('logoImg'),
+      logoPlaceholder: document.getElementById('logoPlaceholder'),
+      companyName: document.getElementById('companyName'),
+      footerTitle: document.getElementById('footerTitle'),
+      footerDescription: document.getElementById('footerDescription'),
+      contactAddress: document.getElementById('contactAddress'),
+      contactPhone: document.getElementById('contactPhone'),
+      contactEmail: document.getElementById('contactEmail'),
+      
+      // Preview général
+      previewLogoContainer: document.getElementById('previewLogoContainer'),
+      previewCompanyName: document.getElementById('previewCompanyName'),
+      previewFooterTitle: document.getElementById('previewFooterTitle'),
+      previewDescription: document.getElementById('previewDescription'),
+      previewAddress: document.getElementById('previewAddress'),
+      previewPhone: document.getElementById('previewPhone'),
+      previewEmail: document.getElementById('previewEmail'),
+      
+      // Social
+      socialList: document.getElementById('socialList'),
+      socialEmpty: document.getElementById('socialEmpty'),
+      socialPreview: document.getElementById('socialPreview'),
+      addSocialBtn: document.getElementById('addSocialBtn'),
+      
+      // Infos
+      infoList: document.getElementById('infoList'),
+      infoEmpty: document.getElementById('infoEmpty'),
+      infoPreview: document.getElementById('infoPreview'),
+      addInfoBtn: document.getElementById('addInfoBtn'),
+      
+      // Payment
+      paymentList: document.getElementById('paymentList'),
+      paymentEmpty: document.getElementById('paymentEmpty'),
+      paymentPreview: document.getElementById('paymentPreview'),
+      addPaymentBtn: document.getElementById('addPaymentBtn'),
+      
+      // Copyright
+      copyrightText: document.getElementById('copyrightText'),
+      copyrightYear: document.getElementById('copyrightYear'),
+      copyrightCustom: document.getElementById('copyrightCustom'),
+      copyrightPreview: document.getElementById('copyrightPreview'),
+      
+      // Footer complet
+      fullFooterPreview: document.getElementById('fullFooterPreview'),
+      
+      // Boutons
+      saveAllBtn: document.getElementById('saveAllBtn'),
+      
+      // Modals
+      socialModal: document.getElementById('socialModal'),
+      socialModalTitle: document.getElementById('socialModalTitle'),
+      socialId: document.getElementById('socialId'),
+      socialNetwork: document.getElementById('socialNetwork'),
+      customNetworkField: document.getElementById('customNetworkField'),
+      customNetworkName: document.getElementById('customNetworkName'),
+      socialIcon: document.getElementById('socialIcon'),
+      socialImage: document.getElementById('socialImage'),
+      socialImageImg: document.getElementById('socialImageImg'),
+      socialLink: document.getElementById('socialLink'),
+      socialActive: document.getElementById('socialActive'),
+      
+      infoModal: document.getElementById('infoModal'),
+      infoModalTitle: document.getElementById('infoModalTitle'),
+      infoId: document.getElementById('infoId'),
+      infoTitle: document.getElementById('infoTitle'),
+      infoLink: document.getElementById('infoLink'),
+      infoActive: document.getElementById('infoActive'),
+      
+      paymentModal: document.getElementById('paymentModal'),
+      paymentModalTitle: document.getElementById('paymentModalTitle'),
+      paymentId: document.getElementById('paymentId'),
+      paymentType: document.getElementById('paymentType'),
+      customPaymentField: document.getElementById('customPaymentField'),
+      customPaymentName: document.getElementById('customPaymentName'),
+      paymentImage: document.getElementById('paymentImage'),
+      paymentImageImg: document.getElementById('paymentImageImg'),
+      paymentActive: document.getElementById('paymentActive'),
+      
+      closeModalBtns: document.querySelectorAll('.close-modal'),
+      cancelModalBtns: document.querySelectorAll('.cancel-modal')
+    };
+
+    // ========== GESTION DE LA NAVIGATION SPA ==========
+    function setupNavigation() {
+      elements.navTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const sectionId = tab.dataset.section;
+          
+          // Désactiver tous les tabs
+          elements.navTabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          // Cacher toutes les sections
+          Object.values(elements.sections).forEach(section => {
+            if (section) section.classList.remove('active');
+          });
+          
+          // Afficher la section correspondante
+          if (elements.sections[sectionId]) {
+            elements.sections[sectionId].classList.add('active');
+          }
+        });
+      });
+    }
+
+    // ========== INITIALISATION ==========
+    async function init() {
+      await loadFooterConfig();
+      await loadSocialNetworks();
+      await loadInfoLinks();
+      await loadPaymentMethods();
+      
+      setupNavigation();
+      setupEventListeners();
+      updateAllPreviews();
+      
+    }
+
+    // ========== CHARGEMENT DES DONNÉES ==========
+    
+    async function loadFooterConfig() {
+      try {
+        const q = query(collection(db, FOOTER_CONFIG));
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          const data = snapshot.docs[0].data();
+          footerConfig = { ...footerConfig, ...data };
+          
+          // Remplir le formulaire
+          elements.footerLogo.value = footerConfig.logo || '';
+          elements.companyName.value = footerConfig.companyName || 'Vitch Studio';
+          elements.footerTitle.value = footerConfig.title || '';
+          elements.footerDescription.value = footerConfig.description || '';
+          elements.contactAddress.value = footerConfig.address || '';
+          elements.contactPhone.value = footerConfig.phone || '';
+          elements.contactEmail.value = footerConfig.email || '';
+          
+          if (footerConfig.copyright) {
+            elements.copyrightText.value = footerConfig.copyright.text || 'Tous droits réservés';
+            elements.copyrightYear.value = footerConfig.copyright.year || 2026;
+            elements.copyrightCustom.value = footerConfig.copyright.custom || '';
+          }
+          
+          // Preview logo
+          if (footerConfig.logo) {
+            elements.logoImg.src = './' + footerConfig.logo;
+            elements.logoImg.classList.remove('hidden');
+            elements.logoPlaceholder.classList.add('hidden');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erreur chargement config:', error);
+      }
+    }
+
+    async function loadSocialNetworks() {
+      try {
+        const q = query(collection(db, FOOTER_SOCIAL), orderBy('createdAt', 'asc'));
+        const snapshot = await getDocs(q);
+        socialNetworks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderSocialNetworks();
+      } catch (error) {
+        console.error('❌ Erreur chargement réseaux:', error);
+      }
+    }
+
+    async function loadInfoLinks() {
+      try {
+        const q = query(collection(db, FOOTER_INFOS), orderBy('createdAt', 'asc'));
+        const snapshot = await getDocs(q);
+        infoLinks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderInfoLinks();
+      } catch (error) {
+        console.error('❌ Erreur chargement liens:', error);
+      }
+    }
+
+    async function loadPaymentMethods() {
+      try {
+        const q = query(collection(db, FOOTER_PAYMENT), orderBy('createdAt', 'asc'));
+        const snapshot = await getDocs(q);
+        paymentMethods = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPaymentMethods();
+      } catch (error) {
+        console.error('❌ Erreur chargement paiements:', error);
+      }
+    }
+
+    // ========== RENDU ==========
+    
+    function renderSocialNetworks() {
+      if (socialNetworks.length === 0) {
+        elements.socialList.innerHTML = '';
+        elements.socialEmpty.classList.remove('hidden');
+      } else {
+        elements.socialEmpty.classList.add('hidden');
+        
+        elements.socialList.innerHTML = socialNetworks.map(social => `
+          <div class="social-card relative group">
+            <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="edit-social text-accent hover:text-secondary" data-id="${social.id}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="delete-social text-danger hover:text-danger/70" data-id="${social.id}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-secondary/10 rounded-full flex items-center justify-center">
+                ${social.image ? 
+                  `<img src="./${social.image}" class="w-6 h-6 object-contain">` : 
+                  `<i class="${social.icon || 'fab fa-' + social.network} text-secondary text-xl"></i>`
+                }
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate">${social.networkName || social.network}</p>
+                <p class="text-xs text-accent truncate">${social.link}</p>
+              </div>
+              <span class="text-xs ${social.active === false ? 'text-accent' : 'text-success'}">
+                ${social.active === false ? 'Inactif' : 'Actif'}
+              </span>
+            </div>
+          </div>
+        `).join('');
+        
+        // Attacher événements
+        document.querySelectorAll('.edit-social').forEach(btn => {
+          btn.addEventListener('click', () => editSocial(btn.dataset.id));
+        });
+        
+        document.querySelectorAll('.delete-social').forEach(btn => {
+          btn.addEventListener('click', () => deleteSocial(btn.dataset.id));
+        });
+      }
+      
+      updateSocialPreview();
+    }
+
+    function renderInfoLinks() {
+      if (infoLinks.length === 0) {
+        elements.infoList.innerHTML = '';
+        elements.infoEmpty.classList.remove('hidden');
+      } else {
+        elements.infoEmpty.classList.add('hidden');
+        
+        elements.infoList.innerHTML = infoLinks.map(info => `
+          <div class="info-card relative group">
+            <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="edit-info text-accent hover:text-secondary" data-id="${info.id}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="delete-info text-danger hover:text-danger/70" data-id="${info.id}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            
+            <div class="flex justify-between items-center">
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate">${info.title}</p>
+                <p class="text-xs text-accent truncate">${info.link}</p>
+              </div>
+              <span class="text-xs ml-2 ${info.active === false ? 'text-accent' : 'text-success'}">
+                ${info.active === false ? 'Inactif' : 'Actif'}
+              </span>
+            </div>
+          </div>
+        `).join('');
+        
+        // Attacher événements
+        document.querySelectorAll('.edit-info').forEach(btn => {
+          btn.addEventListener('click', () => editInfo(btn.dataset.id));
+        });
+        
+        document.querySelectorAll('.delete-info').forEach(btn => {
+          btn.addEventListener('click', () => deleteInfo(btn.dataset.id));
+        });
+      }
+      
+      updateInfoPreview();
+    }
+
+    function renderPaymentMethods() {
+      if (paymentMethods.length === 0) {
+        elements.paymentList.innerHTML = '';
+        elements.paymentEmpty.classList.remove('hidden');
+      } else {
+        elements.paymentEmpty.classList.add('hidden');
+        
+        elements.paymentList.innerHTML = paymentMethods.map(payment => `
+          <div class="info-card relative group">
+            <div class="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button class="edit-payment text-accent hover:text-secondary" data-id="${payment.id}">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="delete-payment text-danger hover:text-danger/70" data-id="${payment.id}">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center overflow-hidden">
+                ${payment.image ? 
+                  `<img src="./${payment.image}" class="w-8 h-8 object-contain">` : 
+                  `<i class="fab fa-cc-${payment.type} text-secondary text-xl"></i>`
+                }
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate">${payment.name || payment.type}</p>
+              </div>
+              <span class="text-xs ${payment.active === false ? 'text-accent' : 'text-success'}">
+                ${payment.active === false ? 'Inactif' : 'Actif'}
+              </span>
+            </div>
+          </div>
+        `).join('');
+        
+        // Attacher événements
+        document.querySelectorAll('.edit-payment').forEach(btn => {
+          btn.addEventListener('click', () => editPayment(btn.dataset.id));
+        });
+        
+        document.querySelectorAll('.delete-payment').forEach(btn => {
+          btn.addEventListener('click', () => deletePayment(btn.dataset.id));
+        });
+      }
+      
+      updatePaymentPreview();
+    }
+
+    // ========== MISES À JOUR DES PREVIEWS ==========
+    
+    function updateAllPreviews() {
+      updateGeneralPreview();
+      updateSocialPreview();
+      updateInfoPreview();
+      updatePaymentPreview();
+      updateCopyrightPreview();
+      updateFullFooterPreview();
+    }
+
+    function updateGeneralPreview() {
+      elements.previewCompanyName.textContent = elements.companyName.value || 'Vitch Studio';
+      elements.previewFooterTitle.textContent = elements.footerTitle.value || '';
+      elements.previewDescription.textContent = elements.footerDescription.value || 'Description de l\'entreprise...';
+      elements.previewAddress.textContent = elements.contactAddress.value || '123 Rue du Commerce, 75001 Paris';
+      elements.previewPhone.textContent = elements.contactPhone.value || '+33 1 23 45 67 89';
+      elements.previewEmail.textContent = elements.contactEmail.value || 'contact@veltrixa.com';
+      
+      // Logo
+      if (elements.footerLogo.value) {
+        elements.previewLogoContainer.innerHTML = `<img src="./${elements.footerLogo.value}" class="w-12 h-12 object-contain">`;
+      } else {
+        elements.previewLogoContainer.innerHTML = '<i class="fas fa-building text-secondary text-2xl"></i>';
+      }
+    }
+
+    function updateSocialPreview() {
+      const activeSocials = socialNetworks.filter(s => s.active !== false);
+      
+      if (activeSocials.length === 0) {
+        elements.socialPreview.innerHTML = '<p class="text-accent text-sm">Aucun réseau social actif</p>';
+        return;
+      }
+      
+      elements.socialPreview.innerHTML = activeSocials.map(social => `
+        <a href="${social.link}" target="_blank" rel="noopener noreferrer" class="preview-social-icon" title="${social.networkName || social.network}">
+          ${social.image ? 
+            `<img src="./${social.image}" class="w-5 h-5 object-contain">` : 
+            `<i class="${social.icon || 'fab fa-' + social.network}"></i>`
+          }
+        </a>
+      `).join('');
+    }
+
+    function updateInfoPreview() {
+      const activeInfos = infoLinks.filter(i => i.active !== false);
+      
+      if (activeInfos.length === 0) {
+        elements.infoPreview.innerHTML = '<p class="text-accent text-sm">Aucun lien actif</p>';
+        return;
+      }
+      
+      elements.infoPreview.innerHTML = activeInfos.map(info => `
+        <div>
+          <a href="${info.link}" class="text-sm hover:text-secondary transition-colors">
+            ${info.title}
+          </a>
+        </div>
+      `).join('');
+    }
+
+    function updatePaymentPreview() {
+      const activePayments = paymentMethods.filter(p => p.active !== false);
+      
+      if (activePayments.length === 0) {
+        elements.paymentPreview.innerHTML = '<p class="text-accent text-sm">Aucun moyen de paiement actif</p>';
+        return;
+      }
+      
+      elements.paymentPreview.innerHTML = activePayments.map(payment => `
+        <div class="preview-payment-icon" title="${payment.name || payment.type}">
+          ${payment.image ? 
+            `<img src="./${payment.image}" class="h-8 w-auto">` : 
+            `<i class="fab fa-cc-${payment.type} text-2xl" style="color: #8B7E6B;"></i>`
+          }
+        </div>
+      `).join('');
+    }
+
+    function updateCopyrightPreview() {
+      const year = elements.copyrightYear.value || 2026;
+      const text = elements.copyrightText.value || 'Tous droits réservés';
+      const custom = elements.copyrightCustom.value;
+      
+      if (custom) {
+        elements.copyrightPreview.textContent = custom;
+      } else {
+        elements.copyrightPreview.textContent = `© ${year} ${elements.companyName.value || 'Vitch Studio'}. ${text}`;
+      }
+    }
+
+    function updateFullFooterPreview() {
+      const activeInfos = infoLinks.filter(i => i.active !== false);
+      const activeSocials = socialNetworks.filter(s => s.active !== false);
+      const activePayments = paymentMethods.filter(p => p.active !== false);
+      
+      const year = elements.copyrightYear.value || 2026;
+      const copyrightText = elements.copyrightCustom.value || 
+        `© ${year} ${elements.companyName.value || 'Vitch Studio'}. ${elements.copyrightText.value || 'Tous droits réservés'}`;
+      
+      let html = `
+        <div class="grid-preview">
+          <!-- Colonne 1: Logo et description -->
+          <div>
+            <div class="flex items-center gap-3 mb-4">
+              ${elements.footerLogo.value ? 
+                `<img src="./${elements.footerLogo.value}" class="h-12 w-auto">` : 
+                `<div class="w-12 h-12 bg-secondary rounded-lg flex items-center justify-center">
+                  <span class="font-primary text-xl">V</span>
+                </div>`
+              }
+              <div>
+                <div class="font-primary text-lg">${elements.companyName.value || 'Vitch Studio'}</div>
+                ${elements.footerTitle.value ? `<div class="text-xs text-ivory/60">${elements.footerTitle.value}</div>` : ''}
+              </div>
+            </div>
+            <p class="text-sm text-ivory/80 mb-4">${elements.footerDescription.value || ''}</p>
+            
+            <!-- Réseaux sociaux -->
+            ${activeSocials.length > 0 ? `
+              <div class="flex flex-wrap gap-2 mb-4">
+                ${activeSocials.map(s => `
+                  <a href="${s.link}" class="preview-social-icon" target="_blank" rel="noopener noreferrer">
+                    ${s.image ? 
+                      `<img src="./${s.image}" class="w-4 h-4 object-contain">` : 
+                      `<i class="${s.icon || 'fab fa-' + s.network}"></i>`
+                    }
+                  </a>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+          
+          <!-- Colonne 2: Coordonnées -->
+          <div>
+            <h4 class="font-medium mb-4">Contact</h4>
+            <div class="space-y-3 text-sm text-ivory/80">
+              ${elements.contactAddress.value ? `
+                <div class="flex items-start gap-2">
+                  <i class="fas fa-map-marker-alt text-secondary mt-1"></i>
+                  <span>${elements.contactAddress.value}</span>
+                </div>
+              ` : ''}
+              ${elements.contactPhone.value ? `
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-phone text-secondary"></i>
+                  <span>${elements.contactPhone.value}</span>
+                </div>
+              ` : ''}
+              ${elements.contactEmail.value ? `
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-envelope text-secondary"></i>
+                  <span>${elements.contactEmail.value}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          
+          <!-- Colonne 3: Liens informations -->
+          <div>
+            <h4 class="font-medium mb-4">Informations</h4>
+            <div class="space-y-2">
+              ${activeInfos.map(info => `
+                <div>
+                  <a href="${info.link}" class="text-sm text-ivory/80 hover:text-secondary transition-colors">
+                    ${info.title}
+                  </a>
+                </div>
+              `).join('')}
+              ${activeInfos.length === 0 ? '<p class="text-sm text-ivory/60">Aucun lien</p>' : ''}
+            </div>
+          </div>
+          
+          <!-- Colonne 4: Paiements -->
+          <div>
+            <h4 class="font-medium mb-4">Paiements acceptés</h4>
+            <div class="flex flex-wrap gap-3">
+              ${activePayments.map(p => `
+                <div class="bg-white/10 rounded-lg p-2" title="${p.name || p.type}">
+                  ${p.image ? 
+                    `<img src="./${p.image}" class="h-6 w-auto">` : 
+                    `<i class="fab fa-cc-${p.type} text-2xl"></i>`
+                  }
+                </div>
+              `).join('')}
+              ${activePayments.length === 0 ? '<p class="text-sm text-ivory/60">Aucun moyen</p>' : ''}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Copyright -->
+        <div class="border-t border-white/10 pt-6 mt-6 text-center text-sm text-ivory/60">
+          ${copyrightText}
+        </div>
+      `;
+      
+      elements.fullFooterPreview.innerHTML = html;
+    }
+
+    // ========== CRUD RÉSEAUX SOCIAUX ==========
+    
+    function openSocialModal(editMode = false) {
+      elements.socialModalTitle.textContent = editMode ? 'Modifier le réseau' : 'Ajouter un réseau';
+      elements.socialModal.style.display = 'flex';
+    }
+
+    function closeSocialModal() {
+      elements.socialModal.style.display = 'none';
+      resetSocialForm();
+    }
+
+    function resetSocialForm() {
+      currentSocialId = null;
+      elements.socialId.value = '';
+      elements.socialNetwork.value = '';
+      elements.customNetworkField.classList.add('hidden');
+      elements.customNetworkName.value = '';
+      elements.socialIcon.value = '';
+      elements.socialImage.value = '';
+      elements.socialImageImg.classList.add('hidden');
+      elements.socialLink.value = '';
+      elements.socialActive.checked = true;
+    }
+
+    function editSocial(id) {
+      const social = socialNetworks.find(s => s.id === id);
+      if (!social) return;
+      
+      currentSocialId = id;
+      elements.socialId.value = id;
+      elements.socialNetwork.value = social.network || '';
+      
+      if (social.network === 'custom') {
+        elements.customNetworkField.classList.remove('hidden');
+        elements.customNetworkName.value = social.networkName || '';
+      }
+      
+      elements.socialIcon.value = social.icon || '';
+      elements.socialImage.value = social.image || '';
+      if (social.image) {
+        elements.socialImageImg.src = './' + social.image;
+        elements.socialImageImg.classList.remove('hidden');
+      }
+      elements.socialLink.value = social.link || '';
+      elements.socialActive.checked = social.active !== false;
+      
+      openSocialModal(true);
+    }
+
+    async function deleteSocial(id) {
+      if (!confirm('Supprimer ce réseau social ?')) return;
+      
+      try {
+        await deleteDoc(doc(db, FOOTER_SOCIAL, id));
+        await loadSocialNetworks();
+        updateAllPreviews();
+        showNotification('Réseau supprimé');
+      } catch (error) {
+        console.error('❌ Erreur suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    async function saveSocial(e) {
+      e.preventDefault();
+      
+      const socialData = {
+        network: elements.socialNetwork.value,
+        networkName: elements.customNetworkName.value || null,
+        icon: elements.socialIcon.value || null,
+        image: elements.socialImage.value || null,
+        link: elements.socialLink.value,
+        active: elements.socialActive.checked,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!socialData.network || !socialData.link) {
+        showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+      }
+
+      try {
+        if (currentSocialId) {
+          await updateDoc(doc(db, FOOTER_SOCIAL, currentSocialId), socialData);
+          showNotification('Réseau mis à jour');
+        } else {
+          await addDoc(collection(db, FOOTER_SOCIAL), {
+            ...socialData,
+            createdAt: new Date().toISOString()
+          });
+          showNotification('Réseau ajouté');
+        }
+        
+        await loadSocialNetworks();
+        updateAllPreviews();
+        closeSocialModal();
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== CRUD LIENS INFORMATIONS ==========
+    
+    function openInfoModal(editMode = false) {
+      elements.infoModalTitle.textContent = editMode ? 'Modifier le lien' : 'Ajouter un lien';
+      elements.infoModal.style.display = 'flex';
+    }
+
+    function closeInfoModal() {
+      elements.infoModal.style.display = 'none';
+      resetInfoForm();
+    }
+
+    function resetInfoForm() {
+      currentInfoId = null;
+      elements.infoId.value = '';
+      elements.infoTitle.value = '';
+      elements.infoLink.value = '';
+      elements.infoActive.checked = true;
+    }
+
+    function editInfo(id) {
+      const info = infoLinks.find(i => i.id === id);
+      if (!info) return;
+      
+      currentInfoId = id;
+      elements.infoId.value = id;
+      elements.infoTitle.value = info.title || '';
+      elements.infoLink.value = info.link || '';
+      elements.infoActive.checked = info.active !== false;
+      
+      openInfoModal(true);
+    }
+
+    async function deleteInfo(id) {
+      if (!confirm('Supprimer ce lien ?')) return;
+      
+      try {
+        await deleteDoc(doc(db, FOOTER_INFOS, id));
+        await loadInfoLinks();
+        updateAllPreviews();
+        showNotification('Lien supprimé');
+      } catch (error) {
+        console.error('❌ Erreur suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    async function saveInfo(e) {
+      e.preventDefault();
+      
+      const infoData = {
+        title: elements.infoTitle.value,
+        link: elements.infoLink.value,
+        active: elements.infoActive.checked,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!infoData.title || !infoData.link) {
+        showNotification('Veuillez remplir tous les champs obligatoires', 'error');
+        return;
+      }
+
+      try {
+        if (currentInfoId) {
+          await updateDoc(doc(db, FOOTER_INFOS, currentInfoId), infoData);
+          showNotification('Lien mis à jour');
+        } else {
+          await addDoc(collection(db, FOOTER_INFOS), {
+            ...infoData,
+            createdAt: new Date().toISOString()
+          });
+          showNotification('Lien ajouté');
+        }
+        
+        await loadInfoLinks();
+        updateAllPreviews();
+        closeInfoModal();
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== CRUD MOYENS DE PAIEMENT ==========
+    
+    function openPaymentModal(editMode = false) {
+      elements.paymentModalTitle.textContent = editMode ? 'Modifier le moyen' : 'Ajouter un moyen';
+      elements.paymentModal.style.display = 'flex';
+    }
+
+    function closePaymentModal() {
+      elements.paymentModal.style.display = 'none';
+      resetPaymentForm();
+    }
+
+    function resetPaymentForm() {
+      currentPaymentId = null;
+      elements.paymentId.value = '';
+      elements.paymentType.value = '';
+      elements.customPaymentField.classList.add('hidden');
+      elements.customPaymentName.value = '';
+      elements.paymentImage.value = '';
+      elements.paymentImageImg.classList.add('hidden');
+      elements.paymentActive.checked = true;
+    }
+
+    function editPayment(id) {
+      const payment = paymentMethods.find(p => p.id === id);
+      if (!payment) return;
+      
+      currentPaymentId = id;
+      elements.paymentId.value = id;
+      elements.paymentType.value = payment.type || '';
+      
+      if (payment.type === 'custom') {
+        elements.customPaymentField.classList.remove('hidden');
+        elements.customPaymentName.value = payment.name || '';
+      }
+      
+      elements.paymentImage.value = payment.image || '';
+      if (payment.image) {
+        elements.paymentImageImg.src = './' + payment.image;
+        elements.paymentImageImg.classList.remove('hidden');
+      }
+      elements.paymentActive.checked = payment.active !== false;
+      
+      openPaymentModal(true);
+    }
+
+    async function deletePayment(id) {
+      if (!confirm('Supprimer ce moyen de paiement ?')) return;
+      
+      try {
+        await deleteDoc(doc(db, FOOTER_PAYMENT, id));
+        await loadPaymentMethods();
+        updateAllPreviews();
+        showNotification('Moyen supprimé');
+      } catch (error) {
+        console.error('❌ Erreur suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    async function savePayment(e) {
+      e.preventDefault();
+      
+      const paymentData = {
+        type: elements.paymentType.value,
+        name: elements.customPaymentName.value || null,
+        image: elements.paymentImage.value || null,
+        active: elements.paymentActive.checked,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!paymentData.type) {
+        showNotification('Veuillez sélectionner un type', 'error');
+        return;
+      }
+
+      try {
+        if (currentPaymentId) {
+          await updateDoc(doc(db, FOOTER_PAYMENT, currentPaymentId), paymentData);
+          showNotification('Moyen mis à jour');
+        } else {
+          await addDoc(collection(db, FOOTER_PAYMENT), {
+            ...paymentData,
+            createdAt: new Date().toISOString()
+          });
+          showNotification('Moyen ajouté');
+        }
+        
+        await loadPaymentMethods();
+        updateAllPreviews();
+        closePaymentModal();
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== SAUVEGARDE GÉNÉRALE ==========
+    
+    async function saveAll() {
+      try {
+        // Sauvegarder la config générale
+        const configData = {
+          logo: elements.footerLogo.value,
+          companyName: elements.companyName.value,
+          title: elements.footerTitle.value,
+          description: elements.footerDescription.value,
+          address: elements.contactAddress.value,
+          phone: elements.contactPhone.value,
+          email: elements.contactEmail.value,
+          copyright: {
+            text: elements.copyrightText.value,
+            year: parseInt(elements.copyrightYear.value) || 2026,
+            custom: elements.copyrightCustom.value
+          },
+          updatedAt: new Date().toISOString()
+        };
+
+        const q = query(collection(db, FOOTER_CONFIG));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+          await addDoc(collection(db, FOOTER_CONFIG), {
+            ...configData,
+            createdAt: new Date().toISOString()
+          });
+        } else {
+          await updateDoc(doc(db, FOOTER_CONFIG, snapshot.docs[0].id), configData);
+        }
+        
+        showNotification('✅ Toutes les modifications ont été enregistrées');
+        
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== NOTIFICATION ==========
+    
+    function showNotification(message, type = 'success') {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#2E5D3A' : '#7F1D1D'};
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 1000000;
+        animation: slideInRight 0.3s ease;
+        font-size: 0.95rem;
+        max-width: 90%;
+      `;
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // ========== ÉVÉNEMENTS ==========
+    
+    function setupEventListeners() {
+      // Changements dans les champs généraux
+      elements.footerLogo.addEventListener('input', (e) => {
+        if (e.target.value) {
+          elements.logoImg.src = './' + e.target.value;
+          elements.logoImg.classList.remove('hidden');
+          elements.logoPlaceholder.classList.add('hidden');
+        } else {
+          elements.logoImg.classList.add('hidden');
+          elements.logoPlaceholder.classList.remove('hidden');
+        }
+        updateAllPreviews();
+      });
+      
+      elements.companyName.addEventListener('input', updateAllPreviews);
+      elements.footerTitle.addEventListener('input', updateAllPreviews);
+      elements.footerDescription.addEventListener('input', updateAllPreviews);
+      elements.contactAddress.addEventListener('input', updateAllPreviews);
+      elements.contactPhone.addEventListener('input', updateAllPreviews);
+      elements.contactEmail.addEventListener('input', updateAllPreviews);
+      elements.copyrightText.addEventListener('input', updateAllPreviews);
+      elements.copyrightYear.addEventListener('input', updateAllPreviews);
+      elements.copyrightCustom.addEventListener('input', updateAllPreviews);
+      
+      // Réseaux sociaux
+      elements.addSocialBtn.addEventListener('click', () => openSocialModal(false));
+      
+      elements.socialNetwork.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+          elements.customNetworkField.classList.remove('hidden');
+        } else {
+          elements.customNetworkField.classList.add('hidden');
+          // Remplir automatiquement l'icône
+          elements.socialIcon.value = `fab fa-${e.target.value}`;
+        }
+      });
+      
+      elements.socialImage.addEventListener('input', (e) => {
+        if (e.target.value) {
+          elements.socialImageImg.src = './' + e.target.value;
+          elements.socialImageImg.classList.remove('hidden');
+        } else {
+          elements.socialImageImg.classList.add('hidden');
+        }
+      });
+      
+      // Liens informations
+      elements.addInfoBtn.addEventListener('click', () => openInfoModal(false));
+      
+      // Moyens de paiement
+      elements.addPaymentBtn.addEventListener('click', () => openPaymentModal(false));
+      
+      elements.paymentType.addEventListener('change', (e) => {
+        if (e.target.value === 'custom') {
+          elements.customPaymentField.classList.remove('hidden');
+        } else {
+          elements.customPaymentField.classList.add('hidden');
+        }
+      });
+      
+      elements.paymentImage.addEventListener('input', (e) => {
+        if (e.target.value) {
+          elements.paymentImageImg.src = './' + e.target.value;
+          elements.paymentImageImg.classList.remove('hidden');
+        } else {
+          elements.paymentImageImg.classList.add('hidden');
+        }
+      });
+      
+      // Fermeture modals
+      elements.closeModalBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeSocialModal();
+          closeInfoModal();
+          closePaymentModal();
+        });
+      });
+      
+      elements.cancelModalBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeSocialModal();
+          closeInfoModal();
+          closePaymentModal();
+        });
+      });
+      
+      // Clic sur overlay
+      elements.socialModal.addEventListener('click', (e) => {
+        if (e.target === elements.socialModal) closeSocialModal();
+      });
+      
+      elements.infoModal.addEventListener('click', (e) => {
+        if (e.target === elements.infoModal) closeInfoModal();
+      });
+      
+      elements.paymentModal.addEventListener('click', (e) => {
+        if (e.target === elements.paymentModal) closePaymentModal();
+      });
+      
+      // Sauvegarde formulaires
+      document.getElementById('socialForm').addEventListener('submit', saveSocial);
+      document.getElementById('infoForm').addEventListener('submit', saveInfo);
+      document.getElementById('paymentForm').addEventListener('submit', savePayment);
+      
+      // Sauvegarde globale
+      elements.saveAllBtn.addEventListener('click', saveAll);
+    }
+
+    // ========== LANCEMENT ==========
+    init();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

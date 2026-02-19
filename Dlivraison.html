@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Dashboard Livraison</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --primary: #0A0A0A;
+      --secondary: #C6A75E;
+      --background: #F8F9FA;
+      --surface: #FFFFFF;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --border: #E2E8F0;
+      --success: #10B981;
+      --danger: #EF4444;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--background);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
+    }
+
+    .app-container {
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      margin-bottom: 1.5rem;
+    }
+
+    .card-title {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 1rem;
+      border-radius: 0.6rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+
+    .btn-danger {
+      background: #fff;
+      border-color: #FECACA;
+      color: var(--danger);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-active {
+      background: #D1FAE5;
+      color: #065F46;
+    }
+
+    .badge-inactive {
+      background: #FEE2E2;
+      color: #991B1B;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.03em;
+      color: var(--text-secondary);
+      background: #F1F5F9;
+    }
+
+    .grid-form {
+      display: grid;
+      gap: 0.75rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      align-items: end;
+    }
+
+    .input {
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    .section-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+
+    .muted {
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <div class="mb-8">
+      <h1 class="text-2xl font-semibold">Dashboard Livraison</h1>
+      <p class="text-slate-500 mt-1">Gerez les regles et les zones de livraison pour le site.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-sliders-h" style="color: var(--secondary);"></i>
+        Parametres de visibilite
+      </div>
+      <form id="settingsForm" class="grid-form">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="showHome" class="accent-black" checked>
+          Afficher livraison a domicile
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="showPickup" class="accent-black" checked>
+          Afficher retrait en point de vente
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="showMeetup" class="accent-black" checked>
+          Afficher rencontre livreur
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="allowMeetupProposal" class="accent-black" checked>
+          Permettre au client de proposer un lieu
+        </label>
+        <div class="section-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i>
+            Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-house" style="color: var(--secondary);"></i>
+        Livraison a domicile (villes / zones)
+      </div>
+      <form id="homeForm" class="grid-form">
+        <input type="hidden" id="homeId">
+        <div>
+          <label class="text-sm">Ville</label>
+          <input id="homeCity" class="input" placeholder="Port-au-Prince">
+        </div>
+        <div>
+          <label class="text-sm">Zone (optionnel)</label>
+          <input id="homeZone" class="input" placeholder="Delmas 33">
+        </div>
+        <div>
+          <label class="text-sm">Frais (HTG)</label>
+          <input id="homeFee" type="number" class="input" placeholder="500">
+        </div>
+        <div>
+          <label class="text-sm">Actif</label>
+          <select id="homeActive" class="input">
+            <option value="true">Oui</option>
+            <option value="false">Non</option>
+          </select>
+        </div>
+        <div class="section-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            Ajouter / Mettre a jour
+          </button>
+          <button type="button" id="homeReset" class="btn btn-secondary">Reinitialiser</button>
+        </div>
+      </form>
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Ville</th>
+              <th>Zone</th>
+              <th>Frais</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="homeList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-store" style="color: var(--secondary);"></i>
+        Retrait en point de vente
+      </div>
+      <form id="pickupForm" class="grid-form">
+        <input type="hidden" id="pickupId">
+        <div>
+          <label class="text-sm">Nom du point</label>
+          <input id="pickupName" class="input" placeholder="Boutique Centre Ville">
+        </div>
+        <div>
+          <label class="text-sm">Adresse</label>
+          <input id="pickupAddress" class="input" placeholder="Adresse exacte">
+        </div>
+        <div>
+          <label class="text-sm">Telephone</label>
+          <input id="pickupPhone" class="input" placeholder="37 00 00 00">
+        </div>
+        <div>
+          <label class="text-sm">WhatsApp</label>
+          <input id="pickupWhatsapp" class="input" placeholder="37 00 00 00">
+        </div>
+        <div>
+          <label class="text-sm">Actif</label>
+          <select id="pickupActive" class="input">
+            <option value="true">Oui</option>
+            <option value="false">Non</option>
+          </select>
+        </div>
+        <div class="section-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            Ajouter / Mettre a jour
+          </button>
+          <button type="button" id="pickupReset" class="btn btn-secondary">Reinitialiser</button>
+        </div>
+      </form>
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Adresse</th>
+              <th>Contact</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="pickupList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-people-arrows" style="color: var(--secondary);"></i>
+        Rencontre livreur (zones)
+      </div>
+      <form id="meetupForm" class="grid-form">
+        <input type="hidden" id="meetupId">
+        <div>
+          <label class="text-sm">Zone couverte</label>
+          <input id="meetupZone" class="input" placeholder="Pétion-Ville">
+        </div>
+        <div>
+          <label class="text-sm">Frais (HTG)</label>
+          <input id="meetupFee" type="number" class="input" placeholder="300">
+        </div>
+        <div>
+          <label class="text-sm">Actif</label>
+          <select id="meetupActive" class="input">
+            <option value="true">Oui</option>
+            <option value="false">Non</option>
+          </select>
+        </div>
+        <div class="section-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            Ajouter / Mettre a jour
+          </button>
+          <button type="button" id="meetupReset" class="btn btn-secondary">Reinitialiser</button>
+        </div>
+      </form>
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Zone</th>
+              <th>Frais</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="meetupList"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <i class="fas fa-weight-hanging" style="color: var(--secondary);"></i>
+        Regles de poids (grammes)
+      </div>
+      <p class="muted">Definissez des frais supplementaires selon le poids total du colis.</p>
+      <form id="weightForm" class="grid-form" style="margin-top:0.75rem;">
+        <input type="hidden" id="weightId">
+        <div>
+          <label class="text-sm">Min (g)</label>
+          <input id="weightMin" type="number" class="input" placeholder="500">
+        </div>
+        <div>
+          <label class="text-sm">Max (g)</label>
+          <input id="weightMax" type="number" class="input" placeholder="700">
+        </div>
+        <div>
+          <label class="text-sm">Frais (HTG)</label>
+          <input id="weightFee" type="number" class="input" placeholder="600">
+        </div>
+        <div>
+          <label class="text-sm">Actif</label>
+          <select id="weightActive" class="input">
+            <option value="true">Oui</option>
+            <option value="false">Non</option>
+          </select>
+        </div>
+        <div class="section-actions">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            Ajouter / Mettre a jour
+          </button>
+          <button type="button" id="weightReset" class="btn btn-secondary">Reinitialiser</button>
+        </div>
+      </form>
+      <div class="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Min</th>
+              <th>Max</th>
+              <th>Frais</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="weightList"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      addDoc,
+      updateDoc,
+      deleteDoc,
+      doc,
+      getDoc,
+      setDoc
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const SETTINGS_DOC = doc(db, 'deliverySettings', 'main');
+    const HOME_COL = collection(db, 'deliveryHomeZones');
+    const PICKUP_COL = collection(db, 'deliveryPickupPoints');
+    const MEETUP_COL = collection(db, 'deliveryMeetupZones');
+    const WEIGHT_COL = collection(db, 'deliveryWeightRules');
+
+    const els = {
+      settingsForm: document.getElementById('settingsForm'),
+      showHome: document.getElementById('showHome'),
+      showPickup: document.getElementById('showPickup'),
+      showMeetup: document.getElementById('showMeetup'),
+      allowMeetupProposal: document.getElementById('allowMeetupProposal'),
+
+      homeForm: document.getElementById('homeForm'),
+      homeId: document.getElementById('homeId'),
+      homeCity: document.getElementById('homeCity'),
+      homeZone: document.getElementById('homeZone'),
+      homeFee: document.getElementById('homeFee'),
+      homeActive: document.getElementById('homeActive'),
+      homeList: document.getElementById('homeList'),
+      homeReset: document.getElementById('homeReset'),
+
+      pickupForm: document.getElementById('pickupForm'),
+      pickupId: document.getElementById('pickupId'),
+      pickupName: document.getElementById('pickupName'),
+      pickupAddress: document.getElementById('pickupAddress'),
+      pickupPhone: document.getElementById('pickupPhone'),
+      pickupWhatsapp: document.getElementById('pickupWhatsapp'),
+      pickupActive: document.getElementById('pickupActive'),
+      pickupList: document.getElementById('pickupList'),
+      pickupReset: document.getElementById('pickupReset'),
+
+      meetupForm: document.getElementById('meetupForm'),
+      meetupId: document.getElementById('meetupId'),
+      meetupZone: document.getElementById('meetupZone'),
+      meetupFee: document.getElementById('meetupFee'),
+      meetupActive: document.getElementById('meetupActive'),
+      meetupList: document.getElementById('meetupList'),
+      meetupReset: document.getElementById('meetupReset'),
+
+      weightForm: document.getElementById('weightForm'),
+      weightId: document.getElementById('weightId'),
+      weightMin: document.getElementById('weightMin'),
+      weightMax: document.getElementById('weightMax'),
+      weightFee: document.getElementById('weightFee'),
+      weightActive: document.getElementById('weightActive'),
+      weightList: document.getElementById('weightList'),
+      weightReset: document.getElementById('weightReset')
+    };
+
+    const state = {
+      home: [],
+      pickup: [],
+      meetup: [],
+      weight: []
+    };
+
+    const formatPrice = (value) => new Intl.NumberFormat('fr-HT', {
+      style: 'currency',
+      currency: 'HTG',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(Number(value || 0));
+
+    const badge = (active) => active
+      ? '<span class="badge badge-active">Actif</span>'
+      : '<span class="badge badge-inactive">Inactif</span>';
+
+    const resetForm = (group) => {
+      els[`${group}Id`].value = '';
+      if (group === 'home') {
+        els.homeCity.value = '';
+        els.homeZone.value = '';
+        els.homeFee.value = '';
+        els.homeActive.value = 'true';
+      }
+      if (group === 'pickup') {
+        els.pickupName.value = '';
+        els.pickupAddress.value = '';
+        els.pickupPhone.value = '';
+        els.pickupWhatsapp.value = '';
+        els.pickupActive.value = 'true';
+      }
+      if (group === 'meetup') {
+        els.meetupZone.value = '';
+        els.meetupFee.value = '';
+        els.meetupActive.value = 'true';
+      }
+      if (group === 'weight') {
+        els.weightMin.value = '';
+        els.weightMax.value = '';
+        els.weightFee.value = '';
+        els.weightActive.value = 'true';
+      }
+    };
+
+    const loadSettings = async () => {
+      const snap = await getDoc(SETTINGS_DOC);
+      if (snap.exists()) {
+        const data = snap.data();
+        els.showHome.checked = data?.methodsVisible?.home !== false;
+        els.showPickup.checked = data?.methodsVisible?.pickup !== false;
+        els.showMeetup.checked = data?.methodsVisible?.meetup !== false;
+        els.allowMeetupProposal.checked = data?.allowMeetupProposal !== false;
+      }
+    };
+
+    const loadCollection = async (col) => {
+      const snap = await getDocs(col);
+      return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    };
+
+    const loadAll = async () => {
+      state.home = await loadCollection(HOME_COL);
+      state.pickup = await loadCollection(PICKUP_COL);
+      state.meetup = await loadCollection(MEETUP_COL);
+      state.weight = await loadCollection(WEIGHT_COL);
+      renderAll();
+    };
+
+    const renderAll = () => {
+      renderHome();
+      renderPickup();
+      renderMeetup();
+      renderWeight();
+    };
+
+    const renderHome = () => {
+      els.homeList.innerHTML = state.home.map(item => `
+        <tr>
+          <td>${item.city || ''}</td>
+          <td>${item.zone || '-'}</td>
+          <td>${formatPrice(item.fee || 0)}</td>
+          <td>${badge(item.isActive !== false)}</td>
+          <td>
+            <button class="btn btn-secondary" data-edit="home" data-id="${item.id}">Modifier</button>
+            <button class="btn btn-danger" data-delete="home" data-id="${item.id}">Supprimer</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="muted">Aucune zone</td></tr>';
+    };
+
+    const renderPickup = () => {
+      els.pickupList.innerHTML = state.pickup.map(item => `
+        <tr>
+          <td>${item.name || ''}</td>
+          <td>${item.address || ''}</td>
+          <td>${[item.phone, item.whatsapp].filter(Boolean).join(' / ') || '-'}</td>
+          <td>${badge(item.isActive !== false)}</td>
+          <td>
+            <button class="btn btn-secondary" data-edit="pickup" data-id="${item.id}">Modifier</button>
+            <button class="btn btn-danger" data-delete="pickup" data-id="${item.id}">Supprimer</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="muted">Aucun point</td></tr>';
+    };
+
+    const renderMeetup = () => {
+      els.meetupList.innerHTML = state.meetup.map(item => `
+        <tr>
+          <td>${item.zone || ''}</td>
+          <td>${formatPrice(item.fee || 0)}</td>
+          <td>${badge(item.isActive !== false)}</td>
+          <td>
+            <button class="btn btn-secondary" data-edit="meetup" data-id="${item.id}">Modifier</button>
+            <button class="btn btn-danger" data-delete="meetup" data-id="${item.id}">Supprimer</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="4" class="muted">Aucune zone</td></tr>';
+    };
+
+    const renderWeight = () => {
+      els.weightList.innerHTML = state.weight.map(item => `
+        <tr>
+          <td>${item.minGrams || 0} g</td>
+          <td>${item.maxGrams || 0} g</td>
+          <td>${formatPrice(item.fee || 0)}</td>
+          <td>${badge(item.isActive !== false)}</td>
+          <td>
+            <button class="btn btn-secondary" data-edit="weight" data-id="${item.id}">Modifier</button>
+            <button class="btn btn-danger" data-delete="weight" data-id="${item.id}">Supprimer</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="muted">Aucune regle</td></tr>';
+    };
+
+    const handleEdit = (group, item) => {
+      if (group === 'home') {
+        els.homeId.value = item.id;
+        els.homeCity.value = item.city || '';
+        els.homeZone.value = item.zone || '';
+        els.homeFee.value = item.fee || '';
+        els.homeActive.value = item.isActive !== false ? 'true' : 'false';
+      }
+      if (group === 'pickup') {
+        els.pickupId.value = item.id;
+        els.pickupName.value = item.name || '';
+        els.pickupAddress.value = item.address || '';
+        els.pickupPhone.value = item.phone || '';
+        els.pickupWhatsapp.value = item.whatsapp || '';
+        els.pickupActive.value = item.isActive !== false ? 'true' : 'false';
+      }
+      if (group === 'meetup') {
+        els.meetupId.value = item.id;
+        els.meetupZone.value = item.zone || '';
+        els.meetupFee.value = item.fee || '';
+        els.meetupActive.value = item.isActive !== false ? 'true' : 'false';
+      }
+      if (group === 'weight') {
+        els.weightId.value = item.id;
+        els.weightMin.value = item.minGrams || '';
+        els.weightMax.value = item.maxGrams || '';
+        els.weightFee.value = item.fee || '';
+        els.weightActive.value = item.isActive !== false ? 'true' : 'false';
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleDelete = async (group, id) => {
+      if (!confirm('Supprimer cet element ?')) return;
+      const map = {
+        home: HOME_COL,
+        pickup: PICKUP_COL,
+        meetup: MEETUP_COL,
+        weight: WEIGHT_COL
+      };
+      await deleteDoc(doc(map[group], id));
+      await loadAll();
+    };
+
+    els.settingsForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await setDoc(SETTINGS_DOC, {
+        methodsVisible: {
+          home: els.showHome.checked,
+          pickup: els.showPickup.checked,
+          meetup: els.showMeetup.checked
+        },
+        allowMeetupProposal: els.allowMeetupProposal.checked
+      }, { merge: true });
+      alert('Parametres enregistres');
+    });
+
+    els.homeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        city: els.homeCity.value.trim(),
+        zone: els.homeZone.value.trim(),
+        fee: Number(els.homeFee.value || 0),
+        isActive: els.homeActive.value === 'true'
+      };
+      if (!data.city) return alert('Veuillez entrer une ville.');
+      if (els.homeId.value) {
+        await updateDoc(doc(HOME_COL, els.homeId.value), data);
+      } else {
+        await addDoc(HOME_COL, data);
+      }
+      resetForm('home');
+      await loadAll();
+    });
+
+    els.pickupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        name: els.pickupName.value.trim(),
+        address: els.pickupAddress.value.trim(),
+        phone: els.pickupPhone.value.trim(),
+        whatsapp: els.pickupWhatsapp.value.trim(),
+        isActive: els.pickupActive.value === 'true'
+      };
+      if (!data.name) return alert('Veuillez entrer un nom de point.');
+      if (els.pickupId.value) {
+        await updateDoc(doc(PICKUP_COL, els.pickupId.value), data);
+      } else {
+        await addDoc(PICKUP_COL, data);
+      }
+      resetForm('pickup');
+      await loadAll();
+    });
+
+    els.meetupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        zone: els.meetupZone.value.trim(),
+        fee: Number(els.meetupFee.value || 0),
+        isActive: els.meetupActive.value === 'true'
+      };
+      if (!data.zone) return alert('Veuillez entrer une zone.');
+      if (els.meetupId.value) {
+        await updateDoc(doc(MEETUP_COL, els.meetupId.value), data);
+      } else {
+        await addDoc(MEETUP_COL, data);
+      }
+      resetForm('meetup');
+      await loadAll();
+    });
+
+    els.weightForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        minGrams: Number(els.weightMin.value || 0),
+        maxGrams: Number(els.weightMax.value || 0),
+        fee: Number(els.weightFee.value || 0),
+        isActive: els.weightActive.value === 'true'
+      };
+      if (!data.minGrams && !data.maxGrams) return alert('Veuillez definir une plage.');
+      if (els.weightId.value) {
+        await updateDoc(doc(WEIGHT_COL, els.weightId.value), data);
+      } else {
+        await addDoc(WEIGHT_COL, data);
+      }
+      resetForm('weight');
+      await loadAll();
+    });
+
+    els.homeReset.addEventListener('click', () => resetForm('home'));
+    els.pickupReset.addEventListener('click', () => resetForm('pickup'));
+    els.meetupReset.addEventListener('click', () => resetForm('meetup'));
+    els.weightReset.addEventListener('click', () => resetForm('weight'));
+
+    document.body.addEventListener('click', (event) => {
+      const editBtn = event.target.closest('[data-edit]');
+      if (editBtn) {
+        const group = editBtn.dataset.edit;
+        const id = editBtn.dataset.id;
+        const item = state[group]?.find(entry => entry.id === id);
+        if (item) handleEdit(group, item);
+        return;
+      }
+      const deleteBtn = event.target.closest('[data-delete]');
+      if (deleteBtn) {
+        handleDelete(deleteBtn.dataset.delete, deleteBtn.dataset.id);
+      }
+    });
+
+    await loadSettings();
+    await loadAll();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

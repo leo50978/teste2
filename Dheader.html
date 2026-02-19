@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5, viewport-fit=cover">
+  <title>Vitch Studio · dashboard old money · FINAL</title>
+
+  <!-- Google Fonts old money -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor + Font Awesome -->
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  
+  <!-- Firebase v9 modular -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js",
+        "firebase/storage": "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js"
+      }
+    }
+  </script>
+  
+  <!-- Anime.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <style>
+    /* ===== VARIABLES OLD MONEY ===== */
+    :root {
+      --primary-color: #3a4e3f;
+      --secondary-color: #b89b7b;
+      --accent-color: #7c3e3e;
+      --primary-font: 'Cormorant Garamond', serif;
+      --secondary-font: 'Manrope', sans-serif;
+      --bg-soft: #f9f7f4;
+      --sidebar-width: 340px;
+    }
+
+    body {
+      font-family: var(--secondary-font);
+      background-color: var(--bg-soft);
+      color: #1e1e1e;
+    }
+
+    .font-primary-old {
+      font-family: var(--primary-font);
+      font-weight: 600;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebarSierra37 {
+      background: white;
+      border-right: 1px solid rgba(184, 155, 123, 0.15);
+      box-shadow: 8px 0 28px -12px rgba(0,0,0,0.03);
+    }
+
+    /* ===== CARDS ===== */
+    .cardEstate12 {
+      background: white;
+      border-radius: 28px;
+      padding: 1.5rem;
+      box-shadow: 0 12px 32px -12px rgba(58,78,63,0.06), 0 0 0 1px rgba(184,155,123,0.08);
+      transition: all 0.3s ease;
+    }
+
+    /* ===== BOUTONS ===== */
+    .btnSavoraLux12 {
+      background-color: var(--primary-color);
+      color: white;
+      font-weight: 500;
+      padding: 0.7rem 1.8rem;
+      border-radius: 40px;
+      transition: all 0.25s;
+      border: none;
+      box-shadow: 0 4px 12px rgba(58,78,63,0.12);
+    }
+    .btnSavoraLux12:hover {
+      background-color: #2d3e32;
+      transform: translateY(-2px);
+    }
+
+    .btnOutlineOld {
+      background: transparent;
+      border: 1px solid var(--secondary-color);
+      color: #2c2c2c;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+    .btnOutlineOld:hover {
+      background: rgba(184,155,123,0.06);
+      border-color: #8e735b;
+    }
+
+    /* ===== INPUTS ===== */
+    .inputVellum88 {
+      border: 1px solid #e8e1d8;
+      border-radius: 20px;
+      padding: 0.75rem 1.2rem;
+      background: white;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    .inputVellum88:focus {
+      border-color: var(--primary-color);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(58,78,63,0.06);
+    }
+
+    /* ===== SÉLECTEUR ICÔNES ===== */
+    .iconSelectSuper {
+      width: 100%;
+      padding: 0.75rem 1.2rem;
+      border-radius: 20px;
+      border: 1px solid #e8e1d8;
+      background: white;
+      font-size: 1rem;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%233a4e3f' viewBox='0 0 24 24'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 1rem center;
+      background-size: 1.5rem;
+    }
+
+    /* ===== PREVIEW LOGO ===== */
+    .logoPreviewContainer {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: #f5f2ef;
+      border-radius: 18px;
+      padding: 0.8rem 1.2rem;
+      margin-top: 0.5rem;
+    }
+    .logoPreviewImage {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      object-fit: cover;
+      background: #e4ddd4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ===== CATEGORY CARD ===== */
+    .categoryCardNova9 {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s;
+    }
+    .categoryImagePreview {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 16px;
+      margin-bottom: 0.75rem;
+      background: #f0ece7;
+    }
+
+    /* ===== COLONNES & LIGNES ===== */
+    .columnCardLune {
+      background: #fcfbf9;
+      border-radius: 20px;
+      padding: 1.2rem;
+      border: 1px solid #e9e2da;
+    }
+    .lineItemWithImage {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: white;
+      padding: 0.8rem;
+      border-radius: 16px;
+      border: 1px solid #eee8e1;
+    }
+
+    /* ===== MOBILE FIRST ===== */
+    .dashboardGridAlpha {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 1024px) {
+      .dashboardGridAlpha {
+        grid-template-columns: var(--sidebar-width) 1fr;
+      }
+    }
+
+    [data-animation="fade-slide-up"] {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+  </style>
+</head>
+<body>
+
+<!-- DASHBOARD COMPLET -->
+<div id="sierraDashboardRoot" class="dashboardGridAlpha">
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside id="sidebarSierra37" class="sidebarSierra37 fixed lg:relative top-0 left-0 h-full w-[var(--sidebar-width)] z-50 p-6 overflow-y-auto transform transition-all duration-300 -translate-x-full lg:translate-x-0">
+    <div class="flex items-center justify-between mb-10">
+      <div class="flex items-center space-x-3">
+        <i class="fas fa-crown text-2xl" style="color: var(--primary-color);"></i>
+        <h2 class="text-2xl font-primary-old" style="color: var(--primary-color);">Vitch Studio</h2>
+      </div>
+      <button id="closeSidebarTrigger88" class="lg:hidden text-stone-600 p-2"><i class="fas fa-times"></i></button>
+    </div>
+    <nav class="space-y-2">
+      <a href="#config-header" class="flex items-center space-x-4 p-3 rounded-2xl bg-[#ece7e1] font-medium"><i class="fas fa-cog w-5"></i><span>Configuration</span></a>
+      <a href="#announce-panel" class="flex items-center space-x-4 p-3 rounded-2xl hover:bg-[#f5f2ed]"><i class="fas fa-bullhorn w-5"></i><span>Annonces</span></a>
+      <a href="#category-panel" class="flex items-center space-x-4 p-3 rounded-2xl hover:bg-[#f5f2ed]"><i class="fas fa-sitemap w-5"></i><span>Catégories</span></a>
+      <a href="#product-panel" class="flex items-center space-x-4 p-3 rounded-2xl hover:bg-[#f5f2ed]"><i class="fas fa-cube w-5"></i><span>Produits</span></a>
+    </nav>
+  </aside>
+
+  <!-- ===== MAIN PANEL ===== -->
+  <main id="panelHeaderOmega91" class="p-4 md:p-8 w-full">
+
+    <!-- mobile toggle -->
+    <div class="flex lg:hidden items-center justify-between mb-6">
+      <button id="openSidebarTrigger99" class="p-2 border border-[#dad3cb] rounded-xl"><i class="fas fa-bars text-xl" style="color: var(--primary-color);"></i></button>
+      <div class="font-primary-old text-xl text-[#3a4e3f]">Vitch Studio</div>
+      <div class="w-8"></div>
+    </div>
+
+    <!-- ===== PREVIEW HEADER ===== -->
+    <div id="livePreviewHeader" class="bg-white rounded-2xl p-5 mb-8 flex items-center justify-between border border-[#e0d8cf] shadow-sm" data-animation="fade-slide-up"></div>
+
+    <!-- ======================================== -->
+    <!--  A) CONFIGURATION HEADER                -->
+    <!-- ======================================== -->
+    <section id="config-header" class="cardEstate12 mb-10" data-animation="fade-slide-up">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-7">
+        <h3 class="text-2xl font-primary-old" style="color: var(--primary-color);">⚜️ Configuration en-tête</h3>
+        <button id="saveGlobalConfigBtn72" class="btnSavoraLux12 mt-3 sm:mt-0"><i class="fas fa-save mr-2"></i>Enregistrer</button>
+      </div>
+
+      <div class="bg-[#f8f6f3] p-5 rounded-2xl mb-6">
+        <label class="block text-xs uppercase mb-2 text-stone-600">Logo (URL ou nom du fichier)</label>
+        <div class="flex flex-wrap items-center gap-4">
+          <input type="text" id="logoImageUrlInput83" class="inputVellum88 flex-1" placeholder="/logo-vitch-studio.png ou https://...">
+          <div class="logoPreviewContainer flex-1">
+            <div id="logoPreviewBox" class="logoPreviewImage">
+              <i class="fas fa-image"></i>
+            </div>
+            <span class="text-sm text-stone-600" id="logoPreviewFilename">aucun logo</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div><label class="block text-xs uppercase mb-2">Nom entreprise</label><input type="text" id="companyNameInput83" class="inputVellum88" placeholder="Vitch Studio"></div>
+        
+        <div>
+          <label class="block text-xs uppercase mb-2">Icône menu</label>
+          <select id="selectIconHamburger83" class="iconSelectSuper">
+            <option value="fas fa-bars">☰ Bars</option>
+            <option value="fas fa-grip-lines">≡ Grip lines</option>
+            <option value="fas fa-grip-lines-vertical">⋮ Grip vertical</option>
+            <option value="fas fa-ellipsis-h">⋯ Ellipsis</option>
+            <option value="fas fa-bars-progress">📊 Bars progress</option>
+            <option value="fas fa-sliders-h">⚙️ Sliders</option>
+            <option value="fas fa-burger">🍔 Burger</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase mb-2">Icône recherche</label>
+          <select id="selectIconSearch83" class="iconSelectSuper">
+            <option value="fas fa-search">🔍 Search</option>
+            <option value="fas fa-magnifying-glass">🔎 Magnifying</option>
+            <option value="fas fa-binoculars">Binoculars</option>
+            <option value="fas fa-eye">Eye</option>
+            <option value="fas fa-search-location">📍 Search location</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs uppercase mb-2">Icône panier</label>
+          <select id="selectIconCart83" class="iconSelectSuper">
+            <option value="fas fa-shopping-bag">🛍️ Bag</option>
+            <option value="fas fa-cart-shopping">🛒 Cart</option>
+            <option value="fas fa-basket-shopping">🧺 Basket</option>
+            <option value="fas fa-gift">🎁 Gift</option>
+            <option value="fas fa-store">🏬 Store</option>
+          </select>
+        </div>
+
+        <div><label class="text-xs uppercase">Primary color</label><input type="color" id="primaryColorInput83" class="inputVellum88 h-12" value="#3a4e3f"></div>
+        <div><label class="text-xs uppercase">Secondary color</label><input type="color" id="secondaryColorInput83" class="inputVellum88 h-12" value="#b89b7b"></div>
+        <div><label class="text-xs uppercase">Accent color</label><input type="color" id="accentColorInput83" class="inputVellum88 h-12" value="#7c3e3e"></div>
+      </div>
+    </section>
+
+    <!-- ===== B) ANNONCES ===== -->
+    <section id="announce-panel" class="cardEstate12 mb-10" data-animation="fade-slide-up">
+      <h3 class="text-2xl font-primary-old mb-5">📢 Bandeau d'annonces</h3>
+      <div class="flex flex-wrap gap-3 items-end mb-7">
+        <div class="flex-1"><label class="text-xs uppercase">Texte</label><input type="text" id="newAnnounceText07" class="inputVellum88" placeholder="Livraison offerte..."></div>
+        <div style="width:100px;"><label class="text-xs uppercase">Ordre</label><input type="number" id="newAnnounceOrder07" class="inputVellum88" value="1"></div>
+        <div class="flex items-center space-x-3 py-2"><label class="text-sm">Actif</label><input type="checkbox" id="newAnnounceActive07" class="w-5 h-5 accent-[#3a4e3f]" checked></div>
+        <button id="addAnnounceBtn81" class="btnSavoraLux12 px-6"><i class="fas fa-plus mr-1"></i>Ajouter</button>
+      </div>
+      <div id="announcementListContainer" class="space-y-3"></div>
+    </section>
+
+    <!-- ===== C) CATÉGORIES (collection: categories_list) ===== -->
+    <section id="category-panel" class="cardEstate12 mb-10" data-animation="fade-slide-up">
+      <h3 class="text-2xl font-primary-old mb-5">📁 Catégories · Images · Modification</h3>
+      
+      <div class="bg-[#f8f6f3] p-5 rounded-2xl mb-7">
+        <h4 class="text-md font-primary-old mb-4 text-[#3a4e3f]">➕ Ajouter une nouvelle catégorie</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label class="text-xs uppercase block mb-1">Nom *</label>
+            <input type="text" id="newCatName20" placeholder="Nom catégorie" class="inputVellum88">
+          </div>
+          <div>
+            <label class="text-xs uppercase block mb-1">Image</label>
+            <input type="text" id="newCatImage20" placeholder="image.jpg" class="inputVellum88">
+          </div>
+          <div>
+            <label class="text-xs uppercase block mb-1">Description</label>
+            <input type="text" id="newCatDescription20" placeholder="Description" class="inputVellum88">
+          </div>
+          <div class="flex items-end space-x-4 pb-1">
+            <div class="flex items-center space-x-2">
+              <label class="text-xs">Afficher navbar mobile</label>
+              <input type="checkbox" id="newCatShow20" class="w-5 h-5" checked>
+            </div>
+            <button id="addCategoryBtn54" class="btnSavoraLux12 px-5">+ Catégorie</button>
+          </div>
+        </div>
+        <div id="newCategoryImagePreview" class="mt-3 hidden">
+          <span class="text-xs text-stone-600">Aperçu image:</span>
+          <img src="" alt="preview" class="h-12 w-12 object-cover rounded-lg ml-2 inline-block">
+        </div>
+      </div>
+
+      <div id="categoryGridContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-8"></div>
+
+      <!-- GESTION COLONNES & LIGNES (sous-collections de categories_list) -->
+      <div id="columnManagerContainer" class="hidden mt-8 border-t pt-8" data-animation="fade-slide-up">
+        <div class="flex flex-wrap items-center justify-between mb-6">
+          <h4 id="selectedCategoryTitleCol" class="text-xl font-primary-old"></h4>
+          <div class="flex space-x-3">
+            <button id="editCategoryBtn92" class="btnOutlineOld flex items-center"><i class="fas fa-pencil-alt mr-2"></i>Modifier catégorie</button>
+            <button id="closeColumnManagerBtn" class="btnOutlineOld"><i class="fas fa-times mr-1"></i>Fermer</button>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center mb-6 bg-[#f5f2ef] p-4 rounded-2xl">
+          <input type="text" id="newColumnNameInput" placeholder="Nom de la colonne" class="inputVellum88 flex-1">
+          <input type="number" id="newColumnOrderInput" placeholder="Ordre" class="inputVellum88 w-24" value="1">
+          <button id="addColumnBtn86" class="btnSavoraLux12">+ Colonne</button>
+        </div>
+
+        <div id="columnListContainer" class="space-y-6"></div>
+      </div>
+    </section>
+
+    <!-- ===== D) PRODUITS ===== -->
+    <section id="product-panel" class="cardEstate12" data-animation="fade-slide-up">
+      <h3 class="text-2xl font-primary-old mb-5">🛍️ Produits · Gestion</h3>
+      
+      <!-- Tableau des produits -->
+      <div id="productTableWrapper" class="overflow-x-auto"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  // ██████████████████████████████████████████████████████████████████████
+  // 🔥 FIREBASE · UTILISATION DE categories_list
+  // ██████████████████████████████████████████████████████████████████████
+  import { initializeApp } from 'firebase/app';
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot, getDocs } from 'firebase/firestore';
+  import { getStorage } from 'firebase/storage';
+
+  // ---------- CONFIG FIREBASE ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+    authDomain: "allin-f65df.firebaseapp.com",
+    projectId: "allin-f65df",
+    storageBucket: "allin-f65df.firebasestorage.app",
+    messagingSenderId: "955152530266",
+    appId: "1:955152530266:web:19952842f4559b10af9163"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  // Collection pour les catégories
+  const CATEGORIES_COLLECTION = "categories_list";
+
+  // ---------- NOTIFICATIONS ----------
+  const notifySuccess = (msg) => Swal.fire({ icon: 'success', title: 'Succès', text: msg, timer: 1800, showConfirmButton: false, background: 'white', borderRadius: '28px' });
+  const notifyDelete = (msg) => Swal.fire({ icon: 'warning', title: 'Supprimé', text: msg, timer: 1600, showConfirmButton: false, background: '#fefaf0', borderRadius: '28px' });
+
+  // ========== 1. GLOBAL CONFIG ==========
+  const CONFIG_REF = doc(db, 'headerConfig', 'sierraHeaderGlobal');
+  
+  const logoInput = document.getElementById('logoImageUrlInput83');
+  const logoPreviewBox = document.getElementById('logoPreviewBox');
+  const logoPreviewFilename = document.getElementById('logoPreviewFilename');
+
+  function updateLogoPreview() {
+    const url = logoInput.value.trim();
+    if (url) {
+      logoPreviewBox.innerHTML = `<img src="${url}" alt="logo" class="w-full h-full object-cover rounded-lg" onerror="this.onerror=null; this.src='https://via.placeholder.com/64?text=erreur';">`;
+      logoPreviewFilename.textContent = url.split('/').pop() || url;
+    } else {
+      logoPreviewBox.innerHTML = '<i class="fas fa-image"></i>';
+      logoPreviewFilename.textContent = 'aucun logo';
+    }
+    refreshPreviewHeader();
+  }
+  logoInput.addEventListener('input', updateLogoPreview);
+
+  async function loadGlobalConfig() {
+    const snap = await getDoc(CONFIG_REF);
+    if (snap.exists()) {
+      const d = snap.data();
+      logoInput.value = d.logoUrl || '';
+      document.getElementById('companyNameInput83').value = d.companyName || 'Vitch Studio';
+      document.getElementById('selectIconHamburger83').value = d.primaryIconHamburger || 'fas fa-bars';
+      document.getElementById('selectIconSearch83').value = d.primaryIconSearch || 'fas fa-search';
+      document.getElementById('selectIconCart83').value = d.primaryIconCart || 'fas fa-shopping-bag';
+      document.getElementById('primaryColorInput83').value = d.primaryColor || '#3a4e3f';
+      document.getElementById('secondaryColorInput83').value = d.secondaryColor || '#b89b7b';
+      document.getElementById('accentColorInput83').value = d.accentColor || '#7c3e3e';
+      updateLogoPreview();
+    } else {
+      await setDoc(CONFIG_REF, { 
+        logoUrl: '', 
+        companyName: 'Vitch Studio', 
+        primaryIconHamburger: 'fas fa-bars', 
+        primaryIconSearch: 'fas fa-search', 
+        primaryIconCart: 'fas fa-shopping-bag', 
+        primaryColor: '#3a4e3f', 
+        secondaryColor: '#b89b7b', 
+        accentColor: '#7c3e3e' 
+      });
+      loadGlobalConfig();
+    }
+  }
+  loadGlobalConfig();
+
+  document.getElementById('saveGlobalConfigBtn72').addEventListener('click', async () => {
+    await setDoc(CONFIG_REF, {
+      logoUrl: logoInput.value,
+      companyName: document.getElementById('companyNameInput83').value,
+      primaryIconHamburger: document.getElementById('selectIconHamburger83').value,
+      primaryIconSearch: document.getElementById('selectIconSearch83').value,
+      primaryIconCart: document.getElementById('selectIconCart83').value,
+      primaryColor: document.getElementById('primaryColorInput83').value,
+      secondaryColor: document.getElementById('secondaryColorInput83').value,
+      accentColor: document.getElementById('accentColorInput83').value,
+    });
+    notifySuccess('Configuration enregistrée');
+    refreshPreviewHeader();
+  });
+
+  function refreshPreviewHeader() {
+    const preview = document.getElementById('livePreviewHeader');
+    const company = document.getElementById('companyNameInput83').value || 'Vitch Studio';
+    const ham = document.getElementById('selectIconHamburger83').value;
+    const search = document.getElementById('selectIconSearch83').value;
+    const cart = document.getElementById('selectIconCart83').value;
+    const logoUrl = logoInput.value.trim();
+    
+    preview.innerHTML = logoUrl ? 
+      `<div class="flex items-center space-x-4"><img src="${logoUrl}" alt="logo" class="h-10 w-auto object-contain" onerror="this.style.display='none';"> <span class="font-primary-old text-xl">${company}</span></div>
+       <div class="flex space-x-4"><i class="${ham} text-xl"></i><i class="${search} text-xl"></i><i class="${cart} text-xl"></i></div>` :
+      `<div class="flex items-center space-x-4"><span class="font-primary-old text-xl">${company}</span></div>
+       <div class="flex space-x-4"><i class="${ham} text-xl"></i><i class="${search} text-xl"></i><i class="${cart} text-xl"></i></div>`;
+  }
+
+  // ========== 2. ANNONCES ==========
+  const annList = document.getElementById('announcementListContainer');
+  onSnapshot(query(collection(db, 'announcementBar'), orderBy('order')), (snap) => {
+    annList.innerHTML = '';
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      const div = document.createElement('div');
+      div.className = 'flex flex-wrap items-center justify-between bg-[#faf8f6] p-4 rounded-xl border border-[#e2dbd1]';
+      div.innerHTML = `
+        <div class="flex items-center space-x-3">
+          <input type="text" value="${d.text || ''}" data-id="${docSnap.id}" data-field="text" class="editAnnounceInline text-sm bg-transparent border-b border-[#cbc1b6] px-2 py-1 focus:outline-none focus:border-[#3a4e3f] w-48">
+          <span class="text-xs">ordre</span>
+          <input type="number" value="${d.order || 1}" data-id="${docSnap.id}" data-field="order" class="editAnnounceInline w-16 text-sm bg-transparent border-b border-[#cbc1b6] px-2 py-1 focus:outline-none focus:border-[#3a4e3f]">
+          <label class="flex items-center text-xs ml-2"><input type="checkbox" data-id="${docSnap.id}" class="toggleAnnActive mr-1" ${d.isActive ? 'checked' : ''}> actif</label>
+        </div>
+        <div><button data-id="${docSnap.id}" class="delAnnBtn text-[#7c3e3e] px-3"><i class="fas fa-trash"></i></button></div>`;
+      annList.appendChild(div);
+    });
+
+    document.querySelectorAll('.editAnnounceInline').forEach(el => {
+      el.addEventListener('change', async (e) => {
+        const id = e.target.dataset.id;
+        const field = e.target.dataset.field;
+        const value = field === 'order' ? parseInt(e.target.value) : e.target.value;
+        await updateDoc(doc(db, 'announcementBar', id), { [field]: value });
+        notifySuccess('Annonce modifiée');
+      });
+    });
+
+    document.querySelectorAll('.toggleAnnActive').forEach(cb => cb.addEventListener('change', async (e) => {
+      await updateDoc(doc(db, 'announcementBar', e.target.dataset.id), { isActive: e.target.checked });
+      notifySuccess('Statut mis à jour');
+    }));
+
+    document.querySelectorAll('.delAnnBtn').forEach(b => b.addEventListener('click', async (e) => {
+      await deleteDoc(doc(db, 'announcementBar', e.currentTarget.dataset.id));
+      notifyDelete('Annonce supprimée');
+    }));
+  });
+
+  document.getElementById('addAnnounceBtn81').addEventListener('click', async () => {
+    await addDoc(collection(db, 'announcementBar'), {
+      text: document.getElementById('newAnnounceText07').value,
+      order: parseInt(document.getElementById('newAnnounceOrder07').value) || 1,
+      isActive: document.getElementById('newAnnounceActive07').checked
+    });
+    notifySuccess('Annonce ajoutée');
+  });
+
+  // ========== 3. CATÉGORIES (categories_list) ==========
+  const catImageInput = document.getElementById('newCatImage20');
+  const catImagePreview = document.getElementById('newCategoryImagePreview');
+  catImageInput.addEventListener('input', () => {
+    if (catImageInput.value) {
+      catImagePreview.classList.remove('hidden');
+      catImagePreview.querySelector('img').src = catImageInput.value.startsWith('http') ? catImageInput.value : './' + catImageInput.value;
+    } else {
+      catImagePreview.classList.add('hidden');
+    }
+  });
+
+  let selectedCategoryId = null;
+  let selectedCategoryData = null;
+  const catGrid = document.getElementById('categoryGridContainer');
+  const colManager = document.getElementById('columnManagerContainer');
+  const catTitle = document.getElementById('selectedCategoryTitleCol');
+
+  async function editCategory(categoryId, categoryData) {
+    const { value: formValues } = await Swal.fire({
+      title: 'Modifier la catégorie',
+      html: `
+        <input id="edit-cat-name" class="swal2-input" placeholder="Nom" value="${categoryData.name || ''}">
+        <input id="edit-cat-image" class="swal2-input" placeholder="Image" value="${categoryData.image || ''}">
+        <input id="edit-cat-description" class="swal2-input" placeholder="Description" value="${categoryData.description || ''}">
+        <div style="display:flex; align-items:center; margin-top:1rem; justify-content:center;">
+          <label style="display:flex; align-items:center; gap:0.5rem;">
+            <input type="checkbox" id="edit-cat-show" ${categoryData.showInHeader ? 'checked' : ''}> Afficher dans la navbar mobile
+          </label>
+        </div>
+      `,
+      focusConfirm: false,
+      preConfirm: () => ({
+        name: document.getElementById('edit-cat-name').value,
+        image: document.getElementById('edit-cat-image').value,
+        description: document.getElementById('edit-cat-description').value,
+        showInHeader: document.getElementById('edit-cat-show').checked,
+        updatedAt: new Date().toISOString()
+      })
+    });
+    
+    if (formValues) {
+      await updateDoc(doc(db, CATEGORIES_COLLECTION, categoryId), formValues);
+      notifySuccess('Catégorie modifiée');
+      if (selectedCategoryId === categoryId) {
+        catTitle.innerText = `📂 ${formValues.name} · Gestion colonnes & lignes`;
+        selectedCategoryData = formValues;
+      }
+    }
+  }
+
+  // Charger les catégories depuis categories_list
+  onSnapshot(query(collection(db, CATEGORIES_COLLECTION), orderBy('createdAt', 'desc')), (snap) => {
+    catGrid.innerHTML = '';
+    
+    if (snap.empty) {
+      catGrid.innerHTML = '<div class="col-span-3 text-center py-8 text-stone-500">Aucune catégorie trouvée</div>';
+      return;
+    }
+    
+    snap.forEach(docCat => {
+      const cat = docCat.data(); 
+      cat.id = docCat.id;
+      
+      const card = document.createElement('div');
+      card.className = 'categoryCardNova9 cardEstate12 p-4 cursor-pointer hover:border-[#b89b7b] border-2 border-transparent transition';
+      card.dataset.catId = cat.id;
+      
+      const imageHtml = cat.image ? 
+        `<img src="${cat.image.startsWith('http') ? cat.image : './' + cat.image}" alt="${cat.name}" class="categoryImagePreview w-full h-32 object-cover rounded-xl mb-3" onerror="this.src='https://via.placeholder.com/200x120?text=image';">` : 
+        `<div class="categoryImagePreview w-full h-32 bg-[#e4ddd4] rounded-xl mb-3 flex items-center justify-center"><i class="fas fa-image text-3xl text-stone-500"></i></div>`;
+      
+      const description = cat.description ? cat.description.substring(0, 30) + (cat.description.length > 30 ? '...' : '') : '';
+      
+      card.innerHTML = `
+        ${imageHtml}
+        <div class="flex justify-between items-start">
+          <span class="font-bold font-primary-old text-lg">${cat.name || 'Sans nom'}</span>
+          <label class="flex items-center text-xs bg-white px-2 py-1 rounded-full border">
+            <input type="checkbox" data-id="${cat.id}" class="toggleShowCat mr-1" ${cat.showInHeader ? 'checked' : ''}> mobile
+          </label>
+        </div>
+        <div class="text-xs text-stone-500 mt-1">${description}</div>
+        <div class="flex justify-between items-center mt-2">
+          <span class="text-xs text-stone-500">${new Date(cat.createdAt).toLocaleDateString('fr-FR')}</span>
+          <div class="flex space-x-2">
+            <button data-id="${cat.id}" class="editCatBtn95 text-[#3a4e3f] px-3 py-1 border border-[#b89b7b] rounded-full text-xs hover:bg-[#f3efe9]">
+              <i class="fas fa-pencil-alt mr-1"></i>Modifier
+            </button>
+            <button data-id="${cat.id}" class="delCatBtn text-[#7c3e3e] px-3 py-1 border border-[#e2dbd1] rounded-full text-xs hover:bg-[#f9f0ed]">
+              <i class="fas fa-trash mr-1"></i>
+            </button>
+          </div>
+        </div>
+      `;
+      
+      catGrid.appendChild(card);
+      
+      card.addEventListener('click', (e) => {
+        if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input')) return;
+        selectedCategoryId = cat.id;
+        selectedCategoryData = cat;
+        colManager.classList.remove('hidden');
+        catTitle.innerText = `📂 ${cat.name} · Gestion colonnes & lignes`;
+        loadColumns(cat.id);
+      });
+
+      card.querySelector('.editCatBtn95').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const catId = e.currentTarget.dataset.id;
+        const catSnap = await getDoc(doc(db, CATEGORIES_COLLECTION, catId));
+        if (catSnap.exists()) {
+          editCategory(catId, catSnap.data());
+        }
+      });
+    });
+
+    document.querySelectorAll('.delCatBtn').forEach(b => b.addEventListener('click', async (e) => {
+      e.stopPropagation(); 
+      e.preventDefault();
+      const result = await Swal.fire({
+        title: 'Supprimer la catégorie ?',
+        text: "Cette action supprimera aussi toutes les colonnes et lignes associées",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3e3e',
+        cancelButtonColor: '#b89b7b',
+        confirmButtonText: 'Oui, supprimer'
+      });
+      if (result.isConfirmed) {
+        await deleteDoc(doc(db, CATEGORIES_COLLECTION, e.currentTarget.dataset.id));
+        notifyDelete('Catégorie supprimée');
+        if (selectedCategoryId === e.currentTarget.dataset.id) {
+          colManager.classList.add('hidden');
+          selectedCategoryId = null;
+          selectedCategoryData = null;
+        }
+      }
+    }));
+    
+    document.querySelectorAll('.toggleShowCat').forEach(cb => cb.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      await updateDoc(doc(db, CATEGORIES_COLLECTION, e.target.dataset.id), { showInHeader: e.target.checked });
+      notifySuccess('Affichage modifié');
+    }));
+  });
+
+  document.getElementById('editCategoryBtn92').addEventListener('click', async () => {
+    if (selectedCategoryId && selectedCategoryData) {
+      editCategory(selectedCategoryId, selectedCategoryData);
+    } else {
+      const snap = await getDoc(doc(db, CATEGORIES_COLLECTION, selectedCategoryId));
+      if (snap.exists()) {
+        editCategory(selectedCategoryId, snap.data());
+      }
+    }
+  });
+
+  document.getElementById('addCategoryBtn54').addEventListener('click', async () => {
+    const name = document.getElementById('newCatName20').value;
+    if (!name) {
+      Swal.fire('Erreur', 'Le nom de la catégorie est requis', 'error');
+      return;
+    }
+    
+    await addDoc(collection(db, CATEGORIES_COLLECTION), {
+      name: name,
+      image: document.getElementById('newCatImage20').value || '',
+      description: document.getElementById('newCatDescription20').value || '',
+      showInHeader: document.getElementById('newCatShow20').checked,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    
+    notifySuccess('Catégorie ajoutée');
+    
+    document.getElementById('newCatName20').value = '';
+    document.getElementById('newCatImage20').value = '';
+    document.getElementById('newCatDescription20').value = '';
+    document.getElementById('newCatShow20').checked = true;
+    catImagePreview.classList.add('hidden');
+  });
+
+  // ========== 4. COLONNES & LIGNES (sous-collections de categories_list) ==========
+  async function loadColumns(categoryId) {
+    onSnapshot(query(collection(db, CATEGORIES_COLLECTION, categoryId, 'columns'), orderBy('order')), (snap) => {
+      const colDiv = document.getElementById('columnListContainer');
+      colDiv.innerHTML = '';
+      
+      if (snap.empty) {
+        colDiv.innerHTML = '<p class="text-center text-stone-500 py-4">Aucune colonne pour cette catégorie</p>';
+        return;
+      }
+      
+      snap.forEach(colDoc => {
+        const col = colDoc.data();
+        const colItem = document.createElement('div');
+        colItem.className = 'columnCardLune';
+        colItem.innerHTML = `
+          <div class="flex flex-wrap justify-between items-center mb-3">
+            <div class="flex items-center space-x-3">
+              <input type="text" value="${col.columnName || ''}" data-field="columnName" data-cat="${categoryId}" data-col="${colDoc.id}" class="editColumnInline font-medium bg-transparent border-b border-[#d6ccc4] px-1 py-0.5 focus:outline-none focus:border-[#3a4e3f]">
+              <span class="text-xs">ordre</span>
+              <input type="number" value="${col.order || 0}" data-field="order" data-cat="${categoryId}" data-col="${colDoc.id}" class="editColumnInline w-16 text-sm bg-transparent border-b border-[#d6ccc4] px-1 py-0.5">
+            </div>
+            <div class="flex space-x-2 mt-2 sm:mt-0">
+              <button data-cat="${categoryId}" data-col="${colDoc.id}" class="addLineBtn74 text-xs bg-[#dacfc7] px-4 py-2 rounded-full hover:bg-[#c9bcb1]">+ Ligne</button>
+              <button data-id="${colDoc.id}" data-cat="${categoryId}" class="delColBtn56 text-[#7c3e3e] px-3 border border-[#e2dbd1] rounded-full"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+          <div id="lines-${colDoc.id}" class="mt-4 space-y-3"></div>`;
+        colDiv.appendChild(colItem);
+        loadLines(categoryId, colDoc.id);
+
+        colItem.querySelectorAll('.editColumnInline').forEach(el => {
+          el.addEventListener('change', async (e) => {
+            const colId = e.target.dataset.col;
+            const field = e.target.dataset.field;
+            const value = field === 'order' ? parseInt(e.target.value) : e.target.value;
+            await updateDoc(doc(db, CATEGORIES_COLLECTION, categoryId, 'columns', colId), { [field]: value });
+            notifySuccess('Colonne modifiée');
+          });
+        });
+
+        colItem.querySelector('.delColBtn56').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await deleteDoc(doc(db, CATEGORIES_COLLECTION, categoryId, 'columns', e.currentTarget.dataset.id));
+          notifyDelete('Colonne supprimée');
+        });
+
+        colItem.querySelector('.addLineBtn74').addEventListener('click', async () => {
+          const { value: formValues } = await Swal.fire({
+            title: 'Nouvelle ligne',
+            html: `
+              <input id="swal-line-name" class="swal2-input" placeholder="Nom de la ligne">
+              <input id="swal-line-image" class="swal2-input" placeholder="URL de l'image">
+              <input id="swal-line-link" class="swal2-input" placeholder="Lien">
+            `,
+            focusConfirm: false,
+            preConfirm: () => ({
+              lineName: document.getElementById('swal-line-name').value,
+              imageUrl: document.getElementById('swal-line-image').value,
+              link: document.getElementById('swal-line-link').value
+            })
+          });
+          if (formValues) {
+            await addDoc(collection(db, CATEGORIES_COLLECTION, categoryId, 'columns', colDoc.id, 'lines'), {
+              lineName: formValues.lineName,
+              imageUrl: formValues.imageUrl,
+              link: formValues.link,
+              order: 0
+            });
+            notifySuccess('Ligne ajoutée');
+          }
+        });
+      });
+    });
+  }
+
+  async function loadLines(catId, colId) {
+    onSnapshot(query(collection(db, CATEGORIES_COLLECTION, catId, 'columns', colId, 'lines'), orderBy('order')), (snap) => {
+      const container = document.getElementById(`lines-${colId}`);
+      if (!container) return;
+      container.innerHTML = '';
+      snap.forEach(lineDoc => {
+        const l = lineDoc.data();
+        const lineEl = document.createElement('div');
+        lineEl.className = 'lineItemWithImage';
+        lineEl.innerHTML = `
+          <div class="flex-shrink-0 w-12 h-12 bg-[#e4ddd4] rounded-lg overflow-hidden">
+            ${l.imageUrl ? `<img src="${l.imageUrl.startsWith('http') ? l.imageUrl : './' + l.imageUrl}" alt="line" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/48?text=img';">` : '<i class="fas fa-image text-2xl text-stone-400 w-full h-full flex items-center justify-center"></i>'}
+          </div>
+          <div class="flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <input type="text" value="${l.lineName || ''}" data-field="lineName" data-cat="${catId}" data-col="${colId}" data-line="${lineDoc.id}" class="editLineField font-medium bg-transparent border-b border-[#d6ccc4] px-1 py-0.5 text-sm w-36">
+              <span class="text-xs text-stone-500">img:</span>
+              <input type="text" value="${l.imageUrl || ''}" data-field="imageUrl" data-cat="${catId}" data-col="${colId}" data-line="${lineDoc.id}" class="editLineField text-xs bg-transparent border-b border-[#d6ccc4] px-1 py-0.5 w-28">
+              <span class="text-xs text-stone-500">lien:</span>
+              <input type="text" value="${l.link || ''}" data-field="link" data-cat="${catId}" data-col="${colId}" data-line="${lineDoc.id}" class="editLineField text-xs bg-transparent border-b border-[#d6ccc4] px-1 py-0.5 w-28">
+            </div>
+          </div>
+          <button data-lineid="${lineDoc.id}" data-col="${colId}" class="delLineBtn99 text-[#7c3e3e] ml-2"><i class="fas fa-trash"></i></button>
+        `;
+        container.appendChild(lineEl);
+
+        lineEl.querySelectorAll('.editLineField').forEach(el => {
+          el.addEventListener('change', async (e) => {
+            const lineId = e.target.dataset.line;
+            const field = e.target.dataset.field;
+            const value = e.target.value;
+            await updateDoc(doc(db, CATEGORIES_COLLECTION, catId, 'columns', colId, 'lines', lineId), { [field]: value });
+            notifySuccess('Ligne mise à jour');
+          });
+        });
+
+        lineEl.querySelector('.delLineBtn99').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await deleteDoc(doc(db, CATEGORIES_COLLECTION, catId, 'columns', colId, 'lines', e.currentTarget.dataset.lineid));
+          notifyDelete('Ligne supprimée');
+        });
+      });
+    });
+  }
+
+  document.getElementById('addColumnBtn86').addEventListener('click', async () => {
+    if (!selectedCategoryId) return Swal.fire('Sélectionnez une catégorie');
+    await addDoc(collection(db, CATEGORIES_COLLECTION, selectedCategoryId, 'columns'), {
+      columnName: document.getElementById('newColumnNameInput').value,
+      order: parseInt(document.getElementById('newColumnOrderInput').value) || 1
+    });
+    notifySuccess('Colonne ajoutée');
+  });
+
+  document.getElementById('closeColumnManagerBtn').addEventListener('click', () => {
+    colManager.classList.add('hidden');
+    selectedCategoryId = null;
+    selectedCategoryData = null;
+  });
+
+  // ========== 5. PRODUITS (simplifié, juste pour l'affichage) ==========
+  const prodCatSelect = document.getElementById('prodCategory09');
+  
+  // Mettre à jour le select des catégories
+  onSnapshot(collection(db, CATEGORIES_COLLECTION), (snap) => {
+    if (prodCatSelect) {
+      prodCatSelect.innerHTML = '<option value="">Choisir catégorie</option>';
+      snap.forEach(d => prodCatSelect.innerHTML += `<option value="${d.id}">${d.data().name}</option>`);
+    }
+  });
+
+  // Tableau des produits
+  onSnapshot(query(collection(db, 'products'), orderBy('name')), (snap) => {
+    let html = `<table class="w-full text-sm"><thead class="bg-[#e9e3db]"><tr><th class="p-3 text-left">Nom</th><th>Prix</th><th>Description</th><th class="text-right pr-6">Actions</th></tr></thead><tbody>`;
+    
+    if (snap.empty) {
+      html += '<tr><td colspan="4" class="p-6 text-center text-stone-500">Aucun produit trouvé</td></tr>';
+    } else {
+      snap.forEach(d => {
+        const p = d.data();
+        html += `<tr class="border-b hover:bg-[#fcfaf8]">
+          <td class="p-3 font-medium">${p.name || ''}</td>
+          <td class="p-3">${new Intl.NumberFormat('fr-HT', { style: 'currency', currency: 'HTG', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(p.price || 0))}</td>
+          <td class="p-3 text-stone-600 max-w-[200px] truncate">${p.shortDescription || ''}</td>
+          <td class="p-3 text-right">
+            <div class="flex justify-end space-x-2">
+              <button data-id="${d.id}" class="editProdBtn85 bg-white text-[#3a4e3f] px-3 py-1.5 border border-[#b89b7b] rounded-full text-xs hover:bg-[#f3efe9] transition flex items-center">
+                <i class="fas fa-pencil-alt mr-1"></i>Modifier
+              </button>
+              <button data-id="${d.id}" class="delProdBtn85 bg-white text-[#7c3e3e] px-3 py-1.5 border border-[#e2dbd1] rounded-full text-xs hover:bg-[#f9f0ed] transition flex items-center">
+                <i class="fas fa-trash mr-1"></i>Suppr.
+              </button>
+            </div>
+          </td>
+        </tr>`;
+      });
+    }
+    
+    html += '</tbody></table>';
+    document.getElementById('productTableWrapper').innerHTML = html;
+    
+    // Attacher les événements
+    document.querySelectorAll('.delProdBtn85').forEach(b => b.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const result = await Swal.fire({
+        title: 'Supprimer le produit ?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#7c3e3e',
+        cancelButtonColor: '#b89b7b',
+        confirmButtonText: 'Oui, supprimer'
+      });
+      
+      if (result.isConfirmed) {
+        await deleteDoc(doc(db, 'products', e.currentTarget.dataset.id));
+        notifyDelete('Produit supprimé');
+      }
+    }));
+
+    document.querySelectorAll('.editProdBtn85').forEach(b => b.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const productId = e.currentTarget.dataset.id;
+      
+      Swal.fire({
+        title: 'Fonction à implémenter',
+        text: 'Édition de produit à développer',
+        icon: 'info'
+      });
+    }));
+  });
+
+  // ========== SIDEBAR MOBILE ==========
+  document.getElementById('openSidebarTrigger99').addEventListener('click', () => {
+    document.getElementById('sidebarSierra37').classList.remove('-translate-x-full');
+  });
+  document.getElementById('closeSidebarTrigger88').addEventListener('click', () => {
+    document.getElementById('sidebarSierra37').classList.add('-translate-x-full');
+  });
+
+  // ========== ANIMATIONS ==========
+  anime({ 
+    targets: '[data-animation="fade-slide-up"]', 
+    opacity: [0,1], 
+    translateY: [20,0], 
+    easing: 'easeOutCubic', 
+    duration: 1000, 
+    delay: (el,i)=> i*70 
+  });
+  
+  refreshPreviewHeader();
+  
+</script>
+
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

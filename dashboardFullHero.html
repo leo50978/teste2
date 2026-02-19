@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <title>Hero Matrix · Sélection produit</title>
+  <!-- TailwindCSS CDN + custom config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts premium : Old Money style -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <!-- Firebase v10 modular -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  <!-- Anime.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <style>
+    :root {
+      --font-primary: 'Cormorant Garamond', serif;
+      --font-secondary: 'Manrope', sans-serif;
+      --primary: #2C2A29;
+      --secondary: #C6A75E;
+      --accent: #7A746B;
+      --luxury: #1F1E1C;
+      --ivory: #F5F1E8;
+      --danger: #7F1D1D;
+      --success: #355E3B;
+    }
+    body {
+      font-family: var(--font-secondary);
+      background-color: var(--ivory);
+      color: var(--luxury);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .font-primary { font-family: var(--font-primary); }
+    .glass-panel-luxury {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(198, 167, 94, 0.15);
+      box-shadow: 0 10px 25px -8px rgba(0,0,0,0.03);
+    }
+    .scroll-luxury::-webkit-scrollbar { width: 3px; }
+    .scroll-luxury::-webkit-scrollbar-track { background: var(--ivory); }
+    .scroll-luxury::-webkit-scrollbar-thumb { background: var(--secondary); border-radius: 20px; }
+    
+    @keyframes slideInToast {
+      0% { transform: translateX(100%); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+    .toast-success, .toast-error {
+      animation: slideInToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .image-option {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+    }
+    .image-option:hover {
+      transform: scale(1.02);
+      border-color: var(--secondary);
+    }
+    .image-option.selected {
+      border-color: var(--secondary);
+      box-shadow: 0 0 0 2px var(--secondary);
+    }
+  </style>
+</head>
+<body class="antialiased overflow-hidden bg-[#F5F1E8]">
+  <div class="flex flex-col md:flex-row h-screen w-screen overflow-hidden">
+    
+    <!-- SIDEBAR GAUCHE -->
+    <aside id="heroSidebarVault384" class="w-full md:w-20 lg:w-24 h-16 md:h-full flex flex-row md:flex-col items-center justify-between md:justify-start px-4 md:px-0 md:py-8 bg-[#1F1E1C] shadow-lg z-20" data-animation="fade-in">
+      <div class="flex items-center gap-3 md:flex-col md:gap-6">
+        <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-[#C6A75E] flex items-center justify-center text-[#1F1E1C] font-bold text-lg md:text-xl">H</div>
+        <nav class="flex flex-row md:flex-col gap-4 md:gap-8 text-[#7A746B]">
+          <span class="hero-icon-dashboard907 inline-block text-xl">⚜️</span>
+          <span class="hero-icon-matrix552 inline-block text-xl">⬩⬩</span>
+          <span class="hero-icon-settings481 inline-block text-xl">⚙️</span>
+        </nav>
+      </div>
+      <div class="text-xs text-[#7A746B] tracking-widest hidden md:block rotate-180 writing-vertical mt-auto mb-6">HERO·9472</div>
+      <span class="text-xs text-[#7A746B] md:hidden">v1</span>
+    </aside>
+
+    <!-- MAIN LAYOUT -->
+    <div class="flex-1 flex flex-col overflow-hidden bg-[#F5F1E8]">
+      
+      <!-- HEADER ADMIN TOP -->
+      <header id="heroAdminHeaderTop662" class="h-16 md:h-20 px-4 md:px-8 flex items-center justify-between bg-white/90 border-b border-[#C6A75E]/20 backdrop-blur-sm sticky top-0 z-10" data-animation="slide-left">
+        <div>
+          <h1 class="font-primary text-xl md:text-3xl font-semibold tracking-wide text-[#2C2A29]">hero<span class="text-[#C6A75E]">·product</span></h1>
+          <p class="text-[10px] md:text-xs text-[#7A746B] font-secondary hidden sm:block">collection: heroSectionControlMatrix9472</p>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+          <span id="heroLastUpdatedDisplay901" class="text-[10px] md:text-xs text-[#355E3B] bg-[#355E3B]/10 px-2 md:px-3 py-1.5 rounded-md font-mono truncate max-w-[140px] md:max-w-none">⏳ updated: --</span>
+          <div class="h-7 w-7 md:h-8 md:w-8 rounded-full bg-[#C6A75E]/20 flex items-center justify-center">👤</div>
+        </div>
+      </header>
+
+      <!-- CONTENU PRINCIPAL -->
+      <main class="flex-1 overflow-y-auto p-3 md:p-6 lg:p-8 scroll-luxury">
+        
+        <!-- SECTION HERO MANAGER -->
+        <div id="heroManagerEpicenter335" class="max-w-7xl mx-auto">
+          
+          <!-- TOAST CONTAINER -->
+          <div id="heroGlobalToastContainer552" class="fixed top-20 md:top-24 right-4 z-50 w-64 md:w-80"></div>
+          
+          <!-- DOUBLE PREVIEW -->
+          <div class="flex flex-col lg:grid lg:grid-cols-2 gap-4 md:gap-8 mb-6 md:mb-10">
+            
+            <!-- DESKTOP PREVIEW -->
+            <div id="heroDesktopPreviewBlock771" class="glass-panel-luxury rounded-xl md:rounded-2xl overflow-hidden shadow-lg border border-[#C6A75E]/10 order-2 lg:order-1" data-animation="preview-pulse">
+              <div class="bg-[#2C2A29] px-3 md:px-4 py-1.5 md:py-2 flex items-center gap-2">
+                <span class="h-2 w-2 md:h-2.5 md:w-2.5 bg-[#C6A75E] rounded-full"></span>
+                <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-[#F5F1E8] font-secondary">desktop preview · live</span>
+              </div>
+              <div class="flex h-48 md:h-64 w-full">
+                <div id="heroPreviewImageContainer553" class="w-[70%] h-full bg-[#7A746B]/20 flex items-center justify-center overflow-hidden">
+                  <img id="heroPreviewImageTag912" src="https://placehold.co/600x400/C6A75E/white?text=hero+image" alt="hero preview" class="w-full h-full object-cover">
+                </div>
+                <div class="w-[30%] h-full bg-[#1F1E1C] flex flex-col justify-center p-3 md:p-4">
+                  <h3 id="heroPreviewTitleDisplay628" class="font-primary text-white text-base md:text-xl font-bold leading-tight">Luxury Edge</h3>
+                  <p id="heroPreviewSubDisplay749" class="text-[#C6A75E] text-[10px] md:text-xs mt-1 font-secondary">timeless</p>
+                  <span id="heroPreviewButtonDisplay867" class="mt-2 md:mt-3 bg-[#C6A75E] text-[#1F1E1C] text-[10px] md:text-xs px-2 md:px-3 py-1 md:py-1.5 w-fit rounded-sm font-semibold">discover</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- MOBILE PREVIEW -->
+            <div id="heroMobilePreviewBlock229" class="glass-panel-luxury rounded-xl md:rounded-2xl overflow-hidden shadow-lg border border-[#C6A75E]/10 order-1 lg:order-2" data-animation="preview-pulse">
+              <div class="bg-[#2C2A29] px-3 md:px-4 py-1.5 md:py-2 flex items-center gap-2">
+                <span class="h-2 w-2 md:h-2.5 md:w-2.5 bg-[#C6A75E] rounded-full"></span>
+                <span class="text-[8px] md:text-[10px] uppercase tracking-widest text-[#F5F1E8] font-secondary">mobile preview · live</span>
+              </div>
+              <div class="relative h-64 md:h-80 w-full bg-cover bg-center" id="heroMobilePreviewWrap533">
+                <img id="heroMobileImageTag174" src="https://placehold.co/400x600/C6A75E/white?text=mobile" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#1F1E1C] via-transparent to-transparent flex flex-col justify-end p-4 md:p-5">
+                  <h3 id="heroMobileTitleDisplay963" class="font-primary text-white text-xl md:text-2xl font-bold">Luxury Edge</h3>
+                  <p id="heroMobileSubDisplay341" class="text-[#C6A75E] text-xs md:text-sm">timeless</p>
+                  <span id="heroMobileButtonDisplay555" class="mt-2 bg-[#C6A75E] text-[#1F1E1C] text-xs md:text-sm px-3 md:px-4 py-1.5 md:py-2 w-fit rounded-sm font-semibold">discover</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FORMULAIRE ÉDITION -->
+          <div id="heroCrudFormCard558" class="glass-panel-luxury rounded-xl md:rounded-2xl p-4 md:p-6 lg:p-8 border border-[#C6A75E]/20" data-animation="modal-reveal">
+            <div class="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-3 mb-6">
+              <h2 class="font-primary text-lg md:text-2xl font-bold text-[#2C2A29] flex items-center gap-2">✧ edit hero <span class="text-[10px] md:text-xs bg-[#C6A75E]/20 px-2 md:px-3 py-1.5 rounded-full font-secondary text-[#1F1E1C] truncate max-w-[160px]">heroPrimaryBlock8391</span></h2>
+              <div class="flex gap-2 w-full sm:w-auto">
+                <!-- TOGGLE ACTIF -->
+                <div class="flex items-center gap-2 bg-[#F5F1E8] px-3 md:px-4 py-2 rounded-full border border-[#C6A75E]/30 flex-1 sm:flex-initial">
+                  <span class="text-xs md:text-sm text-[#2C2A29] font-medium">active</span>
+                  <button id="heroActiveToggleButton492" class="relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none" style="background-color: #355E3B;">
+                    <span id="heroActiveToggleCircle301" class="absolute left-1 top-1 bg-white w-4 h-4 rounded-full transform transition-transform duration-300" style="transform: translateX(1.25rem);"></span>
+                  </button>
+                </div>
+                <!-- BOUTON DELETE -->
+                <button id="heroDeleteDocumentButton777" class="bg-[#7F1D1D] hover:bg-[#7F1D1D]/80 text-white text-xs md:text-sm px-4 md:px-5 py-2 rounded-lg flex items-center gap-1 md:gap-2 transition-all" data-animation="delete-collapse">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  <span class="hidden sm:inline">delete</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- FORMULAIRE -->
+            <form id="heroMatrixForm9472" class="flex flex-col gap-5 md:gap-6">
+              <!-- SÉLECTION DU PRODUIT -->
+              <div>
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">
+                  sélectionner un produit <span class="text-[#7F1D1D]">*</span>
+                </label>
+                <select id="productSelect" class="w-full px-3 md:px-4 py-2.5 md:py-3 bg-white border border-[#C6A75E]/30 rounded-lg focus:ring-1 focus:ring-[#C6A75E] font-secondary text-sm">
+                  <option value="">Chargement des produits...</option>
+                </select>
+                <p id="productSelectError" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <!-- SÉLECTION DE L'IMAGE (affiche les images du produit sélectionné) -->
+              <div id="imageSelectionContainer" style="display: none;">
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">
+                  choisir une image <span class="text-[#7F1D1D]">*</span>
+                </label>
+                <div id="imageOptionsContainer" class="grid grid-cols-3 md:grid-cols-5 gap-2 p-3 bg-[#F5F1E8] rounded-lg border border-[#C6A75E]/20 max-h-64 overflow-y-auto"></div>
+                <p id="imageSelectError" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <!-- CHAMPS TEXTE -->
+              <div class="mt-4">
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">hero title (heroTitleText552) *</label>
+                <input type="text" id="heroTitleText552" value="Luxury Edge" class="w-full px-3 md:px-4 py-2.5 md:py-3 bg-white border border-[#C6A75E]/30 rounded-lg font-primary text-base md:text-lg">
+                <p id="heroTitleError552" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <div>
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">hero subtitle (heroSubtitleText662) *</label>
+                <input type="text" id="heroSubtitleText662" value="timeless collection" class="w-full px-3 md:px-4 py-2.5 md:py-3 bg-white border border-[#C6A75E]/30 rounded-lg">
+                <p id="heroSubError662" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <div>
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">button text (heroButtonText728) *</label>
+                <input type="text" id="heroButtonText728" value="discover" class="w-full px-3 md:px-4 py-2.5 md:py-3 bg-white border border-[#C6A75E]/30 rounded-lg">
+                <p id="heroButtonError728" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <div>
+                <label class="block text-[10px] md:text-xs uppercase tracking-wider text-[#7A746B] font-secondary mb-1.5">button redirect URL (heroButtonRedirectURL901) *</label>
+                <input type="url" id="heroButtonRedirectURL901" value="https://luxury.com" class="w-full px-3 md:px-4 py-2.5 md:py-3 bg-white border border-[#C6A75E]/30 rounded-lg">
+                <p id="heroRedirectError901" class="text-[10px] text-[#7F1D1D] mt-1 hidden"></p>
+              </div>
+
+              <div class="pt-2">
+                <div class="flex items-center justify-between bg-[#F5F1E8] p-3 md:p-4 rounded-xl">
+                  <span class="text-xs md:text-sm font-medium text-[#2C2A29]">hero last updated</span>
+                  <span id="heroTimestampField777" class="text-[10px] md:text-xs font-mono text-[#355E3B]">—</span>
+                </div>
+              </div>
+              
+              <!-- SAVE BUTTON -->
+              <div class="flex flex-col sm:flex-row justify-end gap-3 mt-4 border-t border-[#C6A75E]/20 pt-5">
+                <button type="button" id="heroSaveHandler728" class="w-full sm:w-auto bg-[#355E3B] hover:bg-[#355E3B]/90 text-white font-secondary px-6 md:px-8 py-3 rounded-lg flex items-center justify-center gap-2 shadow-md transition" data-animation="success-flash">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                  SAVE TO FIRESTORE
+                </button>
+                <div id="heroLoadingSpinner508" class="hidden items-center justify-center">
+                  <div class="w-6 h-6 border-2 border-[#C6A75E] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'firebase/app';
+    import { getFirestore, doc, setDoc, updateDoc, deleteDoc, getDoc, serverTimestamp, collection, getDocs } from 'firebase/firestore';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // COLLECTIONS
+    const productsCollections = ['products', 'categories567']; // fallback legacy
+    const heroCollection = 'heroSectionControlMatrix9472';
+    const heroDocument = 'heroPrimaryBlock8391';
+    const heroDocRef = doc(db, heroCollection, heroDocument);
+
+    // État
+    let products = [];
+    let selectedProductId = null;
+    let selectedImage = null;
+    let heroIsActiveCurrent321 = true;
+
+    // DOM Elements
+    const productSelect = document.getElementById('productSelect');
+    const imageSelectionContainer = document.getElementById('imageSelectionContainer');
+    const imageOptionsContainer = document.getElementById('imageOptionsContainer');
+    const heroTitleInput = document.getElementById('heroTitleText552');
+    const heroSubtitleInput = document.getElementById('heroSubtitleText662');
+    const heroButtonTextInput = document.getElementById('heroButtonText728');
+    const heroRedirectInput = document.getElementById('heroButtonRedirectURL901');
+    const heroToggleBtn = document.getElementById('heroActiveToggleButton492');
+    const heroToggleCircle = document.getElementById('heroActiveToggleCircle301');
+    const heroDeleteBtn = document.getElementById('heroDeleteDocumentButton777');
+    const heroSaveBtn = document.getElementById('heroSaveHandler728');
+    const heroLoader = document.getElementById('heroLoadingSpinner508');
+    const heroLastUpdatedDisplay = document.getElementById('heroLastUpdatedDisplay901');
+    const heroTimestampField = document.getElementById('heroTimestampField777');
+    const toastContainer = document.getElementById('heroGlobalToastContainer552');
+
+    // Preview elements
+    const heroPreviewImg = document.getElementById('heroPreviewImageTag912');
+    const heroMobileImg = document.getElementById('heroMobileImageTag174');
+    const heroPreviewTitle = document.getElementById('heroPreviewTitleDisplay628');
+    const heroMobileTitle = document.getElementById('heroMobileTitleDisplay963');
+    const heroPreviewSub = document.getElementById('heroPreviewSubDisplay749');
+    const heroMobileSub = document.getElementById('heroMobileSubDisplay341');
+    const heroPreviewBtn = document.getElementById('heroPreviewButtonDisplay867');
+    const heroMobileBtn = document.getElementById('heroMobileButtonDisplay555');
+
+    // Error elements
+    const productSelectError = document.getElementById('productSelectError');
+    const imageSelectError = document.getElementById('imageSelectError');
+    const heroTitleError = document.getElementById('heroTitleError552');
+    const heroSubError = document.getElementById('heroSubError662');
+    const heroButtonError = document.getElementById('heroButtonError728');
+    const heroRedirectError = document.getElementById('heroRedirectError901');
+
+    // ============================================
+    // TOAST
+    // ============================================
+    function showToast(message, type = 'success') {
+      const toastId = 'toast-' + Date.now();
+      const toastEl = document.createElement('div');
+      toastEl.id = toastId;
+      toastEl.className = `mb-2 p-3 md:p-4 rounded-lg shadow-lg flex items-start gap-2 toast-${type} ${
+        type === 'success' ? 'bg-[#355E3B] text-white' : 'bg-[#7F1D1D] text-white'
+      }`;
+      toastEl.innerHTML = `
+        <span class="font-bold text-sm md:text-base">${type === 'success' ? '✓' : '✗'}</span>
+        <span class="text-xs md:text-sm font-secondary flex-1">${message}</span>
+        <button onclick="this.parentElement.remove()" class="ml-2 text-white/80 hover:text-white">×</button>
+      `;
+      toastContainer.appendChild(toastEl);
+      
+      anime({
+        targets: `#${toastId}`,
+        translateX: [50, 0],
+        opacity: [0, 1],
+        duration: 400,
+        easing: 'easeOutElastic'
+      });
+
+      setTimeout(() => {
+        const el = document.getElementById(toastId);
+        if (el) {
+          anime({
+            targets: el,
+            translateX: 50,
+            opacity: 0,
+            duration: 300,
+            complete: () => el.remove()
+          });
+        }
+      }, 5000);
+    }
+
+    // ============================================
+    // CHARGER LES PRODUITS
+    // ============================================
+    function normalizeImageUrl(imageValue) {
+      if (typeof imageValue !== 'string') return '';
+      return imageValue.trim();
+    }
+
+    function sameImageRef(a, b) {
+      const left = normalizeImageUrl(a);
+      const right = normalizeImageUrl(b);
+      if (!left || !right) return false;
+      if (left === right) return true;
+
+      const leftFile = left.split('?')[0].split('#')[0].split('/').pop();
+      const rightFile = right.split('?')[0].split('#')[0].split('/').pop();
+      return !!leftFile && !!rightFile && leftFile === rightFile;
+    }
+
+    function extractProductImageOptions(product) {
+      const options = [];
+      const seen = new Set();
+
+      const pushImage = (raw, sourceLabel) => {
+        const url = normalizeImageUrl(raw);
+        if (!url || seen.has(url)) return;
+        seen.add(url);
+        options.push({ url, sourceLabel });
+      };
+
+      if (Array.isArray(product.images)) {
+        product.images.forEach((img) => pushImage(img, 'Produit'));
+      }
+
+      if (Array.isArray(product.variations)) {
+        product.variations.forEach((variation, index) => {
+          if (!Array.isArray(variation?.images)) return;
+          const label = variation?.color || variation?.size || variation?.sku
+            ? `Variation ${index + 1} (${variation.color || variation.size || variation.sku})`
+            : `Variation ${index + 1}`;
+          variation.images.forEach((img) => pushImage(img, label));
+        });
+      }
+
+      return options;
+    }
+
+    async function loadProducts() {
+      try {
+        let merged = [];
+
+        for (const collectionName of productsCollections) {
+          const snapshot = await getDocs(collection(db, collectionName));
+          if (!snapshot.empty) {
+            merged = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            break;
+          }
+        }
+
+        products = merged.map((product) => ({
+          ...product,
+          imageOptions: extractProductImageOptions(product)
+        })).filter((product) => product.imageOptions.length > 0);
+        
+        // Remplir le select
+        productSelect.innerHTML = '<option value="">Sélectionner un produit</option>';
+        products.forEach(product => {
+          const option = document.createElement('option');
+          option.value = product.id;
+          option.textContent = `${product.name || 'Sans nom'} (${product.imageOptions.length} images)`;
+          productSelect.appendChild(option);
+        });
+
+      } catch (error) {
+        console.error('❌ Erreur chargement produits:', error);
+        showToast('Erreur chargement produits: ' + error.message, 'error');
+      }
+    }
+
+    // ============================================
+    // AFFICHER LES IMAGES DU PRODUIT SÉLECTIONNÉ
+    // ============================================
+    function displayProductImages(productId) {
+      const product = products.find(p => p.id === productId);
+      if (!product || !Array.isArray(product.imageOptions) || product.imageOptions.length === 0) {
+        imageSelectionContainer.style.display = 'none';
+        return;
+      }
+
+      imageSelectionContainer.style.display = 'block';
+      imageOptionsContainer.innerHTML = '';
+
+      product.imageOptions.forEach((imageItem, index) => {
+        const imageUrl = imageItem.url;
+        
+        const option = document.createElement('div');
+        option.className = `image-option rounded-lg overflow-hidden ${sameImageRef(selectedImage, imageUrl) ? 'selected' : ''}`;
+        option.innerHTML = `
+          <img src="${imageUrl}" alt="option ${index + 1}" class="w-full h-20 object-cover" onerror="this.src='https://placehold.co/100/C6A75E/white?text=erreur';">
+          <div class="px-1.5 py-1 text-[9px] bg-white/90 border-t border-[#C6A75E]/20 text-[#2C2A29] truncate">${imageItem.sourceLabel}</div>
+        `;
+        option.addEventListener('click', () => {
+          // Retirer la classe selected de toutes les options
+          document.querySelectorAll('.image-option').forEach(opt => opt.classList.remove('selected'));
+          // Ajouter la classe selected à l'option cliquée
+          option.classList.add('selected');
+          // Mettre à jour l'image sélectionnée
+          selectedImage = imageUrl;
+          // Mettre à jour la preview
+          updatePreviewImage(imageUrl);
+        });
+        
+        imageOptionsContainer.appendChild(option);
+      });
+    }
+
+    // ============================================
+    // METTRE À JOUR LA PREVIEW
+    // ============================================
+    function updatePreviewImage(imageUrl) {
+      const url = normalizeImageUrl(imageUrl);
+      heroPreviewImg.src = url;
+      heroMobileImg.src = url;
+    }
+
+    function updatePreviewText() {
+      const title = heroTitleInput.value.trim() || 'Luxury Edge';
+      const subtitle = heroSubtitleInput.value.trim() || 'timeless collection';
+      const btnText = heroButtonTextInput.value.trim() || 'discover';
+      
+      heroPreviewTitle.innerText = title;
+      heroMobileTitle.innerText = title;
+      heroPreviewSub.innerText = subtitle;
+      heroMobileSub.innerText = subtitle;
+      heroPreviewBtn.innerText = btnText;
+      heroMobileBtn.innerText = btnText;
+    }
+
+    // ============================================
+    // VALIDATION
+    // ============================================
+    function validateForm() {
+      let isValid = true;
+
+      // Réinitialiser les erreurs
+      [productSelectError, imageSelectError, heroTitleError, heroSubError, heroButtonError, heroRedirectError].forEach(el => {
+        if (el) el.classList.add('hidden');
+      });
+
+      // Produit sélectionné ?
+      if (!selectedProductId) {
+        productSelectError.textContent = 'Veuillez sélectionner un produit';
+        productSelectError.classList.remove('hidden');
+        isValid = false;
+      }
+
+      // Image sélectionnée ?
+      if (!selectedImage) {
+        imageSelectError.textContent = 'Veuillez sélectionner une image';
+        imageSelectError.classList.remove('hidden');
+        isValid = false;
+      }
+
+      // Titre
+      if (!heroTitleInput.value.trim()) {
+        heroTitleError.textContent = 'Le titre est requis';
+        heroTitleError.classList.remove('hidden');
+        isValid = false;
+      }
+
+      // Sous-titre
+      if (!heroSubtitleInput.value.trim()) {
+        heroSubError.textContent = 'Le sous-titre est requis';
+        heroSubError.classList.remove('hidden');
+        isValid = false;
+      }
+
+      // Texte du bouton
+      if (!heroButtonTextInput.value.trim()) {
+        heroButtonError.textContent = 'Le texte du bouton est requis';
+        heroButtonError.classList.remove('hidden');
+        isValid = false;
+      }
+
+      // URL
+      if (!heroRedirectInput.value.trim()) {
+        heroRedirectError.textContent = 'L\'URL est requise';
+        heroRedirectError.classList.remove('hidden');
+        isValid = false;
+      } else {
+        try {
+          new URL(heroRedirectInput.value.trim());
+        } catch {
+          heroRedirectError.textContent = 'URL invalide';
+          heroRedirectError.classList.remove('hidden');
+          isValid = false;
+        }
+      }
+
+      return isValid;
+    }
+
+    // ============================================
+    // CHARGER LES DONNÉES HERO
+    // ============================================
+    async function loadHeroData() {
+      try {
+        const docSnap = await getDoc(heroDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          
+          // Restaurer la sélection du produit et de l'image
+          if (data.selectedProductId) {
+            selectedProductId = data.selectedProductId;
+            productSelect.value = selectedProductId;
+            selectedImage = normalizeImageUrl(data.heroImageURL839 || '');
+            displayProductImages(selectedProductId);
+            
+            // Pré-sélectionner l'image si elle existe
+            if (selectedImage) {
+              setTimeout(() => {
+                const options = document.querySelectorAll('.image-option');
+                options.forEach(opt => {
+                  const img = opt.querySelector('img');
+                  if (img && sameImageRef(img.src, selectedImage)) {
+                    opt.classList.add('selected');
+                  }
+                });
+              }, 500);
+            }
+          }
+
+          heroTitleInput.value = data.heroTitleText552 || 'Luxury Edge';
+          heroSubtitleInput.value = data.heroSubtitleText662 || 'timeless collection';
+          heroButtonTextInput.value = data.heroButtonText728 || 'discover';
+          heroRedirectInput.value = data.heroButtonRedirectURL901 || 'https://luxury.com';
+          
+          heroIsActiveCurrent321 = data.heroIsActiveToggle321 ?? true;
+          if (heroIsActiveCurrent321) {
+            heroToggleBtn.style.backgroundColor = '#355E3B';
+            heroToggleCircle.style.transform = 'translateX(1.25rem)';
+          } else {
+            heroToggleBtn.style.backgroundColor = '#7A746B';
+            heroToggleCircle.style.transform = 'translateX(0)';
+          }
+          
+          if (data.heroLastUpdatedTimestamp777) {
+            const ts = data.heroLastUpdatedTimestamp777.toDate ? 
+              data.heroLastUpdatedTimestamp777.toDate().toLocaleString('fr-FR') : 'just now';
+            heroLastUpdatedDisplay.innerText = `⏳ ${ts}`;
+            heroTimestampField.innerText = ts;
+          }
+
+          updatePreviewText();
+          if (selectedImage) updatePreviewImage(selectedImage);
+        }
+      } catch (error) {
+        console.error('Erreur chargement hero:', error);
+      }
+    }
+
+    // ============================================
+    // CRÉER DOCUMENT PAR DÉFAUT
+    // ============================================
+    async function createDefaultDocument() {
+      if (products.length === 0) {
+        showToast('Aucun produit disponible', 'error');
+        return;
+      }
+
+      const defaultProduct = products[0];
+      const defaultImage = defaultProduct.imageOptions[0].url;
+
+      const defaultHero = {
+        selectedProductId: defaultProduct.id,
+        heroImageURL839: defaultImage,
+        heroTitleText552: defaultProduct.name || 'Collection',
+        heroSubtitleText662: 'timeless elegance',
+        heroButtonText728: 'discover',
+        heroButtonRedirectURL901: '#',
+        heroIsActiveToggle321: true,
+        heroLastUpdatedTimestamp777: serverTimestamp()
+      };
+
+      await setDoc(heroDocRef, defaultHero);
+      showToast('Document par défaut créé');
+      await loadHeroData();
+    }
+
+    // ============================================
+    // SAUVEGARDER
+    // ============================================
+    async function saveHero() {
+      if (!validateForm()) {
+        showToast('Veuillez corriger les erreurs', 'error');
+        return;
+      }
+
+      try {
+        heroLoader.classList.remove('hidden');
+        heroSaveBtn.disabled = true;
+        heroSaveBtn.classList.add('opacity-70');
+
+        const heroPayload = {
+          selectedProductId: selectedProductId,
+          heroImageURL839: normalizeImageUrl(selectedImage),
+          heroTitleText552: heroTitleInput.value.trim(),
+          heroSubtitleText662: heroSubtitleInput.value.trim(),
+          heroButtonText728: heroButtonTextInput.value.trim(),
+          heroButtonRedirectURL901: heroRedirectInput.value.trim(),
+          heroIsActiveToggle321: heroIsActiveCurrent321,
+          heroLastUpdatedTimestamp777: serverTimestamp()
+        };
+
+        await updateDoc(heroDocRef, heroPayload);
+        
+        anime({
+          targets: '#heroCrudFormCard558',
+          backgroundColor: ['#F5F1E8', '#E8F0E5', '#F5F1E8'],
+          duration: 800,
+          easing: 'easeInOutSine'
+        });
+        
+        showToast('✅ Hero mis à jour avec succès !');
+        await loadHeroData();
+        
+      } catch (error) {
+        console.error('Save error:', error);
+        showToast('Erreur: ' + error.message, 'error');
+      } finally {
+        heroLoader.classList.add('hidden');
+        heroSaveBtn.disabled = false;
+        heroSaveBtn.classList.remove('opacity-70');
+      }
+    }
+
+    // ============================================
+    // SUPPRIMER
+    // ============================================
+    async function deleteDocument() {
+      if (!confirm('⚠️ Supprimer définitivement ?')) return;
+      
+      try {
+        heroLoader.classList.remove('hidden');
+        heroDeleteBtn.disabled = true;
+        
+        await deleteDoc(heroDocRef);
+        showToast('Document supprimé');
+        await createDefaultDocument();
+        
+      } catch (error) {
+        showToast('Erreur: ' + error.message, 'error');
+      } finally {
+        heroLoader.classList.add('hidden');
+        heroDeleteBtn.disabled = false;
+      }
+    }
+
+    // ============================================
+    // EVENT LISTENERS
+    // ============================================
+    productSelect.addEventListener('change', (e) => {
+      selectedProductId = e.target.value;
+      selectedImage = null;
+      if (selectedProductId) {
+        displayProductImages(selectedProductId);
+      } else {
+        imageSelectionContainer.style.display = 'none';
+      }
+    });
+
+    [heroTitleInput, heroSubtitleInput, heroButtonTextInput].forEach(input => {
+      input.addEventListener('input', updatePreviewText);
+    });
+
+    heroToggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      heroIsActiveCurrent321 = !heroIsActiveCurrent321;
+      if (heroIsActiveCurrent321) {
+        heroToggleBtn.style.backgroundColor = '#355E3B';
+        heroToggleCircle.style.transform = 'translateX(1.25rem)';
+      } else {
+        heroToggleBtn.style.backgroundColor = '#7A746B';
+        heroToggleCircle.style.transform = 'translateX(0)';
+      }
+    });
+
+    heroSaveBtn.addEventListener('click', saveHero);
+    heroDeleteBtn.addEventListener('click', deleteDocument);
+
+    // ============================================
+    // INIT
+    // ============================================
+    async function init() {
+      await loadProducts();
+      
+      try {
+        const docSnap = await getDoc(heroDocRef);
+        if (docSnap.exists()) {
+          await loadHeroData();
+        } else {
+          await createDefaultDocument();
+        }
+      } catch (error) {
+        console.error('Init error:', error);
+      }
+    }
+
+    init();
+
+    // Animations
+    anime({
+      targets: '[data-animation="fade-in"]',
+      opacity: [0, 1],
+      duration: 800,
+      delay: 200,
+      easing: 'linear'
+    });
+    anime({
+      targets: '[data-animation="slide-left"]',
+      translateX: [30, 0],
+      opacity: [0, 1],
+      duration: 700
+    });
+    anime({
+      targets: '[data-animation="modal-reveal"]',
+      scale: [0.95, 1],
+      opacity: [0, 1],
+      duration: 600
+    });
+  </script>
+
+  <script>
+    (function heroAnimeInteractions947() {
+      document.querySelectorAll('[data-animation="preview-pulse"]').forEach(el => {
+        el.addEventListener('mouseenter', () => {
+          anime({
+            targets: el,
+            scale: 1.01,
+            boxShadow: '0 20px 30px -8px rgba(198,167,94,0.3)',
+            duration: 400,
+            easing: 'easeOutQuad'
+          });
+        });
+        el.addEventListener('mouseleave', () => {
+          anime({
+            targets: el,
+            scale: 1,
+            boxShadow: '0 10px 25px -8px rgba(0,0,0,0.03)',
+            duration: 400
+          });
+        });
+      });
+    })();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>

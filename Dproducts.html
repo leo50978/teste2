@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Dashboard Produits Pro</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Import Map Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <style>
+    /* ========== VARIABLES ========== */
+    :root {
+      --primary: #0A0A0A;
+      --primary-light: #1A1A1A;
+      --secondary: #C6A75E;
+      --secondary-light: #D4B67C;
+      --background: #F8F9FA;
+      --surface: #FFFFFF;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --text-tertiary: #94A3B8;
+      --border: #E2E8F0;
+      --success: #10B981;
+      --warning: #F59E0B;
+      --danger: #EF4444;
+      --info: #3B82F6;
+    }
+    
+    /* ========== BASE ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: var(--background);
+      font-family: 'Inter', sans-serif;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+    
+    /* ========== LAYOUT ========== */
+    .app-container {
+      display: flex;
+      min-height: 100vh;
+    }
+    
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      height: 100vh;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+      z-index: 50;
+    }
+    
+    @media (max-width: 1024px) {
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      .sidebar.open {
+        transform: translateX(0);
+      }
+      .main-content {
+        margin-left: 0 !important;
+      }
+    }
+    
+    .main-content {
+      flex: 1;
+      margin-left: 280px;
+      min-height: 100vh;
+    }
+    
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 40;
+    }
+    
+    /* ========== CARDS ========== */
+    .stat-card {
+      background: var(--surface);
+      border-radius: 1rem;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+    }
+    
+    .content-card {
+      background: var(--surface);
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    
+    .card-header {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--background);
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .card-body {
+      padding: 1.5rem;
+    }
+    
+    /* ========== PRODUCT CARD ========== */
+    .product-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    
+    .product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+      border-color: var(--secondary);
+    }
+    
+    .product-card.selected {
+      border: 2px solid var(--secondary);
+    }
+    
+    .product-image {
+      height: 140px;
+      background: var(--background);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    
+    /* ========== VARIATION CARD ========== */
+    .variation-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    
+    .variation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .variation-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      background: rgba(198, 167, 94, 0.1);
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      color: var(--secondary);
+    }
+    
+    .attribute-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .attribute-pill i {
+      color: var(--secondary);
+      font-size: 0.7rem;
+    }
+    
+    /* ========== CATEGORY SELECTOR ========== */
+    .category-tree {
+      background: var(--background);
+      border-radius: 0.75rem;
+      padding: 1rem;
+    }
+    
+    .column-item {
+      margin-bottom: 0.5rem;
+    }
+    
+    .column-header {
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-primary);
+    }
+    
+    .line-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: white;
+      border-radius: 0.5rem;
+      margin-left: 1rem;
+      margin-bottom: 0.25rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .line-checkbox:hover {
+      background: rgba(198, 167, 94, 0.05);
+    }
+    
+    .line-checkbox.selected {
+      background: rgba(198, 167, 94, 0.1);
+      border-left: 3px solid var(--secondary);
+    }
+    
+    /* ========== BUTTONS ========== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      border-radius: 0.5rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    
+    .btn-secondary:hover {
+      background: var(--background);
+    }
+    
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+    
+    .btn-success:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    
+    .btn-danger:hover {
+      opacity: 0.9;
+    }
+    
+    .btn-icon {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-icon:hover {
+      background: var(--background);
+      color: var(--text-primary);
+    }
+    
+    .btn-sm {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.8rem;
+    }
+    
+    /* ========== FORM ========== */
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      background: var(--surface);
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--secondary);
+      box-shadow: 0 0 0 3px rgba(198, 167, 94, 0.1);
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 0.75rem 2.5rem 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.95rem;
+      background: var(--surface);
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      background-size: 1.25rem;
+    }
+    
+    .form-textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+      background: var(--surface);
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    /* ========== IMAGE PREVIEW ========== */
+    .image-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    
+    .image-item {
+      aspect-ratio: 1;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .image-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .image-item .remove-image {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--danger);
+      font-size: 0.7rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      z-index: 10;
+    }
+    
+    .image-item:hover .remove-image {
+      opacity: 1;
+    }
+    
+    /* Nouveau style pour l'ajout d'image par nom de fichier */
+    .image-name-input-area {
+      border: 2px dashed var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      background: var(--background);
+    }
+    
+    .image-name-input {
+      flex: 1;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      font-size: 0.9rem;
+    }
+    
+    .image-name-input:focus {
+      outline: none;
+      border-color: var(--secondary);
+    }
+    
+    /* ========== MODAL ========== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    .modal-overlay.active {
+      display: flex;
+    }
+    
+    .modal-container {
+      background: var(--surface);
+      border-radius: 1rem;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+      animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    /* ========== TOAST ========== */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 1rem 1.5rem;
+      border-radius: 0.5rem;
+      color: white;
+      z-index: 9999;
+      animation: slideInRight 0.3s ease;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      max-width: 350px;
+    }
+    
+    .toast.success {
+      background: var(--success);
+    }
+    
+    .toast.error {
+      background: var(--danger);
+    }
+    
+    .toast.info {
+      background: var(--info);
+    }
+    
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    /* ========== LOADING ========== */
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* ========== TABS ========== */
+    .section-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    
+    .section-tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+    
+    .section-tab.active {
+      border-bottom-color: var(--secondary);
+      color: var(--secondary);
+    }
+    
+    /* ========== STATUS BADGE ========== */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 2rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .status-active {
+      background: rgba(16, 185, 129, 0.1);
+      color: var(--success);
+    }
+    
+    .status-draft {
+      background: rgba(100, 116, 139, 0.1);
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="sidebar" id="sidebar">
+      <div class="p-6">
+        <div class="flex items-center gap-3 mb-8">
+          <div class="w-10 h-10 bg-secondary rounded-xl flex items-center justify-center">
+            <i class="fas fa-cube text-white text-xl"></i>
+          </div>
+          <div>
+            <h1 class="font-semibold text-lg">Vitch Studio</h1>
+            <p class="text-xs text-text-secondary">Produits Manager</p>
+          </div>
+        </div>
+        
+        <nav class="space-y-1">
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors sidebar-nav active" data-view="dashboard">
+            <i class="fas fa-chart-pie w-5 text-text-secondary"></i>
+            <span class="flex-1">Tableau de bord</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors sidebar-nav" data-view="products">
+            <i class="fas fa-box w-5 text-text-secondary"></i>
+            <span class="flex-1">Produits</span>
+            <span class="text-xs bg-background px-2 py-1 rounded-full" id="products-count">0</span>
+          </button>
+          
+          <button class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-colors sidebar-nav" data-view="categories">
+            <i class="fas fa-sitemap w-5 text-text-secondary"></i>
+            <span class="flex-1">Catégories</span>
+          </button>
+        </nav>
+      </div>
+      
+      <div class="absolute bottom-0 left-0 right-0 p-6 border-t border-border">
+        <div class="flex items-center gap-3">
+          <div class="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+          <span class="text-sm text-text-secondary">Firebase connecté</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="header flex items-center justify-between">
+        <button id="menuToggle" class="lg:hidden btn-icon">
+          <i class="fas fa-bars text-xl"></i>
+        </button>
+        
+        <h2 id="currentViewTitle" class="text-xl font-semibold">Tableau de bord</h2>
+        
+        <div class="flex items-center gap-3">
+          <button id="addProductBtn" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            <span class="hidden sm:inline">Nouveau produit</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <div class="p-4 md:p-6">
+        <!-- ========== VIEW: DASHBOARD ========== -->
+        <div id="dashboard-view" class="view active">
+          <!-- Stats -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">Total produits</p>
+              <p class="text-2xl font-semibold" id="stats-total-products">0</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">En stock</p>
+              <p class="text-2xl font-semibold" id="stats-in-stock">0</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">En rupture</p>
+              <p class="text-2xl font-semibold" id="stats-out-stock">0</p>
+            </div>
+            <div class="stat-card">
+              <p class="text-sm text-text-secondary mb-1">Avec variations</p>
+              <p class="text-2xl font-semibold" id="stats-with-variations">0</p>
+            </div>
+          </div>
+
+          <!-- Derniers produits -->
+          <div class="content-card">
+            <div class="card-header">
+              <span>Derniers produits</span>
+              <button class="btn-secondary btn-sm" onclick="window.productManager.switchView('products')">Voir tout</button>
+            </div>
+            <div class="card-body">
+              <div id="recent-products" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Injecté par JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========== VIEW: PRODUCTS ========== -->
+        <div id="products-view" class="view hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-semibold">Gestion des produits</h2>
+            <div class="flex gap-3">
+              <input type="text" id="search-products" placeholder="Rechercher..." class="form-input w-64">
+              <button id="newProductBtn" class="btn btn-primary">
+                <i class="fas fa-plus"></i>
+                Nouveau produit
+              </button>
+            </div>
+          </div>
+
+          <!-- Liste des produits -->
+          <div id="products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Injecté par JS -->
+          </div>
+        </div>
+
+        <!-- ========== VIEW: PRODUCT EDITOR ========== -->
+        <div id="product-editor-view" class="view hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h2 id="editor-title" class="text-xl font-semibold">Nouveau produit</h2>
+            <div class="flex gap-3 items-center">
+              <label class="flex items-center gap-2 text-sm text-text-secondary" title="Notifier les utilisateurs quand ce nouveau produit est publié">
+                <input type="checkbox" id="notifyUsersOnCreate" checked>
+                <span>Notifier les utilisateurs</span>
+              </label>
+              <button id="backToProducts" class="btn-secondary">
+                <i class="fas fa-arrow-left"></i>
+                Retour
+              </button>
+              <button id="saveProductBtn" class="btn btn-primary">
+                <i class="fas fa-save"></i>
+                Enregistrer
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabs de navigation -->
+          <div class="section-tabs">
+            <button class="section-tab active" data-tab="general">Général</button>
+            <button class="section-tab" data-tab="category">Catégorie & attributs</button>
+            <button class="section-tab" data-tab="variations">Variations</button>
+            <button class="section-tab" data-tab="gallery">Galerie</button>
+          </div>
+
+          <!-- Formulaire produit -->
+          <form id="productForm">
+            <input type="hidden" id="productId">
+            
+            <!-- ===== TAB 1: GÉNÉRAL ===== -->
+            <div id="tab-general" class="tab-content active">
+              <div class="content-card">
+                <div class="card-header">
+                  <span>Informations générales</span>
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm text-text-secondary">Statut</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="productStatus" class="sr-only peer" checked>
+                      <div class="w-11 h-6 bg-accent/30 peer-checked:bg-secondary rounded-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+                    </label>
+                  </div>
+                </div>
+                <div class="card-body space-y-4">
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm text-text-secondary mb-1">Nom du produit *</label>
+                      <input type="text" id="productName" class="form-input" required>
+                    </div>
+                    <div>
+                      <label class="block text-sm text-text-secondary mb-1">SKU principal</label>
+                      <input type="text" id="mainSku" class="form-input" placeholder="Généré automatiquement">
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm text-text-secondary mb-1">Description courte</label>
+                    <input type="text" id="shortDescription" class="form-input">
+                  </div>
+                  
+                  <div>
+                    <label class="block text-sm text-text-secondary mb-1">Description longue</label>
+                    <textarea id="longDescription" class="form-textarea"></textarea>
+                  </div>
+                  
+                  <div class="grid grid-cols-3 gap-4">
+                    <div>
+                      <label class="block text-sm text-text-secondary mb-1">Prix de base</label>
+                      <input type="number" id="basePrice" step="0.01" class="form-input">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-text-secondary mb-1">Prix barré</label>
+                      <input type="number" id="comparePrice" step="0.01" class="form-input">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-text-secondary mb-1">Stock total</label>
+                      <input type="number" id="totalStock" class="form-input" readonly>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== TAB 2: CATÉGORIE & ATTRIBUTS ===== -->
+            <div id="tab-category" class="tab-content hidden">
+              <div class="content-card">
+                <div class="card-header">
+                  <span>Sélection des catégories et lignes</span>
+                </div>
+                <div class="card-body">
+                  <div class="mb-4">
+                    <label class="block text-sm text-text-secondary mb-2">Catégorie</label>
+                    <select id="categorySelect" class="form-select">
+                      <option value="">Choisir une catégorie</option>
+                    </select>
+                  </div>
+                  
+                  <div id="categoryAttributesContainer" class="category-tree">
+                    <!-- Injecté dynamiquement -->
+                  </div>
+                  
+                  <div id="selectedLinesContainer" class="mt-4 p-4 bg-background rounded-lg">
+                    <h4 class="font-medium mb-2">Lignes sélectionnées</h4>
+                    <div id="selectedLinesList" class="flex flex-wrap gap-2">
+                      <!-- Injecté dynamiquement -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== TAB 3: VARIATIONS ===== -->
+            <div id="tab-variations" class="tab-content hidden">
+              <div class="content-card">
+                <div class="card-header">
+                  <span>Variations du produit</span>
+                  <button type="button" id="addVariationBtn" class="btn btn-primary btn-sm">
+                    <i class="fas fa-plus"></i>
+                    Ajouter une variation
+                  </button>
+                </div>
+                <div class="card-body">
+                  <div id="variationsContainer" class="space-y-4">
+                    <!-- Injecté dynamiquement -->
+                  </div>
+                  
+                  <div id="noVariations" class="text-center py-8 text-text-secondary">
+                    <i class="fas fa-cubes text-4xl mb-3 opacity-50"></i>
+                    <p>Aucune variation pour ce produit</p>
+                    <p class="text-sm mt-2">Cliquez sur "Ajouter une variation" pour commencer</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== TAB 4: GALERIE ===== -->
+            <div id="tab-gallery" class="tab-content hidden">
+              <div class="content-card">
+                <div class="card-header">
+                  <span>Galerie d'images</span>
+                </div>
+                <div class="card-body">
+                  <div>
+                    <label class="block text-sm text-text-secondary mb-2">Images principales (noms des fichiers)</label>
+                    <div id="mainImagesContainer" class="image-grid">
+                      <!-- Injecté dynamiquement -->
+                    </div>
+                    
+                    <!-- Zone de saisie du nom d'image principale -->
+                    <div class="image-name-input-area">
+                      <input type="text" id="mainImageNameInput" class="image-name-input" placeholder="Nom du fichier image (ex: produit.jpg)" value="">
+                      <button type="button" id="addMainImageNameBtn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Ajouter
+                      </button>
+                    </div>
+                    <p class="text-xs text-text-secondary mt-1">L'image doit être placée dans le même dossier que le dashboard</p>
+                  </div>
+                  
+                  <div class="mt-6">
+                    <h4 class="font-medium mb-2">Images par variation</h4>
+                    <p class="text-sm text-text-secondary mb-4">Les images spécifiques sont gérées dans chaque variation</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- ========== VIEW: CATEGORIES ========== -->
+        <div id="categories-view" class="view hidden">
+          <div class="text-center py-12">
+            <i class="fas fa-sitemap text-4xl text-text-tertiary mb-3"></i>
+            <p class="text-text-secondary">Gestion des catégories dans le module dédié</p>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ========== MODAL VARIATION ========== -->
+  <div id="variationModal" class="modal-overlay">
+    <div class="modal-container p-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 id="variationModalTitle" class="text-xl font-semibold">Nouvelle variation</h3>
+        <button class="close-modal btn-icon">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="variationForm" class="space-y-4">
+        <input type="hidden" id="variationId">
+        <input type="hidden" id="variationIndex">
+        
+        <!-- Attributs -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Couleur</label>
+            <input type="text" id="varColor" class="form-input" placeholder="Rouge, Bleu...">
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Taille</label>
+            <input type="text" id="varSize" class="form-input" placeholder="S, M, L, XL...">
+          </div>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Volume / Oz</label>
+            <input type="text" id="varVolume" class="form-input" placeholder="250ml, 8oz...">
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">SKU *</label>
+            <div class="flex gap-2">
+              <input type="text" id="varSku" class="form-input" required>
+              <button type="button" id="generateSkuBtn" class="btn-secondary btn-sm whitespace-nowrap">
+                <i class="fas fa-sync-alt"></i>
+                Générer
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Options personnalisées -->
+        <div>
+          <div class="flex justify-between items-center mb-2">
+            <label class="text-sm text-text-secondary">Options personnalisées</label>
+            <button type="button" id="addCustomOptionBtn" class="btn-secondary btn-sm">
+              <i class="fas fa-plus"></i> Ajouter
+            </button>
+          </div>
+          <div id="customOptionsContainer" class="space-y-2">
+            <!-- Options dynamiques -->
+          </div>
+        </div>
+        
+        <!-- Prix et stock -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Prix spécifique</label>
+            <input type="number" id="varPrice" step="0.01" class="form-input" placeholder="Optionnel">
+          </div>
+          <div>
+            <label class="block text-sm text-text-secondary mb-1">Stock *</label>
+            <input type="number" id="varStock" class="form-input" required min="0" value="0">
+          </div>
+        </div>
+        
+        <!-- Images -->
+        <div>
+          <label class="block text-sm text-text-secondary mb-2">Images spécifiques (noms des fichiers)</label>
+          <div id="varImagesContainer" class="image-grid">
+            <!-- Images dynamiques -->
+          </div>
+          
+          <!-- Zone de saisie du nom d'image pour variation -->
+          <div class="image-name-input-area">
+            <input type="text" id="varImageNameInput" class="image-name-input" placeholder="Nom du fichier image (ex: variation.jpg)" value="">
+            <button type="button" id="addVarImageNameBtn" class="btn btn-primary">
+              <i class="fas fa-plus"></i>
+              Ajouter
+            </button>
+          </div>
+          <p class="text-xs text-text-secondary mt-1">L'image doit être placée dans le même dossier que le dashboard</p>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn btn-primary flex-1">
+            Enregistrer la variation
+          </button>
+          <button type="button" class="btn btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    // ========== CONFIGURATION FIREBASE ==========
+    import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { sendBroadcastNotification, NotificationComponent } from './notification.js';
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      orderBy,
+      onSnapshot,
+      getDoc
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const dashboardNotifier = new NotificationComponent({ mode: 'dashboard', defaultUrl: './Dproducts.html' });
+    dashboardNotifier.init();
+    
+    const PRODUCTS_COLLECTION = "products";
+    const CATEGORIES_COLLECTION = "categories_list";
+
+    // ========== CLASSE PRODUCT MANAGER ==========
+    class ProductManager {
+      constructor() {
+        this.products = [];
+        this.categories = [];
+        this.productLikes = new Map();
+        this.likesModal = null;
+        this.likesUnsubscribe = null;
+        this.columnsCache = new Map();
+        this.linesCache = new Map();
+        this.currentProduct = null;
+        this.currentVariations = [];
+        this.categorySelections = []; // [{ columnId, lineId }]
+        this.currentImages = {
+          main: [], // Noms des images principales
+          variations: {} // { variationIndex: [nomsImages] }
+        };
+        
+        this.init();
+      }
+      
+      async init() {
+        this.cacheElements();
+        this.setupEventListeners();
+        this.setupModalEvents(); // Configuration spécifique de la modale
+        await Promise.all([
+          this.loadProducts(),
+          this.loadCategories()
+        ]);
+        this.setupRealtimeListener();
+        this.setupLikesListener();
+      }
+      
+      cacheElements() {
+        this.elements = {
+          // Sidebar
+          sidebar: document.getElementById('sidebar'),
+          menuToggle: document.getElementById('menuToggle'),
+          sidebarNav: document.querySelectorAll('.sidebar-nav'),
+          views: {
+            dashboard: document.getElementById('dashboard-view'),
+            products: document.getElementById('products-view'),
+            editor: document.getElementById('product-editor-view'),
+            categories: document.getElementById('categories-view')
+          },
+          currentViewTitle: document.getElementById('currentViewTitle'),
+          
+          // Stats
+          statsTotalProducts: document.getElementById('stats-total-products'),
+          statsInStock: document.getElementById('stats-in-stock'),
+          statsOutStock: document.getElementById('stats-out-stock'),
+          statsWithVariations: document.getElementById('stats-with-variations'),
+          recentProducts: document.getElementById('recent-products'),
+          
+          // Products list
+          productsGrid: document.getElementById('products-grid'),
+          productsCount: document.getElementById('products-count'),
+          searchProducts: document.getElementById('search-products'),
+          
+          // Buttons
+          addProductBtn: document.getElementById('addProductBtn'),
+          newProductBtn: document.getElementById('newProductBtn'),
+          backToProducts: document.getElementById('backToProducts'),
+          saveProductBtn: document.getElementById('saveProductBtn'),
+          notifyUsersOnCreate: document.getElementById('notifyUsersOnCreate'),
+          
+          // Editor
+          editorTitle: document.getElementById('editor-title'),
+          productForm: document.getElementById('productForm'),
+          productId: document.getElementById('productId'),
+          productName: document.getElementById('productName'),
+          mainSku: document.getElementById('mainSku'),
+          shortDescription: document.getElementById('shortDescription'),
+          longDescription: document.getElementById('longDescription'),
+          basePrice: document.getElementById('basePrice'),
+          comparePrice: document.getElementById('comparePrice'),
+          totalStock: document.getElementById('totalStock'),
+          productStatus: document.getElementById('productStatus'),
+          
+          // Category tab
+          categorySelect: document.getElementById('categorySelect'),
+          categoryAttributesContainer: document.getElementById('categoryAttributesContainer'),
+          selectedLinesContainer: document.getElementById('selectedLinesContainer'),
+          selectedLinesList: document.getElementById('selectedLinesList'),
+          
+          // Variations
+          variationsContainer: document.getElementById('variationsContainer'),
+          noVariations: document.getElementById('noVariations'),
+          addVariationBtn: document.getElementById('addVariationBtn'),
+          
+          // Gallery
+          mainImagesContainer: document.getElementById('mainImagesContainer'),
+          mainImageNameInput: document.getElementById('mainImageNameInput'),
+          addMainImageNameBtn: document.getElementById('addMainImageNameBtn'),
+          
+          // Tabs
+          sectionTabs: document.querySelectorAll('.section-tab'),
+          tabContents: document.querySelectorAll('.tab-content'),
+          
+          // Variation Modal
+          variationModal: document.getElementById('variationModal'),
+          variationModalTitle: document.getElementById('variationModalTitle'),
+          variationForm: document.getElementById('variationForm'),
+          variationId: document.getElementById('variationId'),
+          variationIndex: document.getElementById('variationIndex'),
+          varColor: document.getElementById('varColor'),
+          varSize: document.getElementById('varSize'),
+          varVolume: document.getElementById('varVolume'),
+          varSku: document.getElementById('varSku'),
+          varPrice: document.getElementById('varPrice'),
+          varStock: document.getElementById('varStock'),
+          varImagesContainer: document.getElementById('varImagesContainer'),
+          varImageNameInput: document.getElementById('varImageNameInput'),
+          addVarImageNameBtn: document.getElementById('addVarImageNameBtn'),
+          customOptionsContainer: document.getElementById('customOptionsContainer'),
+          addCustomOptionBtn: document.getElementById('addCustomOptionBtn'),
+          generateSkuBtn: document.getElementById('generateSkuBtn'),
+          
+          closeModalBtns: document.querySelectorAll('.close-modal, .cancel-modal')
+        };
+      }
+      
+      setupEventListeners() {
+        // Sidebar navigation
+        this.elements.sidebarNav.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const view = btn.dataset.view;
+            this.switchView(view);
+          });
+        });
+        
+        // Menu toggle mobile
+        this.elements.menuToggle.addEventListener('click', () => {
+          this.elements.sidebar.classList.toggle('open');
+        });
+        
+        // Fermeture sidebar
+        document.addEventListener('click', (e) => {
+          if (!this.elements.sidebar.contains(e.target) && !this.elements.menuToggle.contains(e.target)) {
+            this.elements.sidebar.classList.remove('open');
+          }
+        });
+        
+        // Navigation produit
+        this.elements.addProductBtn.addEventListener('click', () => this.newProduct());
+        this.elements.newProductBtn.addEventListener('click', () => this.newProduct());
+        this.elements.backToProducts.addEventListener('click', () => this.switchView('products'));
+        
+        // Sauvegarde
+        this.elements.saveProductBtn.addEventListener('click', () => this.saveProduct());
+        
+        // Tabs
+        this.elements.sectionTabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+            this.switchEditorTab(tabName);
+          });
+        });
+        
+        // Catégorie select
+        this.elements.categorySelect.addEventListener('change', () => this.loadCategoryAttributes());
+        
+        // Variation
+        this.elements.addVariationBtn.addEventListener('click', () => this.openVariationModal());
+        this.elements.generateSkuBtn.addEventListener('click', () => this.generateSkuForModal());
+        this.elements.addCustomOptionBtn.addEventListener('click', () => this.addCustomOptionField());
+        
+        // Images - Ajout par nom de fichier
+        this.elements.addMainImageNameBtn.addEventListener('click', () => this.addImageByName('main'));
+        this.elements.addVarImageNameBtn.addEventListener('click', () => this.addImageByName('variation'));
+        
+        // Search
+        this.elements.searchProducts.addEventListener('input', () => this.renderProductsList());
+      }
+      
+      setupModalEvents() {
+        // Empêcher la fermeture quand on clique dans la modale
+        const modalContainer = this.elements.variationModal.querySelector('.modal-container');
+        if (modalContainer) {
+          modalContainer.addEventListener('click', (e) => {
+            e.stopPropagation();
+          });
+        }
+
+        // Fermeture avec les boutons de fermeture
+        this.elements.closeModalBtns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeAllModals();
+          });
+        });
+
+        // Fermeture en cliquant sur le backdrop
+        this.elements.variationModal.addEventListener('click', (e) => {
+          if (e.target === this.elements.variationModal) {
+            this.closeAllModals();
+          }
+        });
+
+        // Fermeture avec la touche Echap
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && this.elements.variationModal.classList.contains('active')) {
+            this.closeAllModals();
+          }
+        });
+
+        // Soumission du formulaire
+        this.elements.variationForm.addEventListener('submit', (e) => this.saveVariation(e));
+      }
+      
+      switchView(view) {
+        this.elements.sidebarNav.forEach(btn => {
+          btn.classList.remove('active', 'bg-background');
+          if (btn.dataset.view === view) {
+            btn.classList.add('active', 'bg-background');
+          }
+        });
+        
+        Object.values(this.elements.views).forEach(v => v.classList.add('hidden'));
+        this.elements.views[view].classList.remove('hidden');
+        
+        const titles = {
+          dashboard: 'Tableau de bord',
+          products: 'Produits',
+          categories: 'Catégories'
+        };
+        this.elements.currentViewTitle.textContent = titles[view] || 'Produits';
+      }
+      
+      switchEditorTab(tabName) {
+        this.elements.sectionTabs.forEach(t => t.classList.remove('active'));
+        this.elements.tabContents.forEach(c => c.classList.add('hidden'));
+        
+        document.querySelector(`.section-tab[data-tab="${tabName}"]`).classList.add('active');
+        document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+      }
+      
+      // ========== CHARGEMENT DES DONNÉES ==========
+      
+      async loadProducts() {
+        try {
+          const q = query(collection(db, PRODUCTS_COLLECTION), orderBy('updatedAt', 'desc'));
+          const snapshot = await getDocs(q);
+          this.products = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          this.renderProductsList();
+          this.updateStats();
+        } catch (error) {
+          console.error('❌ Erreur chargement produits:', error);
+        }
+      }
+      
+      async loadCategories() {
+        try {
+          const q = query(collection(db, CATEGORIES_COLLECTION), orderBy('name'));
+          const snapshot = await getDocs(q);
+          this.categories = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          this.updateCategorySelect();
+        } catch (error) {
+          console.error('❌ Erreur chargement catégories:', error);
+        }
+      }
+      
+      async loadColumns(categoryId) {
+        if (this.columnsCache.has(categoryId)) {
+          return this.columnsCache.get(categoryId);
+        }
+        
+        try {
+          const columnsRef = collection(db, CATEGORIES_COLLECTION, categoryId, 'columns');
+          const q = query(columnsRef, orderBy('order', 'asc'));
+          const snapshot = await getDocs(q);
+          const columns = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          this.columnsCache.set(categoryId, columns);
+          return columns;
+        } catch (error) {
+          console.error('❌ Erreur chargement colonnes:', error);
+          return [];
+        }
+      }
+      
+      async loadLines(categoryId, columnId) {
+        const cacheKey = `${categoryId}_${columnId}`;
+        if (this.linesCache.has(cacheKey)) {
+          return this.linesCache.get(cacheKey);
+        }
+        
+        try {
+          const linesRef = collection(db, CATEGORIES_COLLECTION, categoryId, 'columns', columnId, 'lines');
+          const q = query(linesRef, orderBy('order', 'asc'));
+          const snapshot = await getDocs(q);
+          const lines = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          this.linesCache.set(cacheKey, lines);
+          return lines;
+        } catch (error) {
+          console.error('❌ Erreur chargement lignes:', error);
+          return [];
+        }
+      }
+      
+      setupRealtimeListener() {
+        onSnapshot(collection(db, PRODUCTS_COLLECTION), () => {
+          this.loadProducts();
+        });
+      }
+
+      setupLikesListener() {
+        if (this.likesUnsubscribe) this.likesUnsubscribe();
+        this.likesUnsubscribe = onSnapshot(collection(db, 'productLikes'), (snapshot) => {
+          const map = new Map();
+          snapshot.forEach((snap) => {
+            const like = snap.data() || {};
+            const productId = String(like.productId || '');
+            if (!productId) return;
+            if (!map.has(productId)) map.set(productId, []);
+            map.get(productId).push({
+              id: snap.id,
+              userName: like.userName || '',
+              userEmail: like.userEmail || '',
+              userId: like.userId || '',
+              likedAt: like.likedAt || null
+            });
+          });
+          this.productLikes = map;
+          this.renderProductsList();
+        });
+      }
+
+      getProductLikes(productId) {
+        const likes = this.productLikes.get(String(productId)) || [];
+        return likes.slice().sort((a, b) => {
+          const aTime = a?.likedAt?.toMillis ? a.likedAt.toMillis() : new Date(a?.likedAt || 0).getTime() || 0;
+          const bTime = b?.likedAt?.toMillis ? b.likedAt.toMillis() : new Date(b?.likedAt || 0).getTime() || 0;
+          return bTime - aTime;
+        });
+      }
+      
+      // ========== RENDU ==========
+      
+      renderProductsList() {
+        const search = this.elements.searchProducts?.value.toLowerCase() || '';
+        const filtered = this.products.filter(p => 
+          p.name?.toLowerCase().includes(search) || 
+          p.sku?.toLowerCase().includes(search)
+        );
+
+        this.elements.productsCount.textContent = this.products.length;
+
+        if (filtered.length === 0) {
+          this.elements.productsGrid.innerHTML = `
+            <div class="col-span-full text-center py-12">
+              <i class="fas fa-box-open text-4xl text-text-tertiary mb-3"></i>
+              <p class="text-text-secondary">Aucun produit trouvé</p>
+            </div>
+          `;
+          return;
+        }
+
+        this.elements.productsGrid.innerHTML = filtered.map(product => {
+          const hasVariations = product.variations && product.variations.length > 0;
+          const likes = this.getProductLikes(product.id);
+          const totalStock = hasVariations 
+            ? product.variations.reduce((sum, v) => sum + (v.stock || 0), 0)
+            : product.stock || 0;
+          
+          const imageUrl = product.images?.[0] ? this.getImagePath(product.images[0]) : null;
+          
+          return `
+            <div class="product-card" data-id="${product.id}">
+              <div class="product-image">
+                ${imageUrl ? 
+                  `<img src="${imageUrl}" alt="${product.name}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\'fas fa-image text-3xl text-secondary\'></i>'">` : 
+                  `<i class="fas fa-image text-3xl text-secondary"></i>`
+                }
+              </div>
+              <div class="p-4">
+                <div class="flex justify-between items-start mb-2">
+                  <h3 class="font-semibold">${product.name || 'Sans nom'}</h3>
+                  <span class="status-badge ${product.status === 'active' ? 'status-active' : 'status-draft'}">
+                    ${product.status === 'active' ? 'Actif' : 'Brouillon'}
+                  </span>
+                </div>
+                <p class="text-sm text-text-secondary mb-2">${product.sku || 'SKU non défini'}</p>
+                <div class="flex justify-between items-center text-sm">
+                  <span>${product.price ? new Intl.NumberFormat('fr-HT', { style: 'currency', currency: 'HTG', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(product.price)) : 'Prix non défini'}</span>
+                  <span class="text-text-secondary">Stock: ${totalStock}</span>
+                </div>
+                <div class="flex justify-between items-center text-sm mt-2">
+                  <span class="text-text-secondary">
+                    <i class="fas fa-heart text-danger"></i>
+                    ${likes.length} like(s)
+                  </span>
+                  <button class="view-likes btn-icon" data-id="${product.id}" title="Voir qui a liké">
+                    <i class="fas fa-users"></i>
+                  </button>
+                </div>
+                <div class="flex justify-end gap-2 mt-3 pt-3 border-t border-border">
+                  <button class="edit-product btn-icon" data-id="${product.id}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="delete-product btn-icon text-danger" data-id="${product.id}">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Attacher événements
+        document.querySelectorAll('.edit-product').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.editProduct(btn.dataset.id);
+          });
+        });
+
+        document.querySelectorAll('.delete-product').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteProduct(btn.dataset.id);
+          });
+        });
+
+        document.querySelectorAll('.product-card').forEach(card => {
+          card.addEventListener('click', (e) => {
+            if (!e.target.closest('button')) {
+              this.editProduct(card.dataset.id);
+            }
+          });
+        });
+
+        document.querySelectorAll('.view-likes').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openLikesModal(btn.dataset.id);
+          });
+        });
+      }
+
+      openLikesModal(productId) {
+        const product = this.products.find(p => String(p.id) === String(productId));
+        const likes = this.getProductLikes(productId);
+
+        if (this.likesModal) {
+          this.likesModal.remove();
+          this.likesModal = null;
+        }
+
+        const html = `
+          <div class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" id="likesModalOverlay">
+            <div class="bg-white w-full max-w-2xl rounded-2xl border border-border shadow-2xl overflow-hidden">
+              <div class="px-5 py-4 border-b border-border flex justify-between items-center">
+                <div>
+                  <h3 class="text-lg font-semibold">Likes produit</h3>
+                  <p class="text-sm text-text-secondary">${product?.name || 'Produit'} • ${likes.length} like(s)</p>
+                </div>
+                <button id="closeLikesModalBtn" class="btn-icon"><i class="fas fa-times"></i></button>
+              </div>
+              <div class="p-4 max-h-[65vh] overflow-auto space-y-2">
+                ${likes.length === 0 ? `
+                  <p class="text-sm text-text-secondary">Aucun like pour ce produit.</p>
+                ` : likes.map((like, index) => `
+                  <div class="flex items-center justify-between p-3 rounded-xl border border-border bg-background">
+                    <div>
+                      <p class="font-medium">${like.userName || 'Utilisateur sans nom'}</p>
+                      <p class="text-sm text-text-secondary">${like.userEmail || like.userId || ''}</p>
+                    </div>
+                    <span class="text-xs text-text-secondary">${this.formatLikeDate(like.likedAt)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', html);
+        this.likesModal = document.getElementById('likesModalOverlay');
+
+        const close = () => {
+          if (this.likesModal) {
+            this.likesModal.remove();
+            this.likesModal = null;
+          }
+        };
+
+        this.likesModal.querySelector('#closeLikesModalBtn')?.addEventListener('click', close);
+        this.likesModal.addEventListener('click', (e) => {
+          if (e.target === this.likesModal) close();
+        });
+      }
+
+      formatLikeDate(value) {
+        let date = null;
+        if (value?.toDate) date = value.toDate();
+        else if (value) date = new Date(value);
+        if (!date || Number.isNaN(date.getTime())) return '-';
+        return date.toLocaleString('fr-FR');
+      }
+      
+      async loadCategoryAttributes() {
+        const categoryId = this.elements.categorySelect.value;
+        if (!categoryId) {
+          this.elements.categoryAttributesContainer.innerHTML = '<p class="text-text-secondary">Sélectionnez une catégorie</p>';
+          return;
+        }
+        
+        const columns = await this.loadColumns(categoryId);
+        let html = '';
+        
+        for (const column of columns) {
+          const lines = await this.loadLines(categoryId, column.id);
+          
+          html += `
+            <div class="column-item">
+              <div class="column-header">${column.columnName || 'Sans nom'}</div>
+          `;
+          
+          lines.forEach(line => {
+            const isSelected = this.categorySelections.some(s => s.columnId === column.id && s.lineId === line.id);
+            html += `
+              <div class="line-checkbox ${isSelected ? 'selected' : ''}" 
+                   data-column="${column.id}" 
+                   data-line="${line.id}"
+                   data-name="${line.lineName || 'Ligne'}">
+                <i class="fas fa-${isSelected ? 'check-square' : 'square'} text-secondary"></i>
+                <span>${line.lineName || 'Sans nom'}</span>
+                ${line.image ? '<i class="fas fa-image text-xs ml-1 text-text-secondary"></i>' : ''}
+              </div>
+            `;
+          });
+          
+          html += `</div>`;
+        }
+        
+        this.elements.categoryAttributesContainer.innerHTML = html || '<p class="text-text-secondary">Aucune colonne dans cette catégorie</p>';
+        
+        // Attacher événements
+        document.querySelectorAll('.line-checkbox').forEach(el => {
+          el.addEventListener('click', () => {
+            const columnId = el.dataset.column;
+            const lineId = el.dataset.line;
+            const lineName = el.dataset.name;
+            
+            const index = this.categorySelections.findIndex(s => s.columnId === columnId && s.lineId === lineId);
+            
+            if (index === -1) {
+              this.categorySelections.push({ columnId, lineId, name: lineName });
+            } else {
+              this.categorySelections.splice(index, 1);
+            }
+            
+            this.renderSelectedLines();
+            this.loadCategoryAttributes(); // Re-rendre pour mettre à jour les icônes
+          });
+        });
+      }
+      
+      renderSelectedLines() {
+        if (this.categorySelections.length === 0) {
+          this.elements.selectedLinesList.innerHTML = '<span class="text-text-secondary text-sm">Aucune ligne sélectionnée</span>';
+          return;
+        }
+        
+        this.elements.selectedLinesList.innerHTML = this.categorySelections.map(s => `
+          <span class="attribute-pill">
+            <i class="fas fa-check-circle text-success"></i>
+            ${s.name}
+            <i class="fas fa-times cursor-pointer hover:text-danger ml-1 remove-line" data-column="${s.columnId}" data-line="${s.lineId}"></i>
+          </span>
+        `).join('');
+        
+        // Attacher suppression
+        document.querySelectorAll('.remove-line').forEach(el => {
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const columnId = el.dataset.column;
+            const lineId = el.dataset.line;
+            
+            const index = this.categorySelections.findIndex(s => s.columnId === columnId && s.lineId === lineId);
+            if (index !== -1) {
+              this.categorySelections.splice(index, 1);
+              this.renderSelectedLines();
+              this.loadCategoryAttributes(); // Re-rendre pour mettre à jour les icônes
+            }
+          });
+        });
+      }
+      
+      renderVariations() {
+        if (this.currentVariations.length === 0) {
+          this.elements.noVariations.style.display = 'block';
+          this.elements.variationsContainer.innerHTML = '';
+          return;
+        }
+        
+        this.elements.noVariations.style.display = 'none';
+        
+        this.elements.variationsContainer.innerHTML = this.currentVariations.map((varia, index) => {
+          const variationImages = this.currentImages.variations[index] || [];
+          
+          return `
+            <div class="variation-card">
+              <div class="variation-header">
+                <div class="flex gap-2 flex-wrap">
+                  ${varia.color ? `<span class="attribute-pill"><i class="fas fa-palette"></i> ${varia.color}</span>` : ''}
+                  ${varia.size ? `<span class="attribute-pill"><i class="fas fa-ruler"></i> ${varia.size}</span>` : ''}
+                  ${varia.volume ? `<span class="attribute-pill"><i class="fas fa-flask"></i> ${varia.volume}</span>` : ''}
+                  <span class="variation-badge">SKU: ${varia.sku}</span>
+                </div>
+                <div class="flex gap-2">
+                  <button type="button" class="edit-variation btn-icon" data-index="${index}">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button type="button" class="delete-variation btn-icon text-danger" data-index="${index}">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4 mt-2 text-sm">
+                <div>
+                  <span class="text-text-secondary">Prix:</span>
+                  <span class="ml-2 font-medium">${varia.price ? new Intl.NumberFormat('fr-HT', { style: 'currency', currency: 'HTG', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(varia.price)) : 'Prix de base'}</span>
+                </div>
+                <div>
+                  <span class="text-text-secondary">Stock:</span>
+                  <span class="ml-2 font-medium">${varia.stock || 0}</span>
+                </div>
+              </div>
+              
+              ${variationImages.length > 0 ? `
+                <div class="mt-2 pt-2 border-t border-border">
+                  <p class="text-xs text-text-secondary mb-1">Images (${variationImages.length}):</p>
+                  <div class="flex gap-1 flex-wrap">
+                    ${variationImages.map(img => `
+                      <div class="w-8 h-8 rounded overflow-hidden border border-border">
+                        <img src="${this.getImagePath(img)}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\'fas fa-image text-xs\'></i>'">
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              ${varia.customOptions && varia.customOptions.length > 0 ? `
+                <div class="mt-2 pt-2 border-t border-border">
+                  <p class="text-xs text-text-secondary mb-1">Options personnalisées:</p>
+                  <div class="flex flex-wrap gap-2">
+                    ${varia.customOptions.map(opt => `
+                      <span class="attribute-pill text-xs">
+                        <i class="fas fa-tag"></i>
+                        ${opt.name}: ${opt.value}
+                      </span>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('');
+        
+        // Attacher événements
+        document.querySelectorAll('.edit-variation').forEach(btn => {
+          btn.addEventListener('click', () => this.editVariation(parseInt(btn.dataset.index)));
+        });
+        
+        document.querySelectorAll('.delete-variation').forEach(btn => {
+          btn.addEventListener('click', () => this.deleteVariation(parseInt(btn.dataset.index)));
+        });
+        
+        this.updateTotalStock();
+      }
+      
+      renderMainImages() {
+        const container = this.elements.mainImagesContainer;
+        container.innerHTML = '';
+        
+        this.currentImages.main.forEach((filename, index) => {
+          const div = document.createElement('div');
+          div.className = 'image-item';
+          div.innerHTML = `
+            <img src="${this.getImagePath(filename)}" alt="Image produit" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\'fas fa-image text-2xl text-secondary\'></i>'">
+            <button class="remove-image" data-index="${index}">
+              <i class="fas fa-times"></i>
+            </button>
+            <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs truncate px-1">${filename}</div>
+          `;
+          
+          div.querySelector('.remove-image').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeImage('main', index);
+          });
+          
+          container.appendChild(div);
+        });
+      }
+      
+      renderVariationImages(variationIndex) {
+        const container = this.elements.varImagesContainer;
+        container.innerHTML = '';
+        
+        const images = this.currentImages.variations[variationIndex] || [];
+        
+        images.forEach((filename, index) => {
+          const div = document.createElement('div');
+          div.className = 'image-item';
+          div.innerHTML = `
+            <img src="${this.getImagePath(filename)}" alt="Image variation" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\'fas fa-image text-2xl text-secondary\'></i>'">
+            <button class="remove-image" data-index="${index}">
+              <i class="fas fa-times"></i>
+            </button>
+            <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs truncate px-1">${filename}</div>
+          `;
+          
+          div.querySelector('.remove-image').addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.removeImage('variation', index, variationIndex);
+          });
+          
+          container.appendChild(div);
+        });
+      }
+      
+      updateTotalStock() {
+        const total = this.currentVariations.reduce((sum, v) => sum + (v.stock || 0), 0);
+        this.elements.totalStock.value = total;
+      }
+      
+      updateCategorySelect() {
+        const select = this.elements.categorySelect;
+        select.innerHTML = '<option value="">Choisir une catégorie</option>';
+        
+        this.categories.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat.id;
+          option.textContent = cat.name || 'Sans nom';
+          select.appendChild(option);
+        });
+      }
+      
+      updateStats() {
+        const total = this.products.length;
+        const inStock = this.products.filter(p => {
+          if (p.variations?.length) {
+            return p.variations.some(v => v.stock > 0);
+          }
+          return p.stock > 0;
+        }).length;
+        
+        const withVariations = this.products.filter(p => p.variations?.length > 0).length;
+        
+        this.elements.statsTotalProducts.textContent = total;
+        this.elements.statsInStock.textContent = inStock;
+        this.elements.statsOutStock.textContent = total - inStock;
+        this.elements.statsWithVariations.textContent = withVariations;
+        
+        // Produits récents
+        const recent = this.products.slice(0, 4);
+        this.elements.recentProducts.innerHTML = recent.map(p => `
+          <div class="flex items-center gap-3 p-3 bg-background rounded-lg cursor-pointer" onclick="window.productManager.editProduct('${p.id}')">
+            <div class="w-12 h-12 bg-white rounded-lg overflow-hidden flex items-center justify-center">
+              ${p.images?.[0] ? 
+                `<img src="${this.getImagePath(p.images[0])}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.parentNode.innerHTML='<i class=\'fas fa-image text-secondary\'></i>'">` : 
+                `<i class="fas fa-image text-secondary"></i>`
+              }
+            </div>
+            <div class="flex-1">
+              <p class="font-medium">${p.name || 'Sans nom'}</p>
+              <p class="text-xs text-text-secondary">${p.sku || 'SKU non défini'}</p>
+            </div>
+            <span class="text-sm font-medium">${p.price ? new Intl.NumberFormat('fr-HT', { style: 'currency', currency: 'HTG', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(p.price)) : '?'}</span>
+          </div>
+        `).join('');
+      }
+      
+      // ========== CRUD PRODUITS ==========
+      
+      newProduct() {
+        this.currentProduct = null;
+        this.currentVariations = [];
+        this.categorySelections = [];
+        this.currentImages = {
+          main: [],
+          variations: {}
+        };
+        this.resetForm();
+        this.switchView('editor');
+        this.elements.editorTitle.textContent = 'Nouveau produit';
+        this.switchEditorTab('general');
+      }
+      
+      async editProduct(id) {
+        try {
+          const docRef = doc(db, PRODUCTS_COLLECTION, id);
+          const docSnap = await getDoc(docRef);
+          
+          if (!docSnap.exists()) {
+            this.showToast('Produit non trouvé', 'error');
+            return;
+          }
+          
+          this.currentProduct = { id: docSnap.id, ...docSnap.data() };
+          this.currentVariations = this.currentProduct.variations || [];
+          this.categorySelections = this.currentProduct.categorySelections || [];
+          
+          // Charger les images (noms de fichiers stockés)
+          this.currentImages = {
+            main: this.currentProduct.images || [],
+            variations: {}
+          };
+          
+          // Charger les images des variations
+          this.currentVariations.forEach((varia, index) => {
+            if (varia.images) {
+              this.currentImages.variations[index] = varia.images;
+            }
+          });
+          
+          // Remplir formulaire
+          this.elements.productId.value = this.currentProduct.id;
+          this.elements.productName.value = this.currentProduct.name || '';
+          this.elements.mainSku.value = this.currentProduct.sku || '';
+          this.elements.shortDescription.value = this.currentProduct.shortDescription || '';
+          this.elements.longDescription.value = this.currentProduct.longDescription || '';
+          this.elements.basePrice.value = this.currentProduct.price || '';
+          this.elements.comparePrice.value = this.currentProduct.comparePrice || '';
+          this.elements.productStatus.checked = this.currentProduct.status !== 'draft';
+          
+          if (this.currentProduct.categoryId) {
+            this.elements.categorySelect.value = this.currentProduct.categoryId;
+            await this.loadCategoryAttributes();
+          }
+          
+          this.renderVariations();
+          this.renderMainImages();
+          this.renderSelectedLines();
+          
+          this.switchView('editor');
+          this.elements.editorTitle.textContent = `Édition: ${this.currentProduct.name || 'Produit'}`;
+          this.switchEditorTab('general');
+          
+        } catch (error) {
+          console.error('❌ Erreur chargement produit:', error);
+          this.showToast('Erreur chargement produit', 'error');
+        }
+      }
+      
+      resetForm() {
+        this.elements.productId.value = '';
+        this.elements.productName.value = '';
+        this.elements.mainSku.value = '';
+        this.elements.shortDescription.value = '';
+        this.elements.longDescription.value = '';
+        this.elements.basePrice.value = '';
+        this.elements.comparePrice.value = '';
+        this.elements.totalStock.value = '0';
+        this.elements.productStatus.checked = true;
+        this.elements.categorySelect.value = '';
+        this.elements.categoryAttributesContainer.innerHTML = '';
+        this.elements.selectedLinesList.innerHTML = '';
+        this.elements.variationsContainer.innerHTML = '';
+        this.elements.noVariations.style.display = 'block';
+        this.elements.mainImagesContainer.innerHTML = '';
+        if (this.elements.notifyUsersOnCreate) {
+          this.elements.notifyUsersOnCreate.checked = true;
+        }
+      }
+      
+      async saveProduct() {
+        const productData = {
+          name: this.elements.productName.value.trim(),
+          sku: this.elements.mainSku.value.trim() || this.generateMainSku(),
+          shortDescription: this.elements.shortDescription.value.trim(),
+          longDescription: this.elements.longDescription.value.trim(),
+          price: parseFloat(this.elements.basePrice.value) || 0,
+          comparePrice: parseFloat(this.elements.comparePrice.value) || null,
+          status: this.elements.productStatus.checked ? 'active' : 'draft',
+          categoryId: this.elements.categorySelect.value || null,
+          categorySelections: this.categorySelections,
+          variations: this.currentVariations.map((v, index) => ({
+            ...v,
+            images: this.currentImages.variations[index] || []
+          })),
+          images: this.currentImages.main,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (!productData.name) {
+          this.showToast('Le nom du produit est requis', 'error');
+          return;
+        }
+
+        try {
+          if (this.currentProduct?.id) {
+            await updateDoc(doc(db, PRODUCTS_COLLECTION, this.currentProduct.id), productData);
+            this.showToast('Produit mis à jour');
+          } else {
+            const docRef = await addDoc(collection(db, PRODUCTS_COLLECTION), {
+              ...productData,
+              createdAt: new Date().toISOString()
+            });
+            this.showToast('Produit créé');
+            if (this.elements.notifyUsersOnCreate?.checked) {
+              await sendBroadcastNotification({
+                type: 'product_new',
+                title: 'Nouveau produit disponible',
+                body: `${productData.name} vient d’être ajouté.`,
+                target: 'all',
+                url: './index.html',
+                createdBy: 'dashboard_products',
+                productId: docRef.id
+              });
+            }
+          }
+          
+          this.switchView('products');
+        } catch (error) {
+          console.error('❌ Erreur sauvegarde:', error);
+          this.showToast('Erreur lors de la sauvegarde', 'error');
+        }
+      }
+      
+      async deleteProduct(id) {
+        if (!confirm('Supprimer ce produit ?')) return;
+        
+        try {
+          await deleteDoc(doc(db, PRODUCTS_COLLECTION, id));
+          this.showToast('Produit supprimé');
+        } catch (error) {
+          console.error('❌ Erreur suppression:', error);
+          this.showToast('Erreur lors de la suppression', 'error');
+        }
+      }
+      
+      // ========== GESTION DES VARIATIONS ==========
+      
+      openVariationModal(index = null) {
+        this.resetVariationForm();
+        
+        if (index !== null) {
+          const varia = this.currentVariations[index];
+          if (varia) {
+            this.elements.variationId.value = varia.id || '';
+            this.elements.variationIndex.value = index;
+            this.elements.varColor.value = varia.color || '';
+            this.elements.varSize.value = varia.size || '';
+            this.elements.varVolume.value = varia.volume || '';
+            this.elements.varSku.value = varia.sku || '';
+            this.elements.varPrice.value = varia.price || '';
+            this.elements.varStock.value = varia.stock || 0;
+            this.elements.variationModalTitle.textContent = 'Modifier la variation';
+            
+            // Charger les images de la variation
+            if (this.currentImages.variations[index]) {
+              this.renderVariationImages(index);
+            }
+            
+            // Options personnalisées
+            if (varia.customOptions) {
+              varia.customOptions.forEach(opt => this.addCustomOptionField(opt));
+            }
+          }
+        } else {
+          this.generateSkuForModal();
+          this.elements.variationModalTitle.textContent = 'Nouvelle variation';
+        }
+        
+        // Activer la modale
+        this.elements.variationModal.classList.add('active');
+      }
+      
+      editVariation(index) {
+        this.openVariationModal(index);
+      }
+      
+      deleteVariation(index) {
+        this.currentVariations.splice(index, 1);
+        
+        // Supprimer les images associées
+        if (this.currentImages.variations[index]) {
+          delete this.currentImages.variations[index];
+        }
+        
+        // Réindexer les images des variations suivantes
+        const newVariationsImages = {};
+        Object.keys(this.currentImages.variations).forEach(key => {
+          const keyNum = parseInt(key);
+          if (keyNum > index) {
+            newVariationsImages[keyNum - 1] = this.currentImages.variations[keyNum];
+          } else if (keyNum < index) {
+            newVariationsImages[keyNum] = this.currentImages.variations[keyNum];
+          }
+        });
+        this.currentImages.variations = newVariationsImages;
+        
+        this.renderVariations();
+      }
+      
+      saveVariation(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const variationIndex = parseInt(this.elements.variationIndex.value);
+        const variation = {
+          id: this.elements.variationId.value || null,
+          color: this.elements.varColor.value.trim() || null,
+          size: this.elements.varSize.value.trim() || null,
+          volume: this.elements.varVolume.value.trim() || null,
+          sku: this.elements.varSku.value.trim(),
+          price: parseFloat(this.elements.varPrice.value) || null,
+          stock: parseInt(this.elements.varStock.value) || 0,
+          customOptions: this.collectCustomOptions()
+        };
+
+        if (!variation.sku) {
+          this.showToast('Le SKU est requis', 'error');
+          return;
+        }
+
+        if (!isNaN(variationIndex) && variationIndex >= 0) {
+          this.currentVariations[variationIndex] = variation;
+        } else {
+          this.currentVariations.push(variation);
+        }
+        
+        this.renderVariations();
+        this.closeAllModals();
+      }
+      
+      generateSku() {
+        const productName = this.elements.productName.value.trim() || 'PROD';
+        const color = this.elements.varColor.value.trim() || '';
+        const size = this.elements.varSize.value.trim() || '';
+        const timestamp = Date.now().toString().slice(-4);
+        
+        const parts = [
+          productName.substring(0, 3).toUpperCase(),
+          color.substring(0, 2).toUpperCase(),
+          size.substring(0, 2).toUpperCase(),
+          timestamp
+        ].filter(Boolean);
+        
+        return parts.join('-');
+      }
+      
+      generateSkuForModal() {
+        this.elements.varSku.value = this.generateSku();
+      }
+      
+      generateMainSku() {
+        const name = this.elements.productName.value.trim() || 'PROD';
+        return `${name.substring(0, 5).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      }
+      
+      addCustomOptionField(option = null) {
+        const container = this.elements.customOptionsContainer;
+        const div = document.createElement('div');
+        div.className = 'flex gap-2 items-center';
+        div.innerHTML = `
+          <input type="text" class="form-input text-sm flex-1" placeholder="Nom (ex: Matière)" value="${option?.name || ''}">
+          <input type="text" class="form-input text-sm flex-1" placeholder="Valeur (ex: Cuir)" value="${option?.value || ''}">
+          <button type="button" class="remove-option text-danger">
+            <i class="fas fa-times"></i>
+          </button>
+        `;
+        
+        div.querySelector('.remove-option').addEventListener('click', () => div.remove());
+        container.appendChild(div);
+      }
+      
+      collectCustomOptions() {
+        const options = [];
+        this.elements.customOptionsContainer.querySelectorAll('.flex').forEach(row => {
+          const inputs = row.querySelectorAll('input');
+          if (inputs.length === 2 && inputs[0].value.trim() && inputs[1].value.trim()) {
+            options.push({
+              name: inputs[0].value.trim(),
+              value: inputs[1].value.trim()
+            });
+          }
+        });
+        return options;
+      }
+      
+      resetVariationForm() {
+        this.elements.variationId.value = '';
+        this.elements.variationIndex.value = '';
+        this.elements.varColor.value = '';
+        this.elements.varSize.value = '';
+        this.elements.varVolume.value = '';
+        this.elements.varSku.value = '';
+        this.elements.varPrice.value = '';
+        this.elements.varStock.value = '0';
+        this.elements.customOptionsContainer.innerHTML = '';
+        this.elements.varImagesContainer.innerHTML = '';
+        this.elements.varImageNameInput.value = '';
+      }
+      
+      // ========== GESTION DES IMAGES ==========
+      
+      addImageByName(type) {
+        if (type === 'main') {
+          const filename = this.elements.mainImageNameInput.value.trim();
+          if (filename) {
+            this.currentImages.main.push(filename);
+            this.renderMainImages();
+            this.elements.mainImageNameInput.value = '';
+            this.showToast(`Image "${filename}" ajoutée`);
+          } else {
+            this.showToast('Veuillez entrer un nom de fichier', 'error');
+          }
+        } else {
+          const filename = this.elements.varImageNameInput.value.trim();
+          const variationIndex = parseInt(this.elements.variationIndex.value);
+          
+          if (!filename) {
+            this.showToast('Veuillez entrer un nom de fichier', 'error');
+            return;
+          }
+          
+          if (isNaN(variationIndex) || variationIndex < 0) {
+            this.showToast('Veuillez d\'abord créer la variation', 'error');
+            return;
+          }
+          
+          if (!this.currentImages.variations[variationIndex]) {
+            this.currentImages.variations[variationIndex] = [];
+          }
+          
+          this.currentImages.variations[variationIndex].push(filename);
+          this.renderVariationImages(variationIndex);
+          this.elements.varImageNameInput.value = '';
+          this.showToast(`Image "${filename}" ajoutée à la variation`);
+        }
+      }
+      
+      removeImage(type, index, variationIndex = null) {
+        if (type === 'main') {
+          const filename = this.currentImages.main[index];
+          this.currentImages.main.splice(index, 1);
+          this.renderMainImages();
+          this.showToast(`Image "${filename}" retirée`);
+        } else if (variationIndex !== null) {
+          const filename = this.currentImages.variations[variationIndex][index];
+          this.currentImages.variations[variationIndex].splice(index, 1);
+          this.renderVariationImages(variationIndex);
+          this.showToast(`Image "${filename}" retirée de la variation`);
+        }
+      }
+      
+      getImagePath(filename) {
+        if (!filename) return '';
+        
+        // Si c'est déjà une URL complète (pour compatibilité)
+        if (filename.startsWith('http')) {
+          return filename;
+        }
+        
+        // Sinon, c'est un nom de fichier à chercher à la racine
+        return `./${filename}`;
+      }
+      
+      // ========== UTILITAIRES ==========
+      
+      closeAllModals() {
+        this.elements.variationModal.classList.remove('active');
+      }
+      
+      showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      }
+    }
+
+    // ========== INITIALISATION ==========
+    const productManager = new ProductManager();
+    window.productManager = productManager; // Pour accès global
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>
