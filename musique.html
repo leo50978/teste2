@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Musique · Vitch Studio</title>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --luxury: #1F1E1C;
+      --accent: #C6A75E;
+      --ivory: #F5F1E8;
+      --muted: #7A746B;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#f5f1e8] text-[#1F1E1C]">
+  <main class="w-full max-w-3xl mx-auto px-4 py-6 md:py-10">
+    <section class="rounded-2xl border border-[#C6A75E]/30 bg-white shadow-sm overflow-hidden">
+      <header class="bg-[#1F1E1C] text-[#F5F1E8] px-4 py-4 md:px-6">
+        <p class="text-[11px] tracking-[0.22em] uppercase text-[#C6A75E]">Vitch Studio</p>
+        <h1 class="text-xl md:text-2xl font-semibold mt-1">Dashboard Musique</h1>
+        <p class="text-sm text-[#F5F1E8]/80 mt-1">Configure le son global du site.</p>
+      </header>
+
+      <div class="p-4 md:p-6 space-y-5">
+        <div class="grid gap-4">
+          <label class="grid gap-2">
+            <span class="text-sm font-medium">Nom du fichier MP3</span>
+            <input
+              id="mp3FileName"
+              type="text"
+              placeholder="ex: ambiance.mp3 ou https://..."
+              class="w-full rounded-xl border border-[#C6A75E]/35 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C6A75E]/40"
+            >
+            <span class="text-xs text-[#7A746B]">Le fichier local doit exister à la racine du projet.</span>
+          </label>
+
+          <label class="flex items-center gap-3 rounded-xl border border-[#C6A75E]/25 bg-[#F5F1E8]/40 px-3 py-2.5">
+            <input id="isActive" type="checkbox" class="h-4 w-4 accent-[#C6A75E]">
+            <span class="text-sm">Activer le composant musique sur le site</span>
+          </label>
+
+          <div class="grid gap-2 rounded-xl border border-[#C6A75E]/25 bg-[#1F1E1C] text-[#F5F1E8] p-3">
+            <p class="text-xs uppercase tracking-[0.2em] text-[#C6A75E]">Aperçu</p>
+            <p id="previewText" class="text-sm break-all">Aucun fichier sélectionné</p>
+            <audio id="previewAudio" controls class="w-full"></audio>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button id="saveBtn" class="rounded-full bg-[#1F1E1C] text-[#F5F1E8] border border-[#C6A75E] px-4 py-2 text-sm font-semibold">
+            Enregistrer
+          </button>
+          <button id="reloadBtn" class="rounded-full bg-white text-[#1F1E1C] border border-[#C6A75E]/45 px-4 py-2 text-sm font-semibold">
+            Recharger
+          </button>
+        </div>
+
+        <p id="statusMsg" class="text-sm"></p>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp, getApps, getApp } from 'firebase/app';
+    import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const COLLECTION = 'siteMusicConfig';
+    const DOC_ID = 'main';
+
+    const el = {
+      mp3FileName: document.getElementById('mp3FileName'),
+      isActive: document.getElementById('isActive'),
+      previewText: document.getElementById('previewText'),
+      previewAudio: document.getElementById('previewAudio'),
+      saveBtn: document.getElementById('saveBtn'),
+      reloadBtn: document.getElementById('reloadBtn'),
+      statusMsg: document.getElementById('statusMsg')
+    };
+
+    function resolvePath(fileName) {
+      if (!fileName) return '';
+      if (fileName.startsWith('http://') || fileName.startsWith('https://')) return fileName;
+      const clean = fileName.split('/').pop();
+      return `./${clean}`;
+    }
+
+    function setStatus(message, ok = true) {
+      el.statusMsg.textContent = message;
+      el.statusMsg.className = ok ? 'text-sm text-green-700' : 'text-sm text-red-700';
+    }
+
+    function updatePreview() {
+      const name = (el.mp3FileName.value || '').trim();
+      if (!name) {
+        el.previewText.textContent = 'Aucun fichier sélectionné';
+        el.previewAudio.removeAttribute('src');
+        el.previewAudio.load();
+        return;
+      }
+      const src = resolvePath(name);
+      el.previewText.textContent = src;
+      el.previewAudio.src = src;
+    }
+
+    async function loadConfig() {
+      try {
+        const ref = doc(db, COLLECTION, DOC_ID);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) {
+          el.mp3FileName.value = '';
+          el.isActive.checked = false;
+          updatePreview();
+          setStatus('Config vide. Remplis le fichier puis enregistre.', true);
+          return;
+        }
+        const data = snap.data() || {};
+        el.mp3FileName.value = data.mp3FileName || '';
+        el.isActive.checked = data.isActive !== false;
+        updatePreview();
+        setStatus('Configuration chargée.', true);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Erreur chargement: ${error.message}`, false);
+      }
+    }
+
+    async function saveConfig() {
+      const mp3FileName = (el.mp3FileName.value || '').trim();
+      const isActive = !!el.isActive.checked;
+
+      if (!mp3FileName) {
+        setStatus('Le nom du fichier MP3 est obligatoire.', false);
+        return;
+      }
+
+      el.saveBtn.disabled = true;
+      try {
+        const ref = doc(db, COLLECTION, DOC_ID);
+        await setDoc(ref, {
+          mp3FileName,
+          isActive,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        setStatus('Configuration musique enregistrée avec succès.', true);
+      } catch (error) {
+        console.error(error);
+        setStatus(`Erreur enregistrement: ${error.message}`, false);
+      } finally {
+        el.saveBtn.disabled = false;
+      }
+    }
+
+    el.mp3FileName.addEventListener('input', updatePreview);
+    el.saveBtn.addEventListener('click', saveConfig);
+    el.reloadBtn.addEventListener('click', loadConfig);
+
+    loadConfig();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>
