@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>Vitch Studio · Dashboard Actualités</title>
+  
+  <!-- TailwindCSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  
+  <!-- Import Map Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <style>
+    /* ========== VARIABLES ========== */
+    :root {
+      --font-primary: 'Cormorant Garamond', serif;
+      --font-secondary: 'Manrope', sans-serif;
+      --color-luxury: #1F1E1C;
+      --color-secondary: #C6A75E;
+      --color-ivory: #F5F1E8;
+      --color-accent: #8B7E6B;
+      --color-danger: #7F1D1D;
+      --color-success: #2E5D3A;
+    }
+    
+    /* ========== BASE ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: var(--color-ivory);
+      font-family: var(--font-secondary);
+      color: var(--color-luxury);
+    }
+    
+    /* ========== ANIMATIONS ========== */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    .fade-in {
+      animation: fadeIn 0.4s ease forwards;
+    }
+    
+    .slide-in {
+      animation: slideIn 0.3s ease forwards;
+    }
+    
+    /* ========== COMPOSANTS ========== */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+    }
+    
+    .btn-primary {
+      background: var(--color-luxury);
+      color: var(--color-ivory);
+      padding: 0.75rem 1.5rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      font-weight: 500;
+      transition: all 0.3s;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+    }
+    
+    .btn-secondary {
+      background: transparent;
+      color: var(--color-luxury);
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--color-secondary);
+      border-radius: 0.25rem;
+      transition: all 0.3s;
+      cursor: pointer;
+    }
+    
+    .btn-secondary:hover {
+      background: var(--color-secondary);
+      color: var(--color-ivory);
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(198, 167, 94, 0.3);
+      border-radius: 0.25rem;
+      background: rgba(245, 241, 232, 0.5);
+      transition: all 0.3s;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+      box-shadow: 0 0 0 2px rgba(198, 167, 94, 0.2);
+    }
+    
+    .form-select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(198, 167, 94, 0.3);
+      border-radius: 0.25rem;
+      background: rgba(245, 241, 232, 0.5);
+      cursor: pointer;
+    }
+    
+    /* ========== PREVIEW IMAGES ========== */
+    .image-preview-container {
+      width: 100px;
+      height: 100px;
+      border: 2px dashed rgba(198, 167, 94, 0.3);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      position: relative;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    
+    .image-preview-container:hover {
+      border-color: var(--color-secondary);
+      background: rgba(198, 167, 94, 0.05);
+    }
+    
+    .image-preview-container img,
+    .image-preview-container video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .image-preview-container .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--color-accent);
+      font-size: 0.75rem;
+    }
+    
+    /* ========== SECTION CARD ========== */
+    .section-card {
+      background: white;
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      position: relative;
+      cursor: move;
+      transition: all 0.2s;
+    }
+    
+    .section-card:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      border-color: var(--color-secondary);
+    }
+    
+    .section-card.dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+    }
+    
+    .section-number {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--color-secondary);
+      color: var(--color-luxury);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+    
+    /* ========== ARTICLE CARD ========== */
+    .article-card {
+      background: white;
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+      overflow: hidden;
+      transition: all 0.3s;
+    }
+    
+    .article-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .presentation-card {
+      background: rgba(198, 167, 94, 0.05);
+      border: 1px solid rgba(198, 167, 94, 0.2);
+      border-radius: 0.5rem;
+      padding: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    /* ========== TABS ========== */
+    .tab {
+      padding: 0.75rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    
+    .tab.active {
+      border-bottom-color: var(--color-secondary);
+      color: var(--color-secondary);
+      font-weight: 500;
+    }
+    
+    /* ========== MODAL ========== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      z-index: 999999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    
+    .modal-container {
+      background: var(--color-ivory);
+      border-radius: 1rem;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-ivory">
+  <!-- Header -->
+  <header class="bg-luxury text-ivory py-4 px-6 shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="font-primary text-2xl text-secondary">veltrixa<span class="text-ivory text-xl">▲</span></h1>
+        <p class="text-xs uppercase tracking-wider text-ivory/70">Dashboard actualités</p>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="flex items-center gap-2">
+          <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          <span class="text-sm hidden md:inline">Firebase connecté</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto p-4 md:p-6">
+    <!-- Tabs -->
+    <div class="flex border-b border-secondary/20 mb-6 overflow-x-auto">
+      <div class="tab active" data-tab="articles">Articles</div>
+      <div class="tab" data-tab="presentations">Présentations</div>
+    </div>
+
+    <!-- ========== TAB 1: ARTICLES ========== -->
+    <div id="tab-articles" class="tab-content">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="font-primary text-2xl">Gestion des articles</h2>
+        <button id="addArticleBtn" class="btn-primary">
+          <i class="fas fa-plus"></i>
+          <span>Nouvel article</span>
+        </button>
+      </div>
+
+      <!-- Liste des articles -->
+      <div id="articlesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injecté par JS -->
+      </div>
+    </div>
+
+    <!-- ========== TAB 2: PRÉSENTATIONS ========== -->
+    <div id="tab-presentations" class="tab-content hidden">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="font-primary text-2xl">Gestion des présentations</h2>
+        <button id="addPresentationBtn" class="btn-primary">
+          <i class="fas fa-plus"></i>
+          <span>Nouvelle présentation</span>
+        </button>
+      </div>
+
+      <!-- Liste des présentations -->
+      <div id="presentationsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Injecté par JS -->
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL: Ajout/Édition Article -->
+  <div id="articleModal" class="modal-overlay">
+    <div class="modal-container p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="articleModalTitle" class="font-primary text-xl">Ajouter un article</h3>
+        <button class="close-modal text-2xl text-accent hover:text-secondary">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="articleForm" class="space-y-4">
+        <input type="hidden" id="articleId">
+        
+        <!-- Hero Section -->
+        <div class="bg-secondary/5 p-4 rounded-lg">
+          <h4 class="font-medium mb-3">Hero Section</h4>
+          
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Image ou vidéo hero</label>
+              <div class="flex items-center gap-4">
+                <div id="heroPreview" class="image-preview-container">
+                  <img id="heroImg" src="" class="hidden w-full h-full object-cover">
+                  <video id="heroVideo" src="" class="hidden w-full h-full object-cover" controls></video>
+                  <div id="heroPlaceholder" class="placeholder">
+                    <i class="fas fa-image"></i>
+                    <span>Hero</span>
+                  </div>
+                </div>
+                <div class="flex-1">
+                  <input type="text" id="heroMedia" class="form-input" placeholder="hero.jpg ou hero.mp4">
+                  <p class="text-xs text-accent mt-1">Nom du fichier image ou vidéo</p>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Titre de l'article *</label>
+              <input type="text" id="articleTitle" class="form-input" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Sous-titre</label>
+              <input type="text" id="articleSubtitle" class="form-input">
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-accent mb-1">Date de publication</label>
+              <input type="date" id="articleDate" class="form-input">
+            </div>
+          </div>
+        </div>
+
+        <!-- Sections de l'article -->
+        <div class="bg-secondary/5 p-4 rounded-lg">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-medium">Sections de l'article</h4>
+            <button type="button" id="addSectionBtn" class="btn-secondary text-sm">
+              <i class="fas fa-plus"></i>
+              Ajouter une section
+            </button>
+          </div>
+          
+          <div id="sectionsContainer" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            <!-- Les sections seront ajoutées ici -->
+          </div>
+          
+          <p class="text-xs text-accent mt-2">
+            <i class="fas fa-arrows-alt"></i>
+            Glissez les sections pour réordonner
+          </p>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1">
+            <i class="fas fa-save"></i>
+            Enregistrer l'article
+          </button>
+          <button type="button" class="btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Ajout/Édition Présentation -->
+  <div id="presentationModal" class="modal-overlay">
+    <div class="modal-container p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="presentationModalTitle" class="font-primary text-xl">Ajouter une présentation</h3>
+        <button class="close-modal text-2xl text-accent hover:text-secondary">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <form id="presentationForm" class="space-y-4">
+        <input type="hidden" id="presentationId">
+        <input type="hidden" id="presentationArticleId">
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Image de présentation</label>
+          <div class="flex items-center gap-4">
+            <div id="presImagePreview" class="image-preview-container">
+              <img id="presImageImg" src="" class="hidden w-full h-full object-cover">
+              <div id="presImagePlaceholder" class="placeholder">
+                <i class="fas fa-image"></i>
+                <span>Image</span>
+              </div>
+            </div>
+            <div class="flex-1">
+              <input type="text" id="presImage" class="form-input" placeholder="presentation.jpg">
+            </div>
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Titre *</label>
+          <input type="text" id="presTitle" class="form-input" required>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Sous-titre</label>
+          <input type="text" id="presSubtitle" class="form-input">
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-accent mb-1">Article associé</label>
+          <select id="presArticleId" class="form-select">
+            <option value="">Sélectionner un article</option>
+          </select>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn-primary flex-1">
+            <i class="fas fa-save"></i>
+            Enregistrer
+          </button>
+          <button type="button" class="btn-secondary cancel-modal">
+            Annuler
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      getDocs, 
+      doc, 
+      updateDoc, 
+      deleteDoc, 
+      query, 
+      orderBy,
+      where
+    } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+
+    // ========== CONFIG FIREBASE ==========
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Collections
+    const ARTICLES_COLLECTION = "articles";
+    const PRESENTATIONS_COLLECTION = "presentations";
+
+    // ========== ÉTAT GLOBAL ==========
+    let articles = [];
+    let presentations = [];
+    let currentArticleId = null;
+    let currentPresentationId = null;
+    let sectionsSortable = null;
+
+    // ========== ÉLÉMENTS DOM ==========
+    const elements = {
+      tabs: document.querySelectorAll('.tab'),
+      tabContents: document.querySelectorAll('.tab-content'),
+      
+      // Articles
+      articlesList: document.getElementById('articlesList'),
+      addArticleBtn: document.getElementById('addArticleBtn'),
+      
+      // Présentations
+      presentationsList: document.getElementById('presentationsList'),
+      addPresentationBtn: document.getElementById('addPresentationBtn'),
+      
+      // Modal Article
+      articleModal: document.getElementById('articleModal'),
+      articleModalTitle: document.getElementById('articleModalTitle'),
+      articleId: document.getElementById('articleId'),
+      heroMedia: document.getElementById('heroMedia'),
+      heroImg: document.getElementById('heroImg'),
+      heroVideo: document.getElementById('heroVideo'),
+      heroPlaceholder: document.getElementById('heroPlaceholder'),
+      articleTitle: document.getElementById('articleTitle'),
+      articleSubtitle: document.getElementById('articleSubtitle'),
+      articleDate: document.getElementById('articleDate'),
+      sectionsContainer: document.getElementById('sectionsContainer'),
+      addSectionBtn: document.getElementById('addSectionBtn'),
+      
+      // Modal Présentation
+      presentationModal: document.getElementById('presentationModal'),
+      presentationModalTitle: document.getElementById('presentationModalTitle'),
+      presentationId: document.getElementById('presentationId'),
+      presentationArticleId: document.getElementById('presentationArticleId'),
+      presImage: document.getElementById('presImage'),
+      presImageImg: document.getElementById('presImageImg'),
+      presImagePlaceholder: document.getElementById('presImagePlaceholder'),
+      presTitle: document.getElementById('presTitle'),
+      presSubtitle: document.getElementById('presSubtitle'),
+      presArticleId: document.getElementById('presArticleId'),
+      
+      // Boutons communs
+      closeModalBtns: document.querySelectorAll('.close-modal'),
+      cancelModalBtns: document.querySelectorAll('.cancel-modal')
+    };
+
+    // ========== INITIALISATION ==========
+    async function init() {
+      await loadArticles();
+      await loadPresentations();
+      
+      setupTabs();
+      setupEventListeners();
+      
+    }
+
+    // ========== GESTION DES TABS ==========
+    function setupTabs() {
+      elements.tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const tabName = tab.dataset.tab;
+          
+          elements.tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          
+          elements.tabContents.forEach(content => content.classList.add('hidden'));
+          document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+        });
+      });
+    }
+
+    // ========== CHARGEMENT DES DONNÉES ==========
+    
+    async function loadArticles() {
+      try {
+        const q = query(collection(db, ARTICLES_COLLECTION), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        articles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderArticles();
+      } catch (error) {
+        console.error('❌ Erreur chargement articles:', error);
+      }
+    }
+
+    async function loadPresentations() {
+      try {
+        const q = query(collection(db, PRESENTATIONS_COLLECTION), orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        presentations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPresentations();
+        updateArticleSelect();
+      } catch (error) {
+        console.error('❌ Erreur chargement présentations:', error);
+      }
+    }
+
+    // ========== RENDU DES ARTICLES ==========
+    
+    function renderArticles() {
+      if (articles.length === 0) {
+        elements.articlesList.innerHTML = `
+          <div class="col-span-3 text-center py-12 text-accent bg-white/50 rounded-lg">
+            <i class="fas fa-newspaper text-4xl mb-3 opacity-50"></i>
+            <p>Aucun article</p>
+            <p class="text-sm mt-2">Cliquez sur "Nouvel article" pour créer</p>
+          </div>
+        `;
+        return;
+      }
+
+      elements.articlesList.innerHTML = articles.map(article => {
+        const articlePresentations = presentations.filter(p => p.articleId === article.id);
+        
+        return `
+          <div class="article-card p-4">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-12 h-12 bg-secondary/20 rounded-lg overflow-hidden">
+                  ${article.heroMedia ? 
+                    `<img src="./${article.heroMedia}" class="w-full h-full object-cover">` : 
+                    `<div class="w-full h-full flex items-center justify-center"><i class="fas fa-image text-secondary"></i></div>`
+                  }
+                </div>
+                <div>
+                  <h3 class="font-medium">${article.title || 'Sans titre'}</h3>
+                  <p class="text-xs text-accent">${article.subtitle || ''}</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button class="edit-article text-accent hover:text-secondary" data-id="${article.id}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-article text-danger hover:text-danger/70" data-id="${article.id}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div class="text-xs text-accent mb-2">
+              <span>${article.sections?.length || 0} sections</span>
+              <span class="mx-2">•</span>
+              <span>${articlePresentations.length} présentations</span>
+            </div>
+            
+            ${articlePresentations.length > 0 ? `
+              <div class="mt-2 pt-2 border-t border-secondary/10">
+                <p class="text-xs font-medium mb-1">Présentations liées :</p>
+                ${articlePresentations.map(p => `
+                  <div class="presentation-card text-xs flex justify-between items-center">
+                    <span>${p.title || 'Sans titre'}</span>
+                    <span class="text-accent">${p.subtitle || ''}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.edit-article').forEach(btn => {
+        btn.addEventListener('click', () => editArticle(btn.dataset.id));
+      });
+      
+      document.querySelectorAll('.delete-article').forEach(btn => {
+        btn.addEventListener('click', () => deleteArticle(btn.dataset.id));
+      });
+    }
+
+    // ========== RENDU DES PRÉSENTATIONS ==========
+    
+    function renderPresentations() {
+      if (presentations.length === 0) {
+        elements.presentationsList.innerHTML = `
+          <div class="col-span-3 text-center py-12 text-accent bg-white/50 rounded-lg">
+            <i class="fas fa-images text-4xl mb-3 opacity-50"></i>
+            <p>Aucune présentation</p>
+            <p class="text-sm mt-2">Cliquez sur "Nouvelle présentation" pour créer</p>
+          </div>
+        `;
+        return;
+      }
+
+      elements.presentationsList.innerHTML = presentations.map(presentation => {
+        const article = articles.find(a => a.id === presentation.articleId);
+        
+        return `
+          <div class="article-card p-4">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-12 h-12 bg-secondary/20 rounded-lg overflow-hidden">
+                  ${presentation.image ? 
+                    `<img src="./${presentation.image}" class="w-full h-full object-cover">` : 
+                    `<div class="w-full h-full flex items-center justify-center"><i class="fas fa-image text-secondary"></i></div>`
+                  }
+                </div>
+                <div>
+                  <h3 class="font-medium">${presentation.title || 'Sans titre'}</h3>
+                  <p class="text-xs text-accent">${presentation.subtitle || ''}</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button class="edit-presentation text-accent hover:text-secondary" data-id="${presentation.id}">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="delete-presentation text-danger hover:text-danger/70" data-id="${presentation.id}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div class="text-xs text-accent">
+              ${article ? `Article: ${article.title}` : 'Non lié'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.querySelectorAll('.edit-presentation').forEach(btn => {
+        btn.addEventListener('click', () => editPresentation(btn.dataset.id));
+      });
+      
+      document.querySelectorAll('.delete-presentation').forEach(btn => {
+        btn.addEventListener('click', () => deletePresentation(btn.dataset.id));
+      });
+    }
+
+    function updateArticleSelect() {
+      elements.presArticleId.innerHTML = '<option value="">Sélectionner un article</option>';
+      articles.forEach(article => {
+        const option = document.createElement('option');
+        option.value = article.id;
+        option.textContent = article.title || 'Sans titre';
+        elements.presArticleId.appendChild(option);
+      });
+    }
+
+    // ========== GESTION DES SECTIONS ==========
+    
+    function addSectionToForm(sectionData = null, index = null) {
+      const sectionId = 'section_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      
+      const sectionCard = document.createElement('div');
+      sectionCard.className = 'section-card';
+      sectionCard.dataset.sectionId = sectionId;
+      
+      const mediaType = sectionData?.mediaType || 'image';
+      const hasMedia = sectionData?.media || false;
+      
+      sectionCard.innerHTML = `
+        <div class="flex justify-between items-start mb-3">
+          <div class="flex items-center gap-2">
+            <span class="section-number">${index !== null ? index + 1 : elements.sectionsContainer.children.length + 1}</span>
+            <span class="text-sm font-medium">Section</span>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" class="move-section text-accent hover:text-secondary cursor-move" title="Déplacer">
+              <i class="fas fa-grip-vertical"></i>
+            </button>
+            <button type="button" class="remove-section text-danger hover:text-danger/70" title="Supprimer">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-accent mb-1">Type de média</label>
+            <select class="section-media-type form-select text-sm">
+              <option value="image" ${mediaType === 'image' ? 'selected' : ''}>Image</option>
+              <option value="video" ${mediaType === 'video' ? 'selected' : ''}>Vidéo</option>
+              <option value="none" ${!hasMedia ? 'selected' : ''}>Aucun média</option>
+            </select>
+          </div>
+          
+          <div class="media-field ${!hasMedia || mediaType === 'none' ? 'hidden' : ''}">
+            <label class="block text-xs text-accent mb-1">Fichier ${mediaType === 'image' ? 'image' : 'vidéo'}</label>
+            <input type="text" class="section-media form-input text-sm" value="${sectionData?.media || ''}" placeholder="${mediaType === 'image' ? 'image.jpg' : 'video.mp4'}">
+          </div>
+          
+          <div>
+            <label class="block text-xs text-accent mb-1">Texte</label>
+            <textarea class="section-text form-input text-sm" rows="3">${sectionData?.text || ''}</textarea>
+          </div>
+        </div>
+      `;
+      
+      // Événement changement type de média
+      const mediaTypeSelect = sectionCard.querySelector('.section-media-type');
+      const mediaField = sectionCard.querySelector('.media-field');
+      const mediaInput = sectionCard.querySelector('.section-media');
+      
+      mediaTypeSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'none') {
+          mediaField.classList.add('hidden');
+          mediaInput.value = '';
+        } else {
+          mediaField.classList.remove('hidden');
+          mediaInput.placeholder = e.target.value === 'image' ? 'image.jpg' : 'video.mp4';
+        }
+      });
+      
+      // Événement suppression
+      sectionCard.querySelector('.remove-section').addEventListener('click', () => {
+        sectionCard.remove();
+        updateSectionNumbers();
+      });
+      
+      if (index !== null) {
+        const children = elements.sectionsContainer.children;
+        if (index < children.length) {
+          elements.sectionsContainer.insertBefore(sectionCard, children[index]);
+        } else {
+          elements.sectionsContainer.appendChild(sectionCard);
+        }
+      } else {
+        elements.sectionsContainer.appendChild(sectionCard);
+      }
+      
+      updateSectionNumbers();
+    }
+
+    function updateSectionNumbers() {
+      const sections = elements.sectionsContainer.querySelectorAll('.section-card');
+      sections.forEach((section, index) => {
+        section.querySelector('.section-number').textContent = index + 1;
+      });
+    }
+
+    function collectSectionsFromForm() {
+      const sections = [];
+      const sectionCards = elements.sectionsContainer.querySelectorAll('.section-card');
+      
+      sectionCards.forEach(card => {
+        const mediaType = card.querySelector('.section-media-type').value;
+        const media = card.querySelector('.section-media')?.value || '';
+        const text = card.querySelector('.section-text')?.value || '';
+        
+        sections.push({
+          mediaType: mediaType,
+          media: media || null,
+          text: text,
+          order: sections.length
+        });
+      });
+      
+      return sections;
+    }
+
+    // ========== CRUD ARTICLES ==========
+    
+    function openArticleModal(editMode = false) {
+      elements.articleModalTitle.textContent = editMode ? 'Modifier l\'article' : 'Ajouter un article';
+      elements.articleModal.style.display = 'flex';
+      
+      setTimeout(() => {
+        if (sectionsSortable) {
+          sectionsSortable.destroy();
+        }
+        
+        sectionsSortable = new Sortable(elements.sectionsContainer, {
+          animation: 150,
+          handle: '.move-section',
+          draggable: '.section-card',
+          onEnd: updateSectionNumbers
+        });
+      }, 100);
+    }
+
+    function closeArticleModal() {
+      elements.articleModal.style.display = 'none';
+      resetArticleForm();
+    }
+
+    function resetArticleForm() {
+      currentArticleId = null;
+      elements.articleId.value = '';
+      elements.heroMedia.value = '';
+      elements.heroImg.classList.add('hidden');
+      elements.heroVideo.classList.add('hidden');
+      elements.heroPlaceholder.classList.remove('hidden');
+      elements.articleTitle.value = '';
+      elements.articleSubtitle.value = '';
+      elements.articleDate.value = new Date().toISOString().split('T')[0];
+      elements.sectionsContainer.innerHTML = '';
+      
+      // Ajouter une section par défaut
+      addSectionToForm();
+    }
+
+    function editArticle(id) {
+      const article = articles.find(a => a.id === id);
+      if (!article) return;
+      
+      currentArticleId = id;
+      elements.articleId.value = id;
+      elements.heroMedia.value = article.heroMedia || '';
+      if (article.heroMedia) {
+        if (article.heroMedia.match(/\.(mp4|webm|ogg)$/i)) {
+          elements.heroVideo.src = './' + article.heroMedia;
+          elements.heroVideo.classList.remove('hidden');
+          elements.heroPlaceholder.classList.add('hidden');
+        } else {
+          elements.heroImg.src = './' + article.heroMedia;
+          elements.heroImg.classList.remove('hidden');
+          elements.heroPlaceholder.classList.add('hidden');
+        }
+      }
+      elements.articleTitle.value = article.title || '';
+      elements.articleSubtitle.value = article.subtitle || '';
+      elements.articleDate.value = article.date || new Date().toISOString().split('T')[0];
+      
+      // Charger les sections
+      elements.sectionsContainer.innerHTML = '';
+      const sections = article.sections || [];
+      if (sections.length === 0) {
+        addSectionToForm();
+      } else {
+        sections.forEach((section, index) => addSectionToForm(section, index));
+      }
+      
+      openArticleModal(true);
+    }
+
+    async function deleteArticle(id) {
+      if (!confirm('Supprimer cet article ?')) return;
+      
+      try {
+        await deleteDoc(doc(db, ARTICLES_COLLECTION, id));
+        await loadArticles();
+        showNotification('Article supprimé', 'success');
+      } catch (error) {
+        console.error('❌ Erreur suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    async function saveArticle(e) {
+      e.preventDefault();
+      
+      const sections = collectSectionsFromForm();
+      
+      const articleData = {
+        heroMedia: elements.heroMedia.value.trim() || null,
+        title: elements.articleTitle.value.trim(),
+        subtitle: elements.articleSubtitle.value.trim() || null,
+        date: elements.articleDate.value || new Date().toISOString().split('T')[0],
+        sections: sections,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!articleData.title) {
+        showNotification('Le titre est obligatoire', 'error');
+        return;
+      }
+
+      try {
+        if (currentArticleId) {
+          await updateDoc(doc(db, ARTICLES_COLLECTION, currentArticleId), articleData);
+          showNotification('Article mis à jour', 'success');
+        } else {
+          await addDoc(collection(db, ARTICLES_COLLECTION), {
+            ...articleData,
+            createdAt: new Date().toISOString()
+          });
+          showNotification('Article créé', 'success');
+        }
+        
+        await loadArticles();
+        await loadPresentations(); // Pour mettre à jour la liste des articles
+        closeArticleModal();
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== CRUD PRÉSENTATIONS ==========
+    
+    function openPresentationModal(editMode = false) {
+      elements.presentationModalTitle.textContent = editMode ? 'Modifier la présentation' : 'Ajouter une présentation';
+      elements.presentationModal.style.display = 'flex';
+    }
+
+    function closePresentationModal() {
+      elements.presentationModal.style.display = 'none';
+      resetPresentationForm();
+    }
+
+    function resetPresentationForm() {
+      currentPresentationId = null;
+      elements.presentationId.value = '';
+      elements.presentationArticleId.value = '';
+      elements.presImage.value = '';
+      elements.presImageImg.classList.add('hidden');
+      elements.presImagePlaceholder.classList.remove('hidden');
+      elements.presTitle.value = '';
+      elements.presSubtitle.value = '';
+    }
+
+    function editPresentation(id) {
+      const presentation = presentations.find(p => p.id === id);
+      if (!presentation) return;
+      
+      currentPresentationId = id;
+      elements.presentationId.value = id;
+      elements.presentationArticleId.value = presentation.articleId || '';
+      elements.presImage.value = presentation.image || '';
+      if (presentation.image) {
+        elements.presImageImg.src = './' + presentation.image;
+        elements.presImageImg.classList.remove('hidden');
+        elements.presImagePlaceholder.classList.add('hidden');
+      }
+      elements.presTitle.value = presentation.title || '';
+      elements.presSubtitle.value = presentation.subtitle || '';
+      
+      openPresentationModal(true);
+    }
+
+    async function deletePresentation(id) {
+      if (!confirm('Supprimer cette présentation ?')) return;
+      
+      try {
+        await deleteDoc(doc(db, PRESENTATIONS_COLLECTION, id));
+        await loadPresentations();
+        showNotification('Présentation supprimée', 'success');
+      } catch (error) {
+        console.error('❌ Erreur suppression:', error);
+        showNotification('Erreur lors de la suppression', 'error');
+      }
+    }
+
+    async function savePresentation(e) {
+      e.preventDefault();
+      
+      const presentationData = {
+        image: elements.presImage.value.trim() || null,
+        title: elements.presTitle.value.trim(),
+        subtitle: elements.presSubtitle.value.trim() || null,
+        articleId: elements.presArticleId.value || null,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!presentationData.title) {
+        showNotification('Le titre est obligatoire', 'error');
+        return;
+      }
+
+      try {
+        if (currentPresentationId) {
+          await updateDoc(doc(db, PRESENTATIONS_COLLECTION, currentPresentationId), presentationData);
+          showNotification('Présentation mise à jour', 'success');
+        } else {
+          await addDoc(collection(db, PRESENTATIONS_COLLECTION), {
+            ...presentationData,
+            createdAt: new Date().toISOString()
+          });
+          showNotification('Présentation créée', 'success');
+        }
+        
+        await loadPresentations();
+        closePresentationModal();
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde:', error);
+        showNotification('Erreur lors de la sauvegarde', 'error');
+      }
+    }
+
+    // ========== NOTIFICATION ==========
+    
+    function showNotification(message, type = 'success') {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#2E5D3A' : '#7F1D1D'};
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 50px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        z-index: 1000000;
+        animation: slideInRight 0.3s ease;
+        font-size: 0.95rem;
+      `;
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // ========== ÉVÉNEMENTS ==========
+    
+    function setupEventListeners() {
+      // Articles
+      elements.addArticleBtn.addEventListener('click', () => openArticleModal(false));
+      
+      // Présentations
+      elements.addPresentationBtn.addEventListener('click', () => openPresentationModal(false));
+      
+      // Ajout de section
+      elements.addSectionBtn.addEventListener('click', () => addSectionToForm());
+      
+      // Fermeture modals
+      elements.closeModalBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeArticleModal();
+          closePresentationModal();
+        });
+      });
+      
+      elements.cancelModalBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          closeArticleModal();
+          closePresentationModal();
+        });
+      });
+      
+      // Clic sur overlay
+      elements.articleModal.addEventListener('click', (e) => {
+        if (e.target === elements.articleModal) closeArticleModal();
+      });
+      
+      elements.presentationModal.addEventListener('click', (e) => {
+        if (e.target === elements.presentationModal) closePresentationModal();
+      });
+      
+      // Sauvegarde
+      document.getElementById('articleForm').addEventListener('submit', saveArticle);
+      document.getElementById('presentationForm').addEventListener('submit', savePresentation);
+      
+      // Preview hero media
+      elements.heroMedia.addEventListener('input', (e) => {
+        const value = e.target.value;
+        if (value) {
+          if (value.match(/\.(mp4|webm|ogg)$/i)) {
+            elements.heroVideo.src = './' + value;
+            elements.heroVideo.classList.remove('hidden');
+            elements.heroImg.classList.add('hidden');
+            elements.heroPlaceholder.classList.add('hidden');
+          } else {
+            elements.heroImg.src = './' + value;
+            elements.heroImg.classList.remove('hidden');
+            elements.heroVideo.classList.add('hidden');
+            elements.heroPlaceholder.classList.add('hidden');
+          }
+        } else {
+          elements.heroImg.classList.add('hidden');
+          elements.heroVideo.classList.add('hidden');
+          elements.heroPlaceholder.classList.remove('hidden');
+        }
+      });
+      
+      // Preview image présentation
+      elements.presImage.addEventListener('input', (e) => {
+        if (e.target.value) {
+          elements.presImageImg.src = './' + e.target.value;
+          elements.presImageImg.classList.remove('hidden');
+          elements.presImagePlaceholder.classList.add('hidden');
+        } else {
+          elements.presImageImg.classList.add('hidden');
+          elements.presImagePlaceholder.classList.remove('hidden');
+        }
+      });
+    }
+
+    // ========== LANCEMENT ==========
+    init();
+  </script>
+  <script src="./dashboard-nav-bubble.js"></script>
+</body>
+</html>
