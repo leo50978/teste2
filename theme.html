@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard · Thème Avancé</title>
+  
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Manrope:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Lato:wght@300;400;700&family=Roboto:wght@300;400;500;700&family=Open+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;500;600&family=Raleway:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  
+  <!-- Firebase -->
+  <script type="importmap">
+    {
+      "imports": {
+        "firebase/app": "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js",
+        "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"
+      }
+    }
+  </script>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    
+    .dashboard-container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    
+    .dashboard-header {
+      padding: 2rem 2rem 1rem;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .dashboard-header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 0.25rem;
+    }
+    
+    .dashboard-header p {
+      color: #666;
+      font-size: 0.95rem;
+    }
+    
+    .dashboard-content {
+      padding: 2rem;
+    }
+    
+    .section {
+      margin-bottom: 2.5rem;
+    }
+    
+    .section-title {
+      font-size: 1.2rem;
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .section-title i {
+      color: #C6A75E;
+      font-size: 1.1rem;
+    }
+    
+    /* Grille de couleurs */
+    .colors-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    
+    .color-card {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 1.25rem;
+      border: 1px solid #eee;
+      transition: all 0.2s;
+    }
+    
+    .color-card:hover {
+      border-color: #C6A75E;
+      box-shadow: 0 5px 15px rgba(198,167,94,0.1);
+    }
+    
+    .color-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      font-weight: 500;
+      color: #333;
+    }
+    
+    .color-label i {
+      color: #C6A75E;
+      font-size: 1rem;
+    }
+    
+    .color-input-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    
+    .color-picker {
+      width: 50px;
+      height: 50px;
+      border: 2px solid #ddd;
+      border-radius: 12px;
+      cursor: pointer;
+      padding: 0;
+    }
+    
+    .color-hex {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      background: white;
+    }
+    
+    .color-hex:focus {
+      outline: none;
+      border-color: #C6A75E;
+    }
+    
+    .color-presets {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+    
+    .preset-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.2s;
+    }
+    
+    .preset-dot:hover {
+      transform: scale(1.15);
+    }
+    
+    .preset-dot.selected {
+      border-color: #333;
+    }
+    
+    /* Sous-sections de couleurs */
+    .color-subsection {
+      margin-bottom: 1.5rem;
+    }
+    
+    .color-subsection h4 {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    /* Typography */
+    .typography-selector {
+      background: #fafafa;
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid #eee;
+    }
+    
+    .font-preview {
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 12px;
+      border: 1px solid #eee;
+    }
+    
+    .font-preview-text {
+      font-size: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .font-preview-meta {
+      font-size: 0.8rem;
+      color: #999;
+    }
+    
+    .font-select {
+      width: 100%;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 1rem;
+      background: white;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+    
+    .font-select:focus {
+      outline: none;
+      border-color: #C6A75E;
+    }
+    
+    .font-options {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      border: 1px solid #eee;
+      border-radius: 12px;
+      background: white;
+    }
+    
+    .font-option {
+      padding: 0.75rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+    }
+    
+    .font-option:hover {
+      background: #f5f5f5;
+      border-color: #ddd;
+    }
+    
+    .font-option.selected {
+      background: #C6A75E10;
+      border-color: #C6A75E;
+    }
+    
+    .font-option-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 0.25rem;
+    }
+    
+    .font-option-sample {
+      font-size: 0.8rem;
+      color: #666;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    /* Save button */
+    .save-section {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .save-btn {
+      background: #C6A75E;
+      color: white;
+      border: none;
+      padding: 1rem 3rem;
+      border-radius: 40px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.3s;
+    }
+    
+    .save-btn:hover {
+      background: #b5944a;
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(198,167,94,0.2);
+    }
+    
+    .save-btn:active {
+      transform: translateY(0);
+    }
+    
+    .save-btn i {
+      font-size: 1.1rem;
+    }
+    
+    .save-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .toast {
+      position: fixed;
+      top: 2rem;
+      right: 2rem;
+      background: #333;
+      color: white;
+      padding: 1rem 2rem;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      transform: translateX(400px);
+      transition: transform 0.3s ease;
+      z-index: 1000;
+    }
+    
+    .toast.show {
+      transform: translateX(0);
+    }
+    
+    .toast.success {
+      background: #355E3B;
+    }
+    
+    .toast.error {
+      background: #7F1D1D;
+    }
+    
+    @media (max-width: 768px) {
+      .colors-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .font-options {
+        grid-template-columns: 1fr;
+      }
+      
+      .dashboard-content {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <h1><i class="fas fa-palette" style="color: #C6A75E; margin-right: 0.5rem;"></i>Dashboard Thème Avancé</h1>
+      <p>Personnalisez toutes les couleurs de votre site</p>
+    </div>
+    
+    <div class="dashboard-content">
+      <!-- SECTION COULEURS DE TEXTE -->
+      <div class="section">
+        <div class="section-title">
+          <i class="fas fa-font"></i>
+          <span>Couleurs de texte</span>
+        </div>
+        
+        <div class="colors-grid" id="textColorsGrid">
+          <!-- Titre -->
+          <div class="color-card" id="textTitleCard">
+            <div class="color-label">
+              <i class="fas fa-heading"></i>
+              <span>Titre</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="textTitlePicker" value="#1F1E1C">
+              <input type="text" class="color-hex" id="textTitleHex" value="#1F1E1C" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsTextTitle"></div>
+          </div>
+          
+          <!-- Sous-titre -->
+          <div class="color-card" id="textSubtitleCard">
+            <div class="color-label">
+              <i class="fas fa-heading"></i>
+              <span>Sous-titre</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="textSubtitlePicker" value="#7A746B">
+              <input type="text" class="color-hex" id="textSubtitleHex" value="#7A746B" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsTextSubtitle"></div>
+          </div>
+          
+          <!-- Texte long / Description -->
+          <div class="color-card" id="textBodyCard">
+            <div class="color-label">
+              <i class="fas fa-paragraph"></i>
+              <span>Texte long / Description</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="textBodyPicker" value="#4A4A4A">
+              <input type="text" class="color-hex" id="textBodyHex" value="#4A4A4A" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsTextBody"></div>
+          </div>
+          
+          <!-- Texte bouton -->
+          <div class="color-card" id="textButtonCard">
+            <div class="color-label">
+              <i class="fas fa-square"></i>
+              <span>Texte bouton</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="textButtonPicker" value="#FFFFFF">
+              <input type="text" class="color-hex" id="textButtonHex" value="#FFFFFF" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsTextButton"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- SECTION COULEURS DE FOND -->
+      <div class="section">
+        <div class="section-title">
+          <i class="fas fa-fill-drip"></i>
+          <span>Couleurs de fond</span>
+        </div>
+        
+        <div class="colors-grid" id="bgColorsGrid">
+          <!-- Fond général -->
+          <div class="color-card" id="bgGeneralCard">
+            <div class="color-label">
+              <i class="fas fa-globe"></i>
+              <span>Fond général</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="bgGeneralPicker" value="#FFFFFF">
+              <input type="text" class="color-hex" id="bgGeneralHex" value="#FFFFFF" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsBgGeneral"></div>
+          </div>
+          
+          <!-- Fond carte / section -->
+          <div class="color-card" id="bgCardCard">
+            <div class="color-label">
+              <i class="fas fa-credit-card"></i>
+              <span>Fond carte / section</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="bgCardPicker" value="#F5F5F5">
+              <input type="text" class="color-hex" id="bgCardHex" value="#F5F5F5" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsBgCard"></div>
+          </div>
+          
+          <!-- Fond bouton -->
+          <div class="color-card" id="bgButtonCard">
+            <div class="color-label">
+              <i class="fas fa-square"></i>
+              <span>Fond bouton</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="bgButtonPicker" value="#C6A75E">
+              <input type="text" class="color-hex" id="bgButtonHex" value="#C6A75E" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsBgButton"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- SECTION COULEURS D'ICÔNES -->
+      <div class="section">
+        <div class="section-title">
+          <i class="fas fa-icons"></i>
+          <span>Couleurs d'icônes</span>
+        </div>
+        
+        <div class="colors-grid" id="iconColorsGrid">
+          <!-- Icône standard -->
+          <div class="color-card" id="iconStandardCard">
+            <div class="color-label">
+              <i class="fas fa-circle"></i>
+              <span>Icône standard</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="iconStandardPicker" value="#1F1E1C">
+              <input type="text" class="color-hex" id="iconStandardHex" value="#1F1E1C" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsIconStandard"></div>
+          </div>
+          
+          <!-- Icône survol -->
+          <div class="color-card" id="iconHoverCard">
+            <div class="color-label">
+              <i class="fas fa-circle"></i>
+              <span>Icône au survol</span>
+            </div>
+            <div class="color-input-group">
+              <input type="color" class="color-picker" id="iconHoverPicker" value="#C6A75E">
+              <input type="text" class="color-hex" id="iconHoverHex" value="#C6A75E" placeholder="#HEX">
+            </div>
+            <div class="color-presets" id="presetsIconHover"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- SECTION TYPOGRAPHIE -->
+      <div class="section">
+        <div class="section-title">
+          <i class="fas fa-font"></i>
+          <span>Typographie principale</span>
+        </div>
+        
+        <div class="typography-selector">
+          <div class="font-preview" id="fontPreview">
+            <div class="font-preview-text" id="previewText">
+              The quick brown fox jumps over the lazy dog
+            </div>
+            <div class="font-preview-meta" id="previewMeta">
+              ABCDEFGHIJKLMNOPQRSTUVWXYZ · abcdefghijklmnopqrstuvwxyz · 0123456789
+            </div>
+          </div>
+          
+          <select class="font-select" id="fontCategory">
+            <option value="serif">Serif (Élégant)</option>
+            <option value="sans-serif">Sans-serif (Moderne)</option>
+            <option value="display">Display (Titres)</option>
+            <option value="handwriting">Handwriting (Manuscrit)</option>
+          </select>
+          
+          <div class="font-options" id="fontOptions"></div>
+        </div>
+      </div>
+      
+      <!-- BOUTON SAUVEGARDER -->
+      <div class="save-section">
+        <button class="save-btn" id="saveBtn">
+          <i class="fas fa-save"></i>
+          <span>Sauvegarder le thème</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast" class="toast"></div>
+  
+  <script type="module">
+    import { initializeApp } from 'firebase/app';
+    import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+    
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
+      authDomain: "allin-f65df.firebaseapp.com",
+      projectId: "allin-f65df",
+      storageBucket: "allin-f65df.firebasestorage.app",
+      messagingSenderId: "955152530266",
+      appId: "1:955152530266:web:19952842f4559b10af9163"
+    };
+    
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    
+    // Collection et document
+    const THEME_COLLECTION = 'themeSettings';
+    const THEME_DOC = 'siteTheme';
+    
+    // ==================== COULEURS PRESETS ====================
+    const colorPresets = {
+      textTitle: ['#1F1E1C', '#2C2A29', '#000000', '#333333', '#4A4A4A', '#355E3B'],
+      textSubtitle: ['#7A746B', '#666666', '#888888', '#9A8B7A', '#6B4F47', '#5F5F5F'],
+      textBody: ['#4A4A4A', '#333333', '#555555', '#666666', '#777777', '#2C3E50'],
+      textButton: ['#FFFFFF', '#F5F5F5', '#F0F0F0', '#EEEEEE', '#FAFAFA', '#E0E0E0'],
+      bgGeneral: ['#FFFFFF', '#F5F1E8', '#F8F8F8', '#FAFAFA', '#F0F0F0', '#F5F5F5'],
+      bgCard: ['#F5F5F5', '#EEEEEE', '#FAFAFA', '#F0F0F0', '#E8E8E8', '#F8F8F8'],
+      bgButton: ['#C6A75E', '#B89B7B', '#D4AF37', '#8E7B5B', '#A67B5B', '#CDA975'],
+      iconStandard: ['#1F1E1C', '#2C2A29', '#4A4A4A', '#333333', '#000000', '#355E3B'],
+      iconHover: ['#C6A75E', '#B89B7B', '#D4AF37', '#8E7B5B', '#A67B5B', '#CDA975']
+    };
+    
+    // ==================== TYPOGRAPHIES ====================
+    const fonts = {
+      serif: [
+        { name: 'Cormorant Garamond', family: "'Cormorant Garamond', serif", category: 'serif' },
+        { name: 'Playfair Display', family: "'Playfair Display', serif", category: 'serif' },
+        { name: 'Georgia', family: "Georgia, serif", category: 'serif' },
+        { name: 'Times New Roman', family: "'Times New Roman', serif", category: 'serif' },
+        { name: 'Garamond', family: "Garamond, serif", category: 'serif' },
+        { name: 'Bodoni Moda', family: "'Bodoni Moda', serif", category: 'serif' }
+      ],
+      'sans-serif': [
+        { name: 'Manrope', family: "'Manrope', sans-serif", category: 'sans-serif' },
+        { name: 'Inter', family: "'Inter', sans-serif", category: 'sans-serif' },
+        { name: 'Montserrat', family: "'Montserrat', sans-serif", category: 'sans-serif' },
+        { name: 'Roboto', family: "'Roboto', sans-serif", category: 'sans-serif' },
+        { name: 'Open Sans', family: "'Open Sans', sans-serif", category: 'sans-serif' },
+        { name: 'Lato', family: "'Lato', sans-serif", category: 'sans-serif' },
+        { name: 'Poppins', family: "'Poppins', sans-serif", category: 'sans-serif' },
+        { name: 'Raleway', family: "'Raleway', sans-serif", category: 'sans-serif' },
+        { name: 'Helvetica', family: "Helvetica, Arial, sans-serif", category: 'sans-serif' },
+        { name: 'Arial', family: "Arial, sans-serif", category: 'sans-serif' }
+      ],
+      display: [
+        { name: 'Oswald', family: "'Oswald', sans-serif", category: 'display' },
+        { name: 'Anton', family: "'Anton', sans-serif", category: 'display' },
+        { name: 'Bebas Neue', family: "'Bebas Neue', cursive", category: 'display' },
+        { name: 'Abril Fatface', family: "'Abril Fatface', cursive", category: 'display' },
+        { name: 'Lobster', family: "'Lobster', cursive", category: 'display' },
+        { name: 'Pacifico', family: "'Pacifico', cursive", category: 'display' }
+      ],
+      handwriting: [
+        { name: 'Dancing Script', family: "'Dancing Script', cursive", category: 'handwriting' },
+        { name: 'Caveat', family: "'Caveat', cursive", category: 'handwriting' },
+        { name: 'Satisfy', family: "'Satisfy', cursive", category: 'handwriting' },
+        { name: 'Permanent Marker', family: "'Permanent Marker', cursive", category: 'handwriting' },
+        { name: 'Indie Flower', family: "'Indie Flower', cursive", category: 'handwriting' }
+      ]
+    };
+    
+    // ==================== ÉTAT ====================
+    let currentTheme = {
+      colors: {
+        text: {
+          title: '#1F1E1C',
+          subtitle: '#7A746B',
+          body: '#4A4A4A',
+          button: '#FFFFFF'
+        },
+        background: {
+          general: '#FFFFFF',
+          card: '#F5F5F5',
+          button: '#C6A75E'
+        },
+        icon: {
+          standard: '#1F1E1C',
+          hover: '#C6A75E'
+        }
+      },
+      typography: {
+        family: "'Cormorant Garamond', serif",
+        name: 'Cormorant Garamond',
+        category: 'serif'
+      }
+    };
+    
+    // ==================== DOM ELEMENTS ====================
+    // Texte
+    const textTitlePicker = document.getElementById('textTitlePicker');
+    const textTitleHex = document.getElementById('textTitleHex');
+    const textSubtitlePicker = document.getElementById('textSubtitlePicker');
+    const textSubtitleHex = document.getElementById('textSubtitleHex');
+    const textBodyPicker = document.getElementById('textBodyPicker');
+    const textBodyHex = document.getElementById('textBodyHex');
+    const textButtonPicker = document.getElementById('textButtonPicker');
+    const textButtonHex = document.getElementById('textButtonHex');
+    
+    // Fond
+    const bgGeneralPicker = document.getElementById('bgGeneralPicker');
+    const bgGeneralHex = document.getElementById('bgGeneralHex');
+    const bgCardPicker = document.getElementById('bgCardPicker');
+    const bgCardHex = document.getElementById('bgCardHex');
+    const bgButtonPicker = document.getElementById('bgButtonPicker');
+    const bgButtonHex = document.getElementById('bgButtonHex');
+    
+    // Icônes
+    const iconStandardPicker = document.getElementById('iconStandardPicker');
+    const iconStandardHex = document.getElementById('iconStandardHex');
+    const iconHoverPicker = document.getElementById('iconHoverPicker');
+    const iconHoverHex = document.getElementById('iconHoverHex');
+    
+    // Typographie
+    const fontCategory = document.getElementById('fontCategory');
+    const fontOptions = document.getElementById('fontOptions');
+    const previewText = document.getElementById('previewText');
+    const previewMeta = document.getElementById('previewMeta');
+    
+    const saveBtn = document.getElementById('saveBtn');
+    const toast = document.getElementById('toast');
+    
+    // ==================== AFFICHER LES PRESETS ====================
+    function renderPresets() {
+      // Texte
+      renderPresetGroup('presetsTextTitle', colorPresets.textTitle, 'textTitle');
+      renderPresetGroup('presetsTextSubtitle', colorPresets.textSubtitle, 'textSubtitle');
+      renderPresetGroup('presetsTextBody', colorPresets.textBody, 'textBody');
+      renderPresetGroup('presetsTextButton', colorPresets.textButton, 'textButton');
+      
+      // Fond
+      renderPresetGroup('presetsBgGeneral', colorPresets.bgGeneral, 'bgGeneral');
+      renderPresetGroup('presetsBgCard', colorPresets.bgCard, 'bgCard');
+      renderPresetGroup('presetsBgButton', colorPresets.bgButton, 'bgButton');
+      
+      // Icônes
+      renderPresetGroup('presetsIconStandard', colorPresets.iconStandard, 'iconStandard');
+      renderPresetGroup('presetsIconHover', colorPresets.iconHover, 'iconHover');
+    }
+    
+    function renderPresetGroup(containerId, colors, target) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      
+      container.innerHTML = colors.map(color => 
+        `<div class="preset-dot" style="background: ${color};" data-color="${color}" data-target="${target}"></div>`
+      ).join('');
+    }
+    
+    // ==================== AFFICHER LES TYPOGRAPHIES ====================
+    function renderFonts(category) {
+      const fontList = fonts[category] || fonts['sans-serif'];
+      fontOptions.innerHTML = fontList.map(font => {
+        const isSelected = currentTheme.typography.family === font.family;
+        return `
+          <div class="font-option ${isSelected ? 'selected' : ''}" data-family="${font.family}" data-name="${font.name}">
+            <div class="font-option-name" style="font-family: ${font.family};">${font.name}</div>
+            <div class="font-option-sample" style="font-family: ${font.family};">The quick brown fox...</div>
+          </div>
+        `;
+      }).join('');
+      
+      // Ajouter les événements
+      document.querySelectorAll('.font-option').forEach(option => {
+        option.addEventListener('click', () => {
+          document.querySelectorAll('.font-option').forEach(opt => opt.classList.remove('selected'));
+          option.classList.add('selected');
+          
+          const family = option.dataset.family;
+          const name = option.dataset.name;
+          
+          currentTheme.typography = {
+            family,
+            name,
+            category
+          };
+          
+          updatePreview();
+        });
+      });
+    }
+    
+    // ==================== METTRE À JOUR LA PREVIEW ====================
+    function updatePreview() {
+      previewText.style.fontFamily = currentTheme.typography.family;
+      previewMeta.style.fontFamily = currentTheme.typography.family;
+    }
+    
+    // ==================== SYNC COLOR INPUTS ====================
+    function setupColorInput(picker, hex, target) {
+      picker.addEventListener('input', (e) => {
+        hex.value = e.target.value;
+        updateColor(target, e.target.value);
+      });
+      
+      hex.addEventListener('input', (e) => {
+        let val = e.target.value;
+        if (val && !val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-F]{6}$/i.test(val)) {
+          picker.value = val;
+          updateColor(target, val);
+        }
+      });
+    }
+    
+    function updateColor(target, value) {
+      const [category, type] = target.split(/(?=[A-Z])/);
+      
+      if (target.startsWith('text')) {
+        if (target === 'textTitle') currentTheme.colors.text.title = value;
+        else if (target === 'textSubtitle') currentTheme.colors.text.subtitle = value;
+        else if (target === 'textBody') currentTheme.colors.text.body = value;
+        else if (target === 'textButton') currentTheme.colors.text.button = value;
+      } else if (target.startsWith('bg')) {
+        if (target === 'bgGeneral') currentTheme.colors.background.general = value;
+        else if (target === 'bgCard') currentTheme.colors.background.card = value;
+        else if (target === 'bgButton') currentTheme.colors.background.button = value;
+      } else if (target.startsWith('icon')) {
+        if (target === 'iconStandard') currentTheme.colors.icon.standard = value;
+        else if (target === 'iconHover') currentTheme.colors.icon.hover = value;
+      }
+    }
+    
+    // Initialiser les écouteurs
+    setupColorInput(textTitlePicker, textTitleHex, 'textTitle');
+    setupColorInput(textSubtitlePicker, textSubtitleHex, 'textSubtitle');
+    setupColorInput(textBodyPicker, textBodyHex, 'textBody');
+    setupColorInput(textButtonPicker, textButtonHex, 'textButton');
+    
+    setupColorInput(bgGeneralPicker, bgGeneralHex, 'bgGeneral');
+    setupColorInput(bgCardPicker, bgCardHex, 'bgCard');
+    setupColorInput(bgButtonPicker, bgButtonHex, 'bgButton');
+    
+    setupColorInput(iconStandardPicker, iconStandardHex, 'iconStandard');
+    setupColorInput(iconHoverPicker, iconHoverHex, 'iconHover');
+    
+    // ==================== PRESETS CLICKS ====================
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('preset-dot')) {
+        const color = e.target.dataset.color;
+        const target = e.target.dataset.target;
+        
+        if (target === 'textTitle') {
+          textTitlePicker.value = color;
+          textTitleHex.value = color;
+          currentTheme.colors.text.title = color;
+        } else if (target === 'textSubtitle') {
+          textSubtitlePicker.value = color;
+          textSubtitleHex.value = color;
+          currentTheme.colors.text.subtitle = color;
+        } else if (target === 'textBody') {
+          textBodyPicker.value = color;
+          textBodyHex.value = color;
+          currentTheme.colors.text.body = color;
+        } else if (target === 'textButton') {
+          textButtonPicker.value = color;
+          textButtonHex.value = color;
+          currentTheme.colors.text.button = color;
+        } else if (target === 'bgGeneral') {
+          bgGeneralPicker.value = color;
+          bgGeneralHex.value = color;
+          currentTheme.colors.background.general = color;
+        } else if (target === 'bgCard') {
+          bgCardPicker.value = color;
+          bgCardHex.value = color;
+          currentTheme.colors.background.card = color;
+        } else if (target === 'bgButton') {
+          bgButtonPicker.value = color;
+          bgButtonHex.value = color;
+          currentTheme.colors.background.button = color;
+        } else if (target === 'iconStandard') {
+          iconStandardPicker.value = color;
+          iconStandardHex.value = color;
+          currentTheme.colors.icon.standard = color;
+        } else if (target === 'iconHover') {
+          iconHoverPicker.value = color;
+          iconHoverHex.value = color;
+          currentTheme.colors.icon.hover = color;
+        }
+      }
+    });
+    
+    // ==================== CHANGEMENT DE CATÉGORIE ====================
+    fontCategory.addEventListener('change', (e) => {
+      renderFonts(e.target.value);
+    });
+    
+  // ==================== CHARGEMENT DES DONNÉES ====================
+async function loadTheme() {
+  try {
+    const themeRef = doc(db, THEME_COLLECTION, THEME_DOC);
+    const themeSnap = await getDoc(themeRef);
+    
+    if (themeSnap.exists()) {
+      const data = themeSnap.data();
+      
+      // Migration des anciennes données vers la nouvelle structure
+      currentTheme = {
+        colors: {
+          text: {
+            title: data.colors?.text?.title || data.colors?.primary || '#1F1E1C',
+            subtitle: data.colors?.text?.subtitle || data.colors?.accent || '#7A746B',
+            body: data.colors?.text?.body || '#4A4A4A',
+            button: data.colors?.text?.button || '#FFFFFF'
+          },
+          background: {
+            general: data.colors?.background?.general || '#FFFFFF',
+            card: data.colors?.background?.card || '#F5F5F5',
+            button: data.colors?.background?.button || data.colors?.secondary || '#C6A75E'
+          },
+          icon: {
+            standard: data.colors?.icon?.standard || '#1F1E1C',
+            hover: data.colors?.icon?.hover || data.colors?.secondary || '#C6A75E'
+          }
+        },
+        typography: data.typography || {
+          family: "'Cormorant Garamond', serif",
+          name: 'Cormorant Garamond',
+          category: 'serif'
+        }
+      };
+      
+      // Mettre à jour les inputs texte
+      textTitlePicker.value = currentTheme.colors.text.title;
+      textTitleHex.value = currentTheme.colors.text.title;
+      textSubtitlePicker.value = currentTheme.colors.text.subtitle;
+      textSubtitleHex.value = currentTheme.colors.text.subtitle;
+      textBodyPicker.value = currentTheme.colors.text.body;
+      textBodyHex.value = currentTheme.colors.text.body;
+      textButtonPicker.value = currentTheme.colors.text.button;
+      textButtonHex.value = currentTheme.colors.text.button;
+      
+      // Mettre à jour les inputs fond
+      bgGeneralPicker.value = currentTheme.colors.background.general;
+      bgGeneralHex.value = currentTheme.colors.background.general;
+      bgCardPicker.value = currentTheme.colors.background.card;
+      bgCardHex.value = currentTheme.colors.background.card;
+      bgButtonPicker.value = currentTheme.colors.background.button;
+      bgButtonHex.value = currentTheme.colors.background.button;
+      
+      // Mettre à jour les inputs icônes
+      iconStandardPicker.value = currentTheme.colors.icon.standard;
+      iconStandardHex.value = currentTheme.colors.icon.standard;
+      iconHoverPicker.value = currentTheme.colors.icon.hover;
+      iconHoverHex.value = currentTheme.colors.icon.hover;
+      
+      // Mettre à jour la typographie
+      fontCategory.value = currentTheme.typography.category || 'serif';
+      renderFonts(currentTheme.typography.category || 'serif');
+      updatePreview();
+    } else {
+      // Thème par défaut avec nouvelle structure
+      currentTheme = {
+        colors: {
+          text: {
+            title: '#1F1E1C',
+            subtitle: '#7A746B',
+            body: '#4A4A4A',
+            button: '#FFFFFF'
+          },
+          background: {
+            general: '#FFFFFF',
+            card: '#F5F5F5',
+            button: '#C6A75E'
+          },
+          icon: {
+            standard: '#1F1E1C',
+            hover: '#C6A75E'
+          }
+        },
+        typography: {
+          family: "'Cormorant Garamond', serif",
+          name: 'Cormorant Garamond',
+          category: 'serif'
+        }
+      };
+      
+      // Appliquer les valeurs par défaut aux inputs
+      applyDefaultColors();
+      renderFonts('serif');
+    }
+  } catch (error) {
+    console.error('Erreur chargement thème:', error);
+    showToast('Erreur chargement', 'error');
+    
+    // En cas d'erreur, utiliser les valeurs par défaut
+    applyDefaultColors();
+    renderFonts('serif');
+  }
+}
+
+// Fonction pour appliquer les couleurs par défaut
+function applyDefaultColors() {
+  textTitlePicker.value = '#1F1E1C';
+  textTitleHex.value = '#1F1E1C';
+  textSubtitlePicker.value = '#7A746B';
+  textSubtitleHex.value = '#7A746B';
+  textBodyPicker.value = '#4A4A4A';
+  textBodyHex.value = '#4A4A4A';
+  textButtonPicker.value = '#FFFFFF';
+  textButtonHex.value = '#FFFFFF';
+  
+  bgGeneralPicker.value = '#FFFFFF';
+  bgGeneralHex.value = '#FFFFFF';
+  bgCardPicker.value = '#F5F5F5';
+  bgCardHex.value = '#F5F5F5';
+  bgButtonPicker.value = '#C6A75E';
+  bgButtonHex.value = '#C6A75E';
+  
+  iconStandardPicker.value = '#1F1E1C';
+  iconStandardHex.value = '#1F1E1C';
+  iconHoverPicker.value = '#C6A75E';
+  iconHoverHex.value = '#C6A75E';
+} 
+    // ==================== SAUVEGARDE ====================
+    async function saveTheme() {
+      try {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner"></span> Sauvegarde...';
+        
+        const themeRef = doc(db, THEME_COLLECTION, THEME_DOC);
+        await setDoc(themeRef, currentTheme);
+        
+        showToast('Thème sauvegardé avec succès !', 'success');
+      } catch (error) {
+        console.error('Erreur sauvegarde:', error);
+        showToast('Erreur lors de la sauvegarde', 'error');
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i><span>Sauvegarder le thème</span>';
+      }
+    }
+    
+    // ==================== TOAST ====================
+    function showToast(message, type = 'success') {
+      toast.textContent = message;
+      toast.className = `toast show ${type}`;
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+    
+    // ==================== INIT ====================
+    renderPresets();
+    loadTheme();
+    
+    saveBtn.addEventListener('click', saveTheme);
+  </script>
+</body>
+</html>

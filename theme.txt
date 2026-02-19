@@ -1,0 +1,33 @@
+// STRUCTURE EXACTE DES DONNÉES FIREBASE
+{
+  // MAP colors (objet)
+  colors: {
+    // MAP text (objet)
+    text: {
+      title: "#1F1E1C",      // string - Couleur des titres
+      subtitle: "#7A746B",    // string - Couleur des sous-titres
+      body: "#4A4A4A",        // string - Couleur du texte long/description
+      button: "#FFFFFF"       // string - Couleur du texte des boutons
+    },
+    
+    // MAP background (objet)
+    background: {
+      general: "#FFFFFF",     // string - Fond général de la page
+      card: "#F5F5F5",        // string - Fond des cartes/sections
+      button: "#C6A75E"       // string - Fond des boutons
+    },
+    
+    // MAP icon (objet)
+    icon: {
+      standard: "#1F1E1C",    // string - Couleur des icônes normales
+      hover: "#C6A75E"        // string - Couleur des icônes au survol
+    }
+  },
+  
+  // MAP typography (objet)
+  typography: {
+    family: "'Cormorant Garamond', serif",  // string - Famille de police CSS
+    name: "Cormorant Garamond",              // string - Nom lisible de la police
+    category: "serif"                         // string - Catégorie (serif, sans-serif, display, handwriting)
+  }
+}
