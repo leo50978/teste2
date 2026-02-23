@@ -948,6 +948,20 @@
           <label class="block text-sm text-text-secondary mb-1">Instructions</label>
           <textarea id="instructions" class="form-input" rows="2"></textarea>
         </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="block text-sm text-text-secondary">Étapes du paiement</label>
+            <button type="button" id="addStepBtn" class="btn btn-secondary">
+              <i class="fas fa-plus"></i>
+              Ajouter une étape
+            </button>
+          </div>
+          <p class="text-xs text-text-secondary mb-3">
+            Réorganisez les étapes par glisser-déposer.
+          </p>
+          <div id="stepsBuilder" class="space-y-2"></div>
+        </div>
         
         <label class="flex items-center gap-2">
           <input type="checkbox" id="isActive" checked>
@@ -1017,14 +1031,16 @@
     } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
 
     // ========== CONFIG ==========
-    const firebaseConfig = {
-      apiKey: "AIzaSyANkKGDkA-t8Ijce4SNwqNcL8ArP9jPVqE",
-      authDomain: "allin-f65df.firebaseapp.com",
-      projectId: "allin-f65df",
-      storageBucket: "allin-f65df.firebasestorage.app",
-      messagingSenderId: "955152530266",
-      appId: "1:955152530266:web:19952842f4559b10af9163"
-    };
+  const firebaseConfig = {
+  apiKey: "AIzaSyCOifibU2E6Vo-3Ohg-WmAHa43sa5HyFuw",
+  authDomain: "smartcutservices.firebaseapp.com",
+  projectId: "smartcutservices",
+  storageBucket: "smartcutservices.firebasestorage.app",
+  messagingSenderId: "589013273323",
+  appId: "1:589013273323:web:415772e7b94f6bb37d8cae",
+  measurementId: "G-R8GJXQP7BD"
+};
+
 
     const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -1054,6 +1070,7 @@
     let ordersReloadTimeout = null;
     let seenOrderIds = new Set();
     let ordersNotifReady = false;
+    let methodStepsDraft = [];
 
     // ========== DOM ==========
     const elements = {
@@ -1154,6 +1171,8 @@
       phoneNumber: document.getElementById('phoneNumber'),
       methodImage: document.getElementById('methodImage'),
       instructions: document.getElementById('instructions'),
+      stepsBuilder: document.getElementById('stepsBuilder'),
+      addStepBtn: document.getElementById('addStepBtn'),
       isActive: document.getElementById('isActive'),
       saveMethod: document.querySelector('#methodForm button[type="submit"]'),
       closeModalBtn: document.getElementById('closeModalBtn'),
@@ -1498,6 +1517,10 @@
       elements.clientsList.innerHTML = filtered.map(client => {
         const clientOrders = orders.filter(o => o.clientId === client.id);
         const totalSpent = clientOrders.reduce((sum, o) => sum + getOrderComputedAmount(o), 0);
+        const parsedAge = Number(client.age);
+        const clientAge = Number.isFinite(parsedAge) && parsedAge > 0 ? parsedAge : '-';
+        const clientSexe = client.sexe || '-';
+        const memberSince = client.createdAt ? new Date(client.createdAt).toLocaleDateString('fr-FR') : '-';
         
         return `
           <div class="content-card p-4">
@@ -1521,12 +1544,20 @@
                 <p>${clientOrders.length}</p>
               </div>
               <div>
+                <p class="text-text-secondary">Âge</p>
+                <p>${clientAge}</p>
+              </div>
+              <div>
+                <p class="text-text-secondary">Sexe</p>
+                <p>${clientSexe}</p>
+              </div>
+              <div>
                 <p class="text-text-secondary">Total dépensé</p>
                 <p class="font-semibold">${formatPrice(totalSpent)}</p>
               </div>
               <div>
                 <p class="text-text-secondary">Membre depuis</p>
-                <p>${new Date(client.createdAt).toLocaleDateString('fr-FR')}</p>
+                <p>${memberSince}</p>
               </div>
             </div>
           </div>
@@ -2245,6 +2276,179 @@
     }
 
     // ========== CRUD MÉTHODES ==========
+
+    function getDefaultStepByType(type = 'payment') {
+      if (type === 'form') {
+        return {
+          type: 'form',
+          title: 'Vos informations',
+          description: 'Renseignez vos informations pour continuer.',
+          buttonText: 'Continuer',
+          fields: [
+            { type: 'text', name: 'fullName', label: 'Nom complet', required: true },
+            { type: 'email', name: 'email', label: 'Email', required: true },
+            { type: 'text', name: 'phone', label: 'Téléphone', required: true }
+          ]
+        };
+      }
+      if (type === 'proof') {
+        return {
+          type: 'proof',
+          title: 'Confirmez votre paiement',
+          message: 'Téléchargez une capture de votre transaction.',
+          buttonText: 'Soumettre ma demande'
+        };
+      }
+      if (type === 'confirmation') {
+        return {
+          type: 'confirmation',
+          title: 'Demande envoyée',
+          message: 'Votre demande est en cours de vérification.',
+          buttonText: 'Fermer'
+        };
+      }
+      if (type === 'custom') {
+        return {
+          type: 'custom',
+          title: 'Information',
+          content: '<p>Contenu personnalisé</p>',
+          buttonText: 'Continuer'
+        };
+      }
+      return {
+        type: 'payment',
+        title: 'Effectuez le paiement',
+        instruction: 'Payez aux coordonnées suivantes :',
+        buttonText: 'J\'ai payé'
+      };
+    }
+
+    function normalizeStep(step = {}) {
+      const type = ['form', 'payment', 'proof', 'confirmation', 'custom'].includes(step.type) ? step.type : 'payment';
+      const base = getDefaultStepByType(type);
+      return {
+        ...base,
+        ...step,
+        type
+      };
+    }
+
+    function renderStepsBuilder() {
+      if (!elements.stepsBuilder) return;
+      if (!Array.isArray(methodStepsDraft)) methodStepsDraft = [];
+
+      if (methodStepsDraft.length === 0) {
+        elements.stepsBuilder.innerHTML = `
+          <div class="text-sm text-text-secondary py-3 px-3 bg-background rounded-lg border border-border">
+            Aucune étape. Ajoutez au moins une étape.
+          </div>
+        `;
+        return;
+      }
+
+      elements.stepsBuilder.innerHTML = methodStepsDraft.map((step, index) => {
+        const bodyKey = step.type === 'payment'
+          ? 'instruction'
+          : (step.type === 'custom' ? 'content' : 'message');
+        const bodyLabel = step.type === 'payment'
+          ? 'Instruction'
+          : (step.type === 'custom' ? 'Contenu (HTML simple)' : 'Message');
+        const bodyValue = step[bodyKey] || '';
+
+        return `
+          <div class="step-card" data-step-index="${index}">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2">
+                <div class="step-number">${index + 1}</div>
+                <span class="text-sm font-medium">Étape ${index + 1}</span>
+              </div>
+              <button type="button" class="btn-icon text-danger remove-step-btn" data-step-index="${index}" title="Supprimer">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+              <div>
+                <label class="block text-xs text-text-secondary mb-1">Type</label>
+                <select class="form-select step-type" data-step-index="${index}">
+                  <option value="form" ${step.type === 'form' ? 'selected' : ''}>Formulaire client</option>
+                  <option value="payment" ${step.type === 'payment' ? 'selected' : ''}>Paiement</option>
+                  <option value="proof" ${step.type === 'proof' ? 'selected' : ''}>Preuve</option>
+                  <option value="confirmation" ${step.type === 'confirmation' ? 'selected' : ''}>Confirmation</option>
+                  <option value="custom" ${step.type === 'custom' ? 'selected' : ''}>Personnalisée</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs text-text-secondary mb-1">Texte bouton</label>
+                <input type="text" class="form-input step-button-text" data-step-index="${index}" value="${escapeHtml(step.buttonText || '')}">
+              </div>
+            </div>
+
+            <div class="mb-2">
+              <label class="block text-xs text-text-secondary mb-1">Titre</label>
+              <input type="text" class="form-input step-title" data-step-index="${index}" value="${escapeHtml(step.title || '')}">
+            </div>
+
+            ${step.type === 'form' ? `
+              <div>
+                <label class="block text-xs text-text-secondary mb-1">Description</label>
+                <textarea class="form-input step-description" rows="2" data-step-index="${index}">${escapeHtml(step.description || '')}</textarea>
+              </div>
+            ` : `
+              <div>
+                <label class="block text-xs text-text-secondary mb-1">${bodyLabel}</label>
+                <textarea class="form-input step-body" rows="2" data-step-index="${index}" data-body-key="${bodyKey}">${escapeHtml(bodyValue)}</textarea>
+              </div>
+            `}
+          </div>
+        `;
+      }).join('');
+
+      if (!elements.stepsBuilder.dataset.sortableInit) {
+        Sortable.create(elements.stepsBuilder, {
+          animation: 150,
+          handle: '.step-number',
+          onEnd: () => {
+            const reordered = [];
+            elements.stepsBuilder.querySelectorAll('[data-step-index]').forEach((card) => {
+              const oldIndex = parseInt(card.dataset.stepIndex, 10);
+              if (Number.isInteger(oldIndex) && methodStepsDraft[oldIndex]) {
+                reordered.push(methodStepsDraft[oldIndex]);
+              }
+            });
+            methodStepsDraft = reordered;
+            renderStepsBuilder();
+          }
+        });
+        elements.stepsBuilder.dataset.sortableInit = '1';
+      }
+    }
+
+    function collectStepsFromBuilder() {
+      return methodStepsDraft.map((step) => {
+        const base = normalizeStep(step);
+        const clean = {
+          type: base.type,
+          title: (base.title || '').trim(),
+          buttonText: (base.buttonText || '').trim()
+        };
+
+        if (base.type === 'form') {
+          clean.description = (base.description || '').trim();
+          clean.fields = Array.isArray(base.fields) && base.fields.length > 0
+            ? base.fields
+            : getDefaultStepByType('form').fields;
+        } else if (base.type === 'payment') {
+          clean.instruction = (base.instruction || '').trim();
+        } else if (base.type === 'custom') {
+          clean.content = (base.content || '').trim();
+        } else {
+          clean.message = (base.message || '').trim();
+        }
+
+        return clean;
+      });
+    }
     
     function openMethodModal(editMode = false, methodData = null) {
       elements.modalTitle.textContent = editMode ? 'Modifier' : 'Nouveau moyen';
@@ -2258,6 +2462,10 @@
         elements.methodImage.value = methodData.image || '';
         elements.instructions.value = methodData.instructions || '';
         elements.isActive.checked = methodData.isActive !== false;
+        methodStepsDraft = Array.isArray(methodData.steps)
+          ? methodData.steps.map((step) => normalizeStep(step))
+          : [];
+        renderStepsBuilder();
       } else {
         resetMethodForm();
       }
@@ -2276,6 +2484,13 @@
       elements.methodImage.value = '';
       elements.instructions.value = '';
       elements.isActive.checked = true;
+      methodStepsDraft = [
+        getDefaultStepByType('form'),
+        getDefaultStepByType('payment'),
+        getDefaultStepByType('proof'),
+        getDefaultStepByType('confirmation')
+      ];
+      renderStepsBuilder();
     }
 
     function attachOrderEvents() {
@@ -2342,12 +2557,17 @@
         phoneNumber: elements.phoneNumber.value.trim(),
         image: elements.methodImage.value.trim() || null,
         instructions: elements.instructions.value.trim(),
+        steps: collectStepsFromBuilder(),
         isActive: elements.isActive.checked,
         updatedAt: new Date().toISOString()
       };
 
       if (!methodData.name || !methodData.accountName || !methodData.phoneNumber) {
         showToast('Champs obligatoires', 'error');
+        return;
+      }
+      if (!Array.isArray(methodData.steps) || methodData.steps.length === 0) {
+        showToast('Ajoutez au moins une étape de paiement', 'error');
         return;
       }
 
@@ -2448,6 +2668,39 @@
       elements.addMethodBtn.addEventListener('click', () => openMethodModal(false));
       elements.closeModalBtn.addEventListener('click', closeMethodModal);
       elements.cancelMethod.addEventListener('click', closeMethodModal);
+      elements.addStepBtn.addEventListener('click', () => {
+        methodStepsDraft.push(getDefaultStepByType('payment'));
+        renderStepsBuilder();
+      });
+      elements.stepsBuilder.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('.remove-step-btn');
+        if (!removeBtn) return;
+        const idx = parseInt(removeBtn.dataset.stepIndex, 10);
+        if (!Number.isInteger(idx)) return;
+        methodStepsDraft.splice(idx, 1);
+        renderStepsBuilder();
+      });
+      elements.stepsBuilder.addEventListener('change', (e) => {
+        const idx = parseInt(e.target.dataset.stepIndex, 10);
+        if (!Number.isInteger(idx) || !methodStepsDraft[idx]) return;
+
+        if (e.target.classList.contains('step-type')) {
+          methodStepsDraft[idx] = getDefaultStepByType(e.target.value);
+          renderStepsBuilder();
+          return;
+        }
+
+        if (e.target.classList.contains('step-title')) {
+          methodStepsDraft[idx].title = e.target.value;
+        } else if (e.target.classList.contains('step-button-text')) {
+          methodStepsDraft[idx].buttonText = e.target.value;
+        } else if (e.target.classList.contains('step-description')) {
+          methodStepsDraft[idx].description = e.target.value;
+        } else if (e.target.classList.contains('step-body')) {
+          const key = e.target.dataset.bodyKey || 'message';
+          methodStepsDraft[idx][key] = e.target.value;
+        }
+      });
       elements.methodModal.addEventListener('click', (e) => {
         if (e.target === elements.methodModal) closeMethodModal();
       });

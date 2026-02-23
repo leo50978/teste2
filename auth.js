@@ -1,5 +1,5 @@
 // ============= AUTH COMPONENT - GESTIONNAIRE D'AUTHENTIFICATION =============
-import { auth, googleProvider } from './firebase-init.js';
+import { auth, googleProvider, db } from './firebase-init.js';
 import { 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -9,6 +9,14 @@ import {
   updateProfile,
   signInWithPopup
 } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+import {
+  doc,
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs
+} from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
 
 class AuthManager {
   constructor(options = {}) {
@@ -153,6 +161,8 @@ class AuthManager {
           border-radius: 1.5rem;
           width: 100%;
           max-width: 400px;
+          max-height: calc(100vh - 2rem);
+          overflow-y: auto;
           box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
           opacity: 0;
           transform: translateY(20px);
@@ -211,6 +221,62 @@ class AuthManager {
                   font-size: 1rem;
                   background: white;
                 " placeholder="Jean Dupont">
+              </div>
+
+              <div>
+                <label style="
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-size: 0.9rem;
+                  color: #8B7E6B;
+                ">Âge</label>
+                <input type="number" id="age" min="1" max="120" required style="
+                  width: 100%;
+                  padding: 0.75rem;
+                  border: 1px solid rgba(198, 167, 94, 0.3);
+                  border-radius: 0.5rem;
+                  font-size: 1rem;
+                  background: white;
+                " placeholder="Ex: 25">
+              </div>
+
+              <div>
+                <label style="
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-size: 0.9rem;
+                  color: #8B7E6B;
+                ">Numéro téléphone</label>
+                <input type="tel" id="phone" required style="
+                  width: 100%;
+                  padding: 0.75rem;
+                  border: 1px solid rgba(198, 167, 94, 0.3);
+                  border-radius: 0.5rem;
+                  font-size: 1rem;
+                  background: white;
+                " placeholder="Ex: 37 00 00 00">
+              </div>
+
+              <div>
+                <label style="
+                  display: block;
+                  margin-bottom: 0.5rem;
+                  font-size: 0.9rem;
+                  color: #8B7E6B;
+                ">Sexe</label>
+                <select id="sexe" required style="
+                  width: 100%;
+                  padding: 0.75rem;
+                  border: 1px solid rgba(198, 167, 94, 0.3);
+                  border-radius: 0.5rem;
+                  font-size: 1rem;
+                  background: white;
+                ">
+                  <option value="">Choisir...</option>
+                  <option value="Homme">Homme</option>
+                  <option value="Femme">Femme</option>
+                  <option value="Autre">Autre</option>
+                </select>
               </div>
             ` : ''}
             
@@ -348,9 +414,30 @@ class AuthManager {
       <style>
         .auth-container {
           animation: authSlideIn 0.3s ease forwards;
+          scrollbar-width: thin;
+          scrollbar-color: #C6A75E rgba(198, 167, 94, 0.12);
+        }
+
+        .auth-container::-webkit-scrollbar {
+          width: 6px;
+        }
+
+        .auth-container::-webkit-scrollbar-thumb {
+          background: #C6A75E;
+          border-radius: 999px;
+        }
+
+        .auth-container::-webkit-scrollbar-track {
+          background: rgba(198, 167, 94, 0.12);
         }
         
         .auth-container input:focus {
+          outline: none;
+          border-color: #C6A75E;
+          box-shadow: 0 0 0 2px rgba(198, 167, 94, 0.2);
+        }
+
+        .auth-container select:focus {
           outline: none;
           border-color: #C6A75E;
           box-shadow: 0 0 0 2px rgba(198, 167, 94, 0.2);
@@ -445,17 +532,46 @@ class AuthManager {
   async handleRegister() {
     const email = this.modal.querySelector('#email').value;
     const password = this.modal.querySelector('#password').value;
-    const displayName = this.modal.querySelector('#displayName')?.value;
+    const displayName = this.modal.querySelector('#displayName')?.value?.trim();
+    const ageRaw = this.modal.querySelector('#age')?.value;
+    const phone = this.modal.querySelector('#phone')?.value?.trim();
+    const sexe = this.modal.querySelector('#sexe')?.value?.trim();
     const errorDiv = this.modal.querySelector('#authError');
+
+    const age = parseInt(ageRaw, 10);
+    if (!Number.isInteger(age) || age < 1 || age > 120) {
+      errorDiv.style.display = 'block';
+      errorDiv.textContent = 'Veuillez saisir un âge valide (1-120).';
+      return;
+    }
+    if (!sexe) {
+      errorDiv.style.display = 'block';
+      errorDiv.textContent = 'Veuillez sélectionner votre sexe.';
+      return;
+    }
+    if (!phone) {
+      errorDiv.style.display = 'block';
+      errorDiv.textContent = 'Veuillez saisir votre numéro téléphone.';
+      return;
+    }
     
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
       
       if (displayName) {
-        await updateProfile(userCredential.user, {
+        await updateProfile(user, {
           displayName: displayName
         });
       }
+
+      await this.saveClientProfile(user, {
+        name: displayName || user.displayName || '',
+        email: user.email || email,
+        age,
+        phone,
+        sexe
+      });
       
       this.closeAuthModal();
     } catch (error) {
@@ -464,6 +580,29 @@ class AuthManager {
       errorDiv.textContent = this.getErrorMessage(error.code);
     }
   }
+
+  async saveClientProfile(user, profile = {}) {
+    if (!db || !user?.uid) return;
+
+    const now = new Date().toISOString();
+    const lookup = await this.findClientByUid(user.uid);
+    const clientRef = lookup?.ref || doc(db, 'clients', user.uid);
+    const existing = lookup?.data || {};
+    const payload = {
+      uid: user.uid,
+      name: profile.name || existing.name || user.displayName || '',
+      email: profile.email || existing.email || user.email || '',
+      age: Number.isFinite(Number(profile.age)) ? Number(profile.age) : (existing.age ?? null),
+      sexe: profile.sexe || existing.sexe || '',
+      phone: profile.phone || existing.phone || '',
+      address: existing.address || '',
+      city: existing.city || '',
+      createdAt: existing.createdAt || now,
+      updatedAt: now
+    };
+
+    await setDoc(clientRef, payload, { merge: true });
+  }
   
   // Gérer la connexion avec Google
   async handleGoogleSignIn() {
@@ -471,12 +610,169 @@ class AuthManager {
     
     try {
       const result = await signInWithPopup(auth, googleProvider);
+      await this.ensureClientProfileForGoogle(result.user);
       this.closeAuthModal();
     } catch (error) {
       console.error('❌ Erreur Google:', error);
       errorDiv.style.display = 'block';
-      errorDiv.textContent = this.getErrorMessage(error.code);
+      if (error?.message === 'profile_incomplete') {
+        errorDiv.textContent = 'Profil incomplet. Connexion annulée.';
+      } else {
+        errorDiv.textContent = this.getErrorMessage(error.code);
+      }
     }
+  }
+
+  async ensureClientProfileForGoogle(user) {
+    if (!db || !user?.uid) return;
+
+    const lookup = await this.findClientByUid(user.uid);
+    const existing = lookup?.data || {};
+
+    const age = Number(existing.age);
+    const hasAge = Number.isFinite(age) && age >= 1 && age <= 120;
+    const hasSexe = typeof existing.sexe === 'string' && existing.sexe.trim() !== '';
+    const hasPhone = typeof existing.phone === 'string' && existing.phone.trim() !== '';
+
+    if (hasAge && hasSexe && hasPhone) {
+      await this.saveClientProfile(user, {
+        name: existing.name || user.displayName || '',
+        email: existing.email || user.email || ''
+      });
+      return;
+    }
+
+    const completion = await this.requestAdditionalProfileData(existing);
+    if (!completion) {
+      await signOut(auth);
+      throw new Error('profile_incomplete');
+    }
+
+    await this.saveClientProfile(user, {
+      name: existing.name || user.displayName || '',
+      email: existing.email || user.email || '',
+      age: completion.age,
+      sexe: completion.sexe,
+      phone: completion.phone
+    });
+  }
+
+  async findClientByUid(uid) {
+    if (!db || !uid) return null;
+
+    const clientsRef = collection(db, 'clients');
+    const q = query(clientsRef, where('uid', '==', uid));
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+
+    const found = snap.docs[0];
+    return {
+      id: found.id,
+      ref: doc(db, 'clients', found.id),
+      data: found.data()
+    };
+  }
+
+  requestAdditionalProfileData(existing = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        z-index: 1000002;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      `;
+
+      const defaultAge = Number(existing.age);
+      const ageValue = Number.isFinite(defaultAge) && defaultAge > 0 ? String(defaultAge) : '';
+      const sexeValue = typeof existing.sexe === 'string' ? existing.sexe : '';
+      const phoneValue = typeof existing.phone === 'string' ? existing.phone : '';
+
+      overlay.innerHTML = `
+        <div style="
+          width: 100%;
+          max-width: 420px;
+          background: #F5F1E8;
+          border-radius: 1rem;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+          padding: 1.25rem;
+        ">
+          <h3 style="margin:0 0 0.35rem 0; font-size:1.2rem; color:#1F1E1C;">Compléter votre profil</h3>
+          <p style="margin:0 0 1rem 0; color:#8B7E6B; font-size:0.9rem;">Âge, sexe et téléphone sont requis.</p>
+
+          <div style="display:flex; flex-direction:column; gap:0.75rem;">
+            <div>
+              <label style="display:block; margin-bottom:0.3rem; color:#8B7E6B; font-size:0.9rem;">Âge</label>
+              <input id="googleExtraAge" type="number" min="1" max="120" value="${ageValue}" style="width:100%; padding:0.7rem; border:1px solid rgba(198, 167, 94, 0.3); border-radius:0.5rem; background:#fff;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:0.3rem; color:#8B7E6B; font-size:0.9rem;">Numéro téléphone</label>
+              <input id="googleExtraPhone" type="tel" value="${phoneValue}" style="width:100%; padding:0.7rem; border:1px solid rgba(198, 167, 94, 0.3); border-radius:0.5rem; background:#fff;">
+            </div>
+            <div>
+              <label style="display:block; margin-bottom:0.3rem; color:#8B7E6B; font-size:0.9rem;">Sexe</label>
+              <select id="googleExtraSexe" style="width:100%; padding:0.7rem; border:1px solid rgba(198, 167, 94, 0.3); border-radius:0.5rem; background:#fff;">
+                <option value="">Choisir...</option>
+                <option value="Homme" ${sexeValue === 'Homme' ? 'selected' : ''}>Homme</option>
+                <option value="Femme" ${sexeValue === 'Femme' ? 'selected' : ''}>Femme</option>
+                <option value="Autre" ${sexeValue === 'Autre' ? 'selected' : ''}>Autre</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="googleExtraError" style="display:none; margin-top:0.8rem; padding:0.6rem; border-radius:0.5rem; background:#FEE2E2; color:#991B1B; font-size:0.85rem;"></div>
+
+          <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
+            <button type="button" id="googleExtraCancel" style="padding:0.65rem 0.9rem; border:1px solid rgba(198, 167, 94, 0.4); background:#fff; color:#1F1E1C; border-radius:0.5rem; cursor:pointer;">Annuler</button>
+            <button type="button" id="googleExtraSave" style="padding:0.65rem 0.9rem; border:none; background:#1F1E1C; color:#F5F1E8; border-radius:0.5rem; cursor:pointer;">Enregistrer</button>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const ageInput = overlay.querySelector('#googleExtraAge');
+      const phoneInput = overlay.querySelector('#googleExtraPhone');
+      const sexeInput = overlay.querySelector('#googleExtraSexe');
+      const errorDiv = overlay.querySelector('#googleExtraError');
+      const cancelBtn = overlay.querySelector('#googleExtraCancel');
+      const saveBtn = overlay.querySelector('#googleExtraSave');
+
+      const close = (value) => {
+        overlay.remove();
+        resolve(value);
+      };
+
+      cancelBtn.addEventListener('click', () => close(null));
+      saveBtn.addEventListener('click', () => {
+        const ageParsed = parseInt(ageInput.value, 10);
+        const phone = phoneInput.value.trim();
+        const sexe = sexeInput.value.trim();
+
+        if (!Number.isInteger(ageParsed) || ageParsed < 1 || ageParsed > 120) {
+          errorDiv.style.display = 'block';
+          errorDiv.textContent = 'Veuillez saisir un âge valide (1-120).';
+          return;
+        }
+        if (!phone) {
+          errorDiv.style.display = 'block';
+          errorDiv.textContent = 'Veuillez saisir votre numéro téléphone.';
+          return;
+        }
+        if (!sexe) {
+          errorDiv.style.display = 'block';
+          errorDiv.textContent = 'Veuillez sélectionner votre sexe.';
+          return;
+        }
+
+        close({ age: ageParsed, phone, sexe });
+      });
+    });
   }
   
   // Gérer le mot de passe oublié
