@@ -2,14 +2,6 @@
   if (window.__vitchDashboardNavBubbleBooted) return;
   window.__vitchDashboardNavBubbleBooted = true;
 
-  const path = window.location.pathname.split('/').pop() || '';
-  const isDashboard = /^D.+\.html$/i.test(path)
-    || /^dashboard.+\.html$/i.test(path)
-    || /^dahboar.+\.html$/i.test(path)
-    || path.toLowerCase() === 'musique.html';
-
-  if (!isDashboard) return;
-
   const pages = [
     { href: './Dheader.html', label: 'Header' },
     { href: './dashboardFullHero.html', label: 'Hero' },
@@ -22,6 +14,23 @@
     { href: './Dpayment.html', label: 'Paiement' },
     { href: './musique.html', label: 'Musique' }
   ];
+
+  // GitHub Pages or some hosts can expose URLs with/without .html and with trailing slash.
+  const path = decodeURIComponent(window.location.pathname || '')
+    .replace(/\/+$/, '')
+    .split('/')
+    .pop() || '';
+  const normalizedPath = path.toLowerCase().replace(/\.html$/i, '');
+  const knownPages = new Set(
+    pages.map((page) => page.href.replace('./', '').toLowerCase().replace(/\.html$/i, ''))
+  );
+  const isDashboard = knownPages.has(normalizedPath)
+    || /^d.+$/i.test(path)
+    || /^dashboard.+$/i.test(path)
+    || /^dahboar.+$/i.test(path)
+    || normalizedPath === 'musique';
+
+  if (!isDashboard) return;
 
   const style = document.createElement('style');
   style.textContent = `
@@ -101,7 +110,7 @@
   const panel = document.createElement('div');
   panel.className = 'vitch-dash-panel';
   panel.innerHTML = `<h4>Dashboards</h4>${pages.map((page) => {
-    const isActive = path.toLowerCase() === page.href.replace('./', '').toLowerCase();
+    const isActive = normalizedPath === page.href.replace('./', '').toLowerCase().replace(/\.html$/i, '');
     return `<a class="vitch-dash-link" href="${page.href}"${isActive ? ' style="border-color:#C6A75E;background:rgba(198,167,94,0.22);"' : ''}>${page.label}</a>`;
   }).join('')}`;
 
