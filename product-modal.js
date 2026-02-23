@@ -21,7 +21,7 @@ class ProductModal {
     this.selectedOptions = new Map();
     this.currentImageIndex = 0;
     this.currentVariationIndex = 0;
-    this.selectedQuantity = 1;
+    this.selectedQuantity = 0;
     this.variationQuantities = new Map();
     this.likeManager = getLikeManager();
     this.onLikesUpdated = () => this.syncLikeButton();
@@ -511,10 +511,39 @@ class ProductModal {
           scroll-snap-align: start;
           cursor: pointer;
         }
+
+        .related-products-carousel .related-product-media {
+          aspect-ratio: 1;
+          background: #FFFFFF;
+          border-radius: 0.5rem;
+          overflow: hidden;
+          margin-bottom: 0.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.35rem;
+        }
+
+        .related-products-carousel .related-product-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s;
+        }
         
         @media (min-width: 768px) {
           .related-products-carousel .product-card {
             flex: 0 0 180px;
+          }
+        }
+
+        @media (max-width: 767px) {
+          .related-products-carousel .product-card {
+            flex: 0 0 165px;
+          }
+
+          .related-products-carousel .related-product-image {
+            object-fit: contain;
           }
         }
         
@@ -522,11 +551,7 @@ class ProductModal {
           transform: translateY(-2px);
         }
         
-        .product-card img {
-          transition: transform 0.3s;
-        }
-        
-        .product-card:hover img {
+        .product-card:hover .related-product-image {
           transform: scale(1.1);
         }
         
@@ -729,7 +754,7 @@ class ProductModal {
                 border-radius: 50%;
                 cursor: pointer;
               "><i class="fas fa-minus"></i></button>
-              <input type="number" class="qty-input" min="1" max="999" value="${this.selectedQuantity}" style="
+              <input type="number" class="qty-input" min="0" max="999" value="${this.selectedQuantity}" style="
                 width: 64px;
                 text-align: center;
                 border: 1px solid rgba(198, 167, 94, 0.35);
@@ -823,10 +848,10 @@ class ProductModal {
                      data-sku="${variation?.sku || ''}"
                      data-price="${price}"
                      data-image="${image}"
-                     style="border: 2px solid ${qty > 0 ? '#C6A75E' : 'transparent'}; border-radius: 0.5rem; padding: 0.5rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; cursor: pointer; background: white; min-width: 170px;">
+                     style="border: 2px solid ${qty > 0 ? '#C6A75E' : 'transparent'}; border-radius: 0.5rem; padding: 0.5rem; display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem; cursor: pointer; background: white; min-width: 170px;">
                   ${image ? `
-                    <div style="width: 100%; height: 64px; border-radius: 0.4rem; overflow: hidden; border: 1px solid rgba(198, 167, 94, 0.25); background: #F5F1E8;">
-                      <img src="${this.getImagePath(image)}" alt="${label}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#8B7E6B;\\'><i class=\\'fas fa-image\\'></i></div>';">
+                    <div style="width: 100%; aspect-ratio: 1 / 1; border-radius: 0.4rem; overflow: hidden; border: 1px solid rgba(198, 167, 94, 0.25); background: #F5F1E8; display: flex; align-items: center; justify-content: center; padding: 0.3rem;">
+                      <img src="${this.getImagePath(image)}" alt="${label}" style="width: 100%; height: 100%; object-fit: contain;" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#8B7E6B;\\'><i class=\\'fas fa-image\\'></i></div>';">
                     </div>
                   ` : ''}
                   <span style="font-size: 0.8rem; font-weight: 600; color: #1F1E1C;">${label}</span>
@@ -967,11 +992,11 @@ class ProductModal {
         <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; margin-bottom: 1rem;">Vous aimerez aussi</h3>
         <div class="related-products-carousel">
           ${this.relatedProducts.map(product => `
-            <div class="product-card" data-product-id="${product.id}" style="flex: 0 0 200px; cursor: pointer; transition: transform 0.2s;">
-              <div style="aspect-ratio: 1; background: #F5F1E8; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.5rem;">
+            <div class="product-card" data-product-id="${product.id}" style="cursor: pointer; transition: transform 0.2s;">
+              <div class="related-product-media">
                 <img src="${this.getImagePath(this.getProductPrimaryImage(product))}" 
                      alt="" 
-                     style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;"
+                     class="related-product-image"
                      loading="lazy"
                      onerror="this.src=''; this.parentElement.innerHTML='<div style=\'width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #8B7E6B;\'><i class=\'fas fa-image\'></i></div>'">
               </div>
@@ -1098,12 +1123,6 @@ class ProductModal {
         const idx = parseInt(item.dataset.variationIndex, 10);
         if (!Number.isInteger(idx)) return;
         this.currentVariationIndex = idx;
-        if (Array.isArray(this.product?.variations) && this.product.variations.length > 0) {
-          const currentQty = this.variationQuantities.get(idx) || 0;
-          if (currentQty === 0) {
-            this.variationQuantities.set(idx, 1);
-          }
-        }
         const variation = this.product?.variations?.[idx];
         const priceEl = this.modalElement.querySelector('.product-current-price');
         if (priceEl && variation) {
@@ -1230,14 +1249,14 @@ class ProductModal {
 
     qtyDecreaseBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.selectedQuantity = Math.max(1, Number(this.selectedQuantity || 1) - 1);
+        this.selectedQuantity = Math.max(0, Number(this.selectedQuantity || 0) - 1);
         syncQtyInputs();
         this.saveToLocalStorage();
       });
     });
     qtyIncreaseBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
-        this.selectedQuantity = Math.min(999, Number(this.selectedQuantity || 1) + 1);
+        this.selectedQuantity = Math.min(999, Number(this.selectedQuantity || 0) + 1);
         syncQtyInputs();
         this.saveToLocalStorage();
       });
@@ -1245,7 +1264,7 @@ class ProductModal {
     qtyInputs.forEach((input) => {
       input.addEventListener('input', () => {
         const parsed = parseInt(input.value, 10);
-        this.selectedQuantity = Number.isFinite(parsed) ? Math.min(999, Math.max(1, parsed)) : 1;
+        this.selectedQuantity = Number.isFinite(parsed) ? Math.min(999, Math.max(0, parsed)) : 0;
         syncQtyInputs();
         this.saveToLocalStorage();
       });
@@ -1319,7 +1338,7 @@ class ProductModal {
     const key = `veltrixa_modal_selection_${this.product.id}`;
     const payload = {
       selectedOptions: Array.from(this.selectedOptions.entries()),
-      selectedQuantity: Math.max(1, Number(this.selectedQuantity) || 1),
+      selectedQuantity: Math.max(0, Number(this.selectedQuantity) || 0),
       variationQuantities: Array.from(this.variationQuantities.entries()),
       currentVariationIndex: Number(this.currentVariationIndex) || 0,
       updatedAt: Date.now()
@@ -1336,7 +1355,7 @@ class ProductModal {
     saved.selectedOptions.forEach(([k, v]) => {
       this.selectedOptions.set(k, v);
     });
-    this.selectedQuantity = Math.max(1, Number(saved.selectedQuantity) || 1);
+    this.selectedQuantity = Math.max(0, Number(saved.selectedQuantity) || 0);
     this.variationQuantities = new Map(
       (Array.isArray(saved.variationQuantities) ? saved.variationQuantities : [])
         .map(([idx, qty]) => [Number(idx), Math.max(0, Number(qty) || 0)])
@@ -1402,11 +1421,18 @@ class ProductModal {
       .map(([idx, qty]) => [Number(idx), Math.max(0, Number(qty) || 0)])
       .filter(([idx, qty]) => Number.isInteger(idx) && qty > 0);
 
+    let hasAddedItem = false;
+
     if (Array.isArray(this.product?.variations) && this.product.variations.length > 0) {
       if (entries.length === 0) {
         const fallbackIdx = Number.isInteger(this.currentVariationIndex) ? this.currentVariationIndex : 0;
-        const fallbackQty = Math.max(1, Number(this.selectedQuantity) || 1);
-        entries = [[fallbackIdx, fallbackQty]];
+        const fallbackQty = Math.max(0, Number(this.selectedQuantity) || 0);
+        if (fallbackQty > 0) {
+          entries = [[fallbackIdx, fallbackQty]];
+        }
+      }
+      if (entries.length === 0) {
+        return;
       }
       entries.forEach(([variationIndex, quantity]) => {
         const variationData = this.product?.variations?.[variationIndex];
@@ -1441,12 +1467,17 @@ class ProductModal {
           const event = new CustomEvent('addToCart', { detail: item });
           document.dispatchEvent(event);
         }
+        hasAddedItem = true;
       });
     } else {
       const variationData = this.product?.variations?.[this.currentVariationIndex] || null;
       const finalPrice = this.getVariationEffectivePrice(variationData, this.product);
       const finalImage = variationData?.images?.[0] || this.getProductPrimaryImage(this.product);
       const finalSku = variationData?.sku || this.product.sku || '';
+      const quantity = Math.max(0, Number(this.selectedQuantity) || 0);
+      if (quantity <= 0) {
+        return;
+      }
       const item = {
         productId: this.product.id,
         sku: finalSku,
@@ -1454,7 +1485,7 @@ class ProductModal {
         price: finalPrice,
         image: finalImage,
         selectedOptions: selectedOptionsWithImages,
-        quantity: Math.max(1, Number(this.selectedQuantity) || 1),
+        quantity,
         timestamp: Date.now()
       };
       if (cart && typeof cart.addItem === 'function') {
@@ -1463,7 +1494,10 @@ class ProductModal {
         const event = new CustomEvent('addToCart', { detail: item });
         document.dispatchEvent(event);
       }
+      hasAddedItem = true;
     }
+
+    if (!hasAddedItem) return;
     
     // Animation de confirmation
     const btns = this.modalElement.querySelectorAll('.add-to-cart-btn');

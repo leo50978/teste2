@@ -397,6 +397,15 @@ class SierraProducts {
           .mobile-actions-${this.uniqueId} {
             display: flex;
           }
+
+          .product-image-container-${this.uniqueId} {
+            background: #FFFFFF;
+          }
+
+          .product-main-image {
+            object-fit: contain !important;
+            padding: 0.35rem;
+          }
         }
       </style>
     `;
