@@ -165,11 +165,16 @@ let dominoModeModal = null;
 let dominoDuelStakeModal = null;
 let dameStakeModal = null;
 let dameBlockedModal = null;
+let upcomingGameModal = null;
 let deferredPwaInstallPrompt = null;
 let pwaInstallModalRefs = null;
 let pwaInstallModalTimer = null;
 
 const DAME_PUBLIC_ENTRY_HTG = 25;
+const UPCOMING_GAME_LABELS = {
+  ludo: "Ludo",
+  chess: "Echec",
+};
 
 function ensureDominoModeModal() {
   if (dominoModeModal) return dominoModeModal;
@@ -3088,6 +3093,69 @@ function closeDameBlockedModal() {
   document.body.classList.remove("is-modal-open");
 }
 
+function ensureUpcomingGameModal() {
+  if (upcomingGameModal) return upcomingGameModal;
+
+  upcomingGameModal = document.createElement("section");
+  upcomingGameModal.className = "kobposh-forgot-modal";
+  upcomingGameModal.setAttribute("aria-hidden", "true");
+  upcomingGameModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhUpcomingGameTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-upcoming-game-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">BYENTO DISPONIB</p>
+      <h2 id="kobposhUpcomingGameTitle" class="kobposh-forgot-modal__title" data-kobposh-upcoming-game-title>Jwet sa ap vini byento</h2>
+      <p class="kobposh-forgot-modal__text" data-kobposh-upcoming-game-text>
+        Nou ap prepare jwet sa a sou Kobposh. Le li pare, ou ap ka antre ladan li dirak depi paj dakey la.
+      </p>
+      <button class="kobposh-forgot-modal__action" type="button" data-kobposh-upcoming-game-close>
+        Mwen konprann
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(upcomingGameModal);
+  renderIconsSafely();
+
+  upcomingGameModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target === upcomingGameModal || target?.closest("[data-kobposh-upcoming-game-close]")) {
+      closeUpcomingGameModal();
+    }
+  });
+
+  return upcomingGameModal;
+}
+
+function openUpcomingGameModal(gameKey = "") {
+  const modal = ensureUpcomingGameModal();
+  const normalizedKey = String(gameKey || "").trim().toLowerCase();
+  const label = UPCOMING_GAME_LABELS[normalizedKey] || "Jwet sa";
+  const titleEl = modal.querySelector("[data-kobposh-upcoming-game-title]");
+  const textEl = modal.querySelector("[data-kobposh-upcoming-game-text]");
+
+  if (titleEl) {
+    titleEl.textContent = `${label} ap vini byento`;
+  }
+  if (textEl) {
+    textEl.textContent = `${label} poko disponib sou Kobposh pou kounye a. Nou ap travay sou li pou ou ka jwe li byento depi menm kat sa a.`;
+  }
+
+  closeGamesModal();
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.remove("modal-open");
+  document.body.classList.add("is-modal-open");
+}
+
+function closeUpcomingGameModal() {
+  if (!upcomingGameModal) return;
+  upcomingGameModal.classList.remove("is-open");
+  upcomingGameModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-modal-open");
+}
+
 function setAuthMode(mode = "login") {
   const normalizedMode = mode === "signup" ? "signup" : "login";
   authMode = normalizedMode;
@@ -3642,6 +3710,10 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       }
       const modal = ensureDameStakeModal();
       modal.open();
+      return;
+    }
+    if (game === "ludo" || game === "chess") {
+      openUpcomingGameModal(game);
       return;
     }
   });
