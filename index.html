@@ -1,0 +1,395 @@
+﻿<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="description"
+      content="Kobposh se platfòm jwèt an liy ou a pou domino, mopyon, pong, tounwa ak jesyon kont an HTG sou mobil ak desktop."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="application-name" content="Kobposh" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Kobposh" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#F5F5F5" />
+    <link rel="canonical" href="https://kobpoch.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Kobposh" />
+    <meta property="og:locale" content="fr_HT" />
+    <meta property="og:title" content="Kobposh | Jwèt an liy, tounwa ak kont HTG" />
+    <meta
+      property="og:description"
+      content="Jwe domino, mopyon ak pong sou Kobposh, ak tounwa, balans HTG ak aksè rapid sou mobil ak desktop."
+    />
+    <meta property="og:url" content="https://kobpoch.com/" />
+    <meta property="og:image" content="https://kobpoch.com/hero.jpg" />
+    <meta property="og:image:alt" content="Entefas Kobposh" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Kobposh | Jwèt an liy, tounwa ak kont HTG" />
+    <meta
+      name="twitter:description"
+      content="Dekouvri Kobposh pou jwe, swiv aktivite ou ak antre nan tounwa depi sou entènèt."
+    />
+    <meta name="twitter:image" content="https://kobpoch.com/hero.jpg" />
+    <title>Kobposh | Jwèt an liy, tounwa ak kont HTG</title>
+    <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "name": "Kobposh",
+            "url": "https://kobpoch.com/",
+            "logo": "https://kobpoch.com/logo.png"
+          },
+          {
+            "@type": "WebSite",
+            "name": "Kobposh",
+            "url": "https://kobpoch.com/",
+            "inLanguage": "fr-HT"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Kobposh",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Web",
+            "url": "https://kobpoch.com/",
+            "description": "Plateforme web de jeux en ligne avec domino, mopyon, pong, tournois et portefeuille HTG."
+          }
+        ]
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <section class="auth-screen" data-kobposh-auth-screen hidden>
+      <a class="auth-screen__back" href="./index.html?view=public" aria-label="Ale nan akey Kobposh">
+        <i data-lucide="house" class="icon" aria-hidden="true"></i>
+      </a>
+      <div class="auth-screen__card">
+        <img src="./assets/images/logokobpash.png" alt="Kobposh" class="auth-screen__logo" />
+        <h1 class="auth-screen__title">KOBPOSH</h1>
+        <p class="auth-screen__subtitle">Konekte pou kontinye.</p>
+
+        <form class="auth-screen__form" data-kobposh-login-form>
+          <div data-kobposh-login-fields>
+            <label class="auth-screen__label" for="kobposhLoginIdentifier">Username oswa email</label>
+            <input id="kobposhLoginIdentifier" class="auth-screen__input" type="text" autocomplete="username" placeholder="username ou email" data-kobposh-login-identifier />
+
+            <label class="auth-screen__label" for="kobposhLoginPassword">Modpas</label>
+            <div class="auth-screen__password-field">
+              <input id="kobposhLoginPassword" class="auth-screen__input auth-screen__input--password" type="password" autocomplete="current-password" placeholder="Mot de passe" data-kobposh-login-password />
+              <button class="auth-screen__password-toggle" type="button" aria-label="Montre modpas la" aria-pressed="false" data-kobposh-toggle-password="kobposhLoginPassword">
+                <i data-lucide="eye" class="icon auth-screen__password-icon" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div data-kobposh-signup-fields hidden>
+            <label class="auth-screen__label" for="kobposhSignupUsername">Username</label>
+            <input id="kobposhSignupUsername" class="auth-screen__input" type="text" autocomplete="username" placeholder="username" data-kobposh-signup-username />
+
+            <label class="auth-screen__label" for="kobposhSignupPhone">Numero</label>
+            <input id="kobposhSignupPhone" class="auth-screen__input" type="tel" autocomplete="tel" placeholder="509..." data-kobposh-signup-phone />
+            <div class="auth-screen__hint">
+              Ou dwe mete bon numero w, sinon ou pap ka fe retre.
+            </div>
+
+            <label class="auth-screen__label" for="kobposhSignupPassword">Modpas</label>
+            <div class="auth-screen__password-field">
+              <input id="kobposhSignupPassword" class="auth-screen__input auth-screen__input--password" type="password" autocomplete="new-password" placeholder="Mot de passe" data-kobposh-signup-password />
+              <button class="auth-screen__password-toggle" type="button" aria-label="Montre modpas la" aria-pressed="false" data-kobposh-toggle-password="kobposhSignupPassword">
+                <i data-lucide="eye" class="icon auth-screen__password-icon" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <label class="auth-screen__label" for="kobposhSignupPasswordConfirm">Verifye modpas</label>
+            <div class="auth-screen__password-field">
+              <input id="kobposhSignupPasswordConfirm" class="auth-screen__input auth-screen__input--password" type="password" autocomplete="new-password" placeholder="Confirmer le mot de passe" data-kobposh-signup-password-confirm />
+              <button class="auth-screen__password-toggle" type="button" aria-label="Montre modpas la" aria-pressed="false" data-kobposh-toggle-password="kobposhSignupPasswordConfirm">
+                <i data-lucide="eye" class="icon auth-screen__password-icon" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="auth-screen__signup-note">
+              <label class="auth-screen__check">
+                <input type="checkbox" data-kobposh-signup-age />
+                <span>Mwen gen plis pase 18 an</span>
+              </label>
+              <label class="auth-screen__check">
+                <input type="checkbox" data-kobposh-signup-terms />
+                <span>Mwen aksepte kondisyon itilizasyon yo</span>
+              </label>
+            </div>
+          </div>
+
+          <button class="auth-screen__button" type="submit">Konekte</button>
+        </form>
+
+        <button class="auth-screen__link" type="button" data-kobposh-open-signup>
+          Si w pa gen kont, kreye youn la
+        </button>
+        <button class="auth-screen__link" type="button" data-kobposh-open-site-about>
+          Klike la pou konn pliss de site la
+        </button>
+        <button class="auth-screen__link auth-screen__link--alt" type="button" data-kobposh-open-forgot-password>
+          Mwn blye modpass mwn
+        </button>
+
+        <p class="auth-screen__error" data-kobposh-login-error></p>
+      </div>
+    </section>
+
+    <section
+      class="fixed inset-0 z-[4200] hidden items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-sm"
+      data-kobposh-site-about-modal
+      aria-hidden="true"
+    >
+      <div class="w-full max-w-md overflow-hidden rounded-[28px] border border-white/15 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
+        <div class="flex items-center gap-3 border-b border-slate-200 px-4 py-4">
+          <button
+            type="button"
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-slate-200 bg-slate-50 text-[#156437] transition hover:bg-slate-100"
+            data-kobposh-close-site-about
+            aria-label="Retounen sou paj koneksyon an"
+          >
+            <i data-lucide="arrow-left" class="icon" aria-hidden="true"></i>
+          </button>
+          <div>
+            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Kobposh</p>
+            <h2 class="mt-1 text-lg font-bold text-slate-900">Konn plis de site la</h2>
+          </div>
+        </div>
+
+        <div class="space-y-4 px-4 py-5 text-sm leading-7 text-slate-700">
+          <div class="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+            Site sa se on site kote wap kapab parye sou tet ou, kreye on kont epi jwe jwet tankou domino, mopyon, dame, pong elatriye.
+          </div>
+          <div class="rounded-3xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-slate-800">
+            Idee a senp, antre nan salle ak on lot moun mete on mise epi parye sou tet ou lew genyn ou touche, se plis ou fo plis ou fe lanjan.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="./index.html?view=public" aria-label="Akey Kobposh">
+          <img src="./assets/images/logokobpash.png" alt="Kobposh" class="brand__logo" />
+        </a>
+
+        <div class="site-header__meta">
+          <div class="site-header__user">
+            <a class="avatar" href="./profile.html" aria-label="Pwofil itilizate">
+              <i data-lucide="user-round" class="icon icon--avatar" aria-hidden="true"></i>
+            </a>
+            <span class="site-header__account-label" data-kobposh-account-label>Ou pagen kont</span>
+          </div>
+
+          <div class="balance" aria-label="Balans itilizate" data-kobposh-balance role="button" tabindex="0">-- HTG</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="page-main">
+      <div class="page-main__inner">
+        <section class="hero-banner" aria-label="Ewo Kobposh">
+          <div class="hero-banner__media" data-kobposh-hero-track>
+            <div class="hero-banner__slide is-active" data-kobposh-hero-slide>
+              <img
+                src="./assets/images/hero.jpg"
+                alt="Entefas Kobposh"
+                width="600"
+                height="600"
+                fetchpriority="high"
+                decoding="async"
+              />
+            </div>
+            <div class="hero-banner__slide" data-kobposh-hero-slide>
+              <img
+                src="./assets/images/hero1.jpg"
+                alt="Entefas Kobposh 1"
+                width="600"
+                height="600"
+                decoding="async"
+              />
+            </div>
+            <div class="hero-banner__slide" data-kobposh-hero-slide>
+              <img
+                src="./assets/images/hero2.jpg"
+                alt="Entefas Kobposh 2"
+                width="600"
+                height="600"
+                decoding="async"
+              />
+            </div>
+          </div>
+          <div class="hero-banner__shade" aria-hidden="true"></div>
+        </section>
+
+        <section class="main-layout">
+          <div class="main-layout__primary">
+            <section class="games-section" aria-label="Jwet disponib">
+              <div class="games-grid">
+                <button class="game-card" type="button" aria-label="Domino" data-kobposh-launch-game="domino">
+                  <span class="game-card__media">
+                    <img src="./assets/images/domino.png" alt="Domino" class="game-card__icon" />
+                  </span>
+                  <span class="game-card__label">DOMINO</span>
+                </button>
+
+                <button class="game-card" type="button" aria-label="Mopyon" data-kobposh-launch-game="morpion">
+                  <span class="game-card__media">
+                    <img src="./assets/images/mopyon.png" alt="Mopyon" class="game-card__icon" />
+                  </span>
+                  <span class="game-card__label">MOPYON</span>
+                </button>
+
+                <button class="game-card" type="button" aria-label="Dame" data-kobposh-launch-game="dame">
+                  <span class="game-card__media">
+                    <img src="./assets/images/dame.png" alt="Dame" class="game-card__icon" />
+                  </span>
+                  <span class="game-card__label">DAME</span>
+                </button>
+
+                <button class="game-card" type="button" aria-label="Pong" data-kobposh-launch-game="pong">
+                  <span class="game-card__media">
+                    <img src="./assets/images/pong.png" alt="Pong" class="game-card__icon" />
+                  </span>
+                  <span class="game-card__label">PONG</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="features" aria-label="Fonksyonalite">
+              <button class="feature-item feature-item--action" type="button" data-open-deposit-modal>
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="wallet" class="icon icon--feature"></i>
+                </div>
+                <span>Depo imedya</span>
+              </button>
+              <button class="feature-item feature-item--action" type="button" id="kobposhWithdrawalBtn">
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="arrow-up-right" class="icon icon--feature"></i>
+                </div>
+                <span>Retre rapid</span>
+              </button>
+              <button class="feature-item feature-item--action" type="button" id="kobposhSupportBtn">
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="headset" class="icon icon--feature"></i>
+                </div>
+                <span>Sevis kliyan 24/7</span>
+              </button>
+              <button class="feature-item feature-item--action" type="button" id="kobposhAgentHelpBtn">
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="message-circle" class="icon icon--feature"></i>
+                </div>
+                <span>Ou gen pwobleme? kontakte on agent la</span>
+              </button>
+              <button class="feature-item feature-item--action" type="button" data-open-history-modal>
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="landmark" class="icon icon--feature" aria-hidden="true"></i>
+                </div>
+                <span>Istorik jwèt yo</span>
+              </button>
+              <button class="feature-item feature-item--action" type="button" id="kobposhTransferBtn">
+                <div class="feature-item__icon" aria-hidden="true">
+                  <i data-lucide="users" class="icon icon--feature"></i>
+                </div>
+                <span>Transfer zanmi</span>
+              </button>
+            </section>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navigasyon mobil">
+      <a class="bottom-nav__item bottom-nav__item--active" href="#" aria-current="page">
+        <span class="bottom-nav__icon" aria-hidden="true">
+          <i data-lucide="house" class="icon icon--nav"></i>
+        </span>
+        <span>AKEY</span>
+      </a>
+      <a class="bottom-nav__item" href="#" data-open-games-modal>
+        <span class="bottom-nav__icon" aria-hidden="true">
+          <i data-lucide="gamepad-2" class="icon icon--nav"></i>
+        </span>
+        <span>JWET</span>
+      </a>
+      <a class="bottom-nav__item" href="./profile.html">
+        <span class="bottom-nav__icon" aria-hidden="true">
+          <i data-lucide="user-round" class="icon icon--nav"></i>
+        </span>
+        <span>KONT MWEN</span>
+      </a>
+      <a class="bottom-nav__item" href="#" data-open-history-modal>
+        <span class="bottom-nav__icon" aria-hidden="true">
+          <i data-lucide="landmark" class="icon icon--nav"></i>
+        </span>
+        <span>ISTORIK</span>
+      </a>
+    </nav>
+
+    <section class="games-modal" aria-hidden="true" aria-label="Jwet" data-games-modal>
+      <div class="games-modal__panel" role="dialog" aria-modal="true" aria-labelledby="gamesModalTitle">
+        <header class="games-modal__header">
+          <button class="games-modal__back" type="button" aria-label="Femen jwet yo" data-close-games-modal>
+            <i data-lucide="arrow-left" class="icon icon--modal-back" aria-hidden="true"></i>
+          </button>
+          <h2 id="gamesModalTitle" class="games-modal__title">JWET</h2>
+        </header>
+
+        <div class="games-modal__list">
+          <button class="games-modal__item" type="button" aria-label="Domino" data-kobposh-launch-game="domino">
+            <span class="games-modal__visual">
+              <img src="./assets/images/domino.png" alt="Domino" />
+            </span>
+            <span class="games-modal__label">DOMINO</span>
+          </button>
+          <button class="games-modal__item" type="button" aria-label="Mopyon" data-kobposh-launch-game="morpion">
+            <span class="games-modal__visual">
+              <img src="./assets/images/mopyon.png" alt="Mopyon" />
+            </span>
+            <span class="games-modal__label">MOPYON</span>
+          </button>
+          <button class="games-modal__item" type="button" aria-label="Dame" data-kobposh-launch-game="dame">
+            <span class="games-modal__visual">
+              <img src="./assets/images/dame.png" alt="Dame" />
+            </span>
+            <span class="games-modal__label">DAME</span>
+          </button>
+          <button class="games-modal__item" type="button" aria-label="Pong" data-kobposh-launch-game="pong">
+            <span class="games-modal__visual">
+              <img src="./assets/images/pong.png" alt="Pong" />
+            </span>
+            <span class="games-modal__label">PONG</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="./firebase-init.js?v=20260505-firebase1"></script>
+<script type="module" src="./app.js?v=20260509-duel-friend2"></script>
+  </body>
+</html>
+
+

@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Kobposh · Control Panel labo gains</title>
+    <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #08120f;
+        --bg-soft: #10201a;
+        --panel: rgba(10, 25, 19, 0.88);
+        --panel-strong: rgba(7, 19, 15, 0.96);
+        --line: rgba(181, 232, 210, 0.14);
+        --text: #eefbf4;
+        --muted: #9ab7aa;
+        --mint: #39d98a;
+        --sky: #67e8f9;
+        --amber: #f59e0b;
+        --danger: #fb7185;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Manrope", system-ui, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(103, 232, 249, 0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(57, 217, 138, 0.16), transparent 24%),
+          linear-gradient(180deg, #050b09 0%, var(--bg) 48%, #020605 100%);
+      }
+
+      .shell {
+        width: min(1240px, calc(100% - 28px));
+        margin: 0 auto;
+        padding: 28px 0 44px;
+      }
+
+      .hero,
+      .panel,
+      .result-card,
+      .metric,
+      .probe-btn {
+        border: 1px solid var(--line);
+        background: var(--panel);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
+        backdrop-filter: blur(20px);
+      }
+
+      .hero,
+      .panel,
+      .result-card {
+        border-radius: 28px;
+      }
+
+      .hero,
+      .panel {
+        padding: 20px;
+      }
+
+      .hero {
+        overflow: hidden;
+      }
+
+      .eyebrow {
+        margin: 0;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--sky);
+      }
+
+      h1, h2, h3 {
+        margin: 0;
+        font-family: "Space Grotesk", "Manrope", sans-serif;
+      }
+
+      h1 {
+        margin-top: 10px;
+        font-size: clamp(2.2rem, 5vw, 4rem);
+        line-height: 0.97;
+        max-width: 11ch;
+      }
+
+      .hero-copy,
+      .helper,
+      .meta,
+      .field label,
+      .result-copy,
+      .metric small,
+      .warning-copy {
+        color: var(--muted);
+      }
+
+      .hero-copy,
+      .helper,
+      .warning-copy,
+      .result-copy {
+        margin: 0;
+        line-height: 1.7;
+      }
+
+      .hero-copy { margin-top: 14px; max-width: 72ch; }
+
+      .badge-row,
+      .metric-grid,
+      .control-grid,
+      .probe-grid,
+      .result-grid,
+      .delta-grid,
+      .action-row {
+        display: grid;
+        gap: 14px;
+      }
+
+      .badge-row {
+        margin-top: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .badge,
+      .warning {
+        border-radius: 18px;
+        padding: 14px 16px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .warning {
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.22);
+      }
+
+      .warning.is-danger {
+        background: rgba(251, 113, 133, 0.08);
+        border-color: rgba(251, 113, 133, 0.22);
+      }
+
+      .badge strong,
+      .warning strong {
+        display: block;
+        font-size: 0.92rem;
+      }
+
+      .badge span,
+      .warning span {
+        display: block;
+        margin-top: 6px;
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+
+      .panel { margin-top: 18px; }
+
+      .section-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .helper { font-size: 0.95rem; }
+
+      .metric-grid,
+      .control-grid,
+      .probe-grid,
+      .result-grid {
+        margin-top: 18px;
+        grid-template-columns: 1fr;
+      }
+
+      .metric,
+      .probe-btn,
+      .result-card {
+        border-radius: 22px;
+      }
+
+      .metric {
+        padding: 16px;
+      }
+
+      .metric label,
+      .field label {
+        display: block;
+        font-size: 0.72rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+
+      .metric strong {
+        display: block;
+        margin-top: 10px;
+        font-size: clamp(1.3rem, 4vw, 2rem);
+      }
+
+      .metric small {
+        display: block;
+        margin-top: 8px;
+        font-size: 0.86rem;
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field input,
+      .field select {
+        width: 100%;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.09);
+        background: rgba(3, 9, 7, 0.72);
+        color: var(--text);
+        padding: 14px 15px;
+        font: inherit;
+        outline: none;
+      }
+
+      .field input:focus,
+      .field select:focus {
+        border-color: rgba(103, 232, 249, 0.4);
+        box-shadow: 0 0 0 3px rgba(103, 232, 249, 0.1);
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .action-row {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+
+      .primary-btn,
+      .secondary-btn {
+        min-height: 50px;
+        border-radius: 16px;
+        padding: 12px 15px;
+        font-weight: 800;
+        transition: transform 160ms ease, opacity 160ms ease, border-color 160ms ease;
+      }
+
+      .primary-btn {
+        background: linear-gradient(135deg, #38bdf8, #39d98a);
+        color: #052014;
+      }
+
+      .secondary-btn {
+        background: rgba(255,255,255,0.05);
+        color: var(--text);
+        border: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .primary-btn:hover,
+      .secondary-btn:hover,
+      .probe-btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .primary-btn:disabled,
+      .secondary-btn:disabled,
+      .probe-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.52;
+        transform: none;
+      }
+
+      .probe-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .probe-btn {
+        display: grid;
+        gap: 8px;
+        text-align: left;
+        padding: 16px;
+        color: var(--text);
+      }
+
+      .probe-btn strong {
+        font-size: 1rem;
+      }
+
+      .probe-btn span {
+        color: var(--muted);
+        font-size: 0.9rem;
+        line-height: 1.55;
+      }
+
+      .probe-btn.is-running {
+        border-color: rgba(103, 232, 249, 0.42);
+        box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.18);
+      }
+
+      .result-card {
+        padding: 18px;
+      }
+
+      .log-panel {
+        margin-top: 16px;
+        border-radius: 22px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(2, 8, 6, 0.84);
+        overflow: hidden;
+      }
+
+      .log-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+
+      .log-stream {
+        max-height: 260px;
+        overflow: auto;
+        padding: 0 16px 16px;
+      }
+
+      .log-line {
+        display: grid;
+        gap: 4px;
+        padding: 12px 0;
+        border-bottom: 1px dashed rgba(255,255,255,0.08);
+      }
+
+      .log-line:last-child {
+        border-bottom: none;
+      }
+
+      .log-line strong {
+        font-size: 0.88rem;
+      }
+
+      .log-line code {
+        color: #bbf7d0;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .result-card.ok {
+        border-color: rgba(57, 217, 138, 0.24);
+      }
+
+      .result-card.error {
+        border-color: rgba(251, 113, 133, 0.26);
+      }
+
+      .result-top {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .result-stamp {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .result-copy { margin-top: 10px; font-size: 0.92rem; }
+
+      .result-grid,
+      .delta-grid {
+        margin-top: 16px;
+      }
+
+      .result-grid {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .snapshot,
+      .delta-card,
+      .collection-card {
+        border-radius: 18px;
+        padding: 14px;
+        border: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .snapshot h4,
+      .delta-card h4,
+      .collection-card h4 {
+        margin: 0 0 10px;
+        font-size: 0.92rem;
+      }
+
+      .collection-grid {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .collection-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .collection-chip {
+        border-radius: 999px;
+        padding: 7px 10px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .table-shell {
+        overflow: auto;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.06);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 720px;
+      }
+
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        vertical-align: top;
+        font-size: 0.82rem;
+      }
+
+      th {
+        color: var(--sky);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        background: rgba(255,255,255,0.03);
+      }
+
+      .mini-json {
+        margin-top: 10px;
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(0,0,0,0.22);
+        color: #bbf7d0;
+        font-size: 0.78rem;
+        overflow: auto;
+      }
+
+      .snapshot-list,
+      .delta-list {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.9rem;
+      }
+
+      .row strong {
+        font-size: 0.92rem;
+      }
+
+      .row .positive { color: var(--mint); }
+      .row .negative { color: var(--danger); }
+
+      details {
+        margin-top: 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.07);
+        background: rgba(2, 7, 6, 0.72);
+        overflow: hidden;
+      }
+
+      summary {
+        cursor: pointer;
+        list-style: none;
+        padding: 14px 16px;
+        font-weight: 800;
+      }
+
+      summary::-webkit-details-marker { display: none; }
+
+      pre {
+        margin: 0;
+        padding: 0 16px 16px;
+        overflow: auto;
+        color: #cff9dc;
+        font-size: 0.83rem;
+        line-height: 1.6;
+      }
+
+      .empty {
+        border-radius: 22px;
+        padding: 24px;
+        border: 1px dashed rgba(255,255,255,0.12);
+        color: var(--muted);
+        text-align: center;
+      }
+
+      @media (min-width: 860px) {
+        .metric-grid {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .control-grid {
+          grid-template-columns: 1.1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Control Panel local</p>
+        <h1>Gains par jeu en un clic</h1>
+        <p class="hero-copy">
+          Cette page labo sert a tester comment chaque victoire manipule le wallet quand le compte contient du HTG en attente.
+          Chaque bouton lance une vraie simulation backend sur le compte actuellement connecte, puis affiche le avant, la mutation et le apres.
+        </p>
+        <div class="badge-row">
+          <div class="badge">
+            <strong>Compte teste</strong>
+            <span id="cpUserBadge">Pa konekte</span>
+          </div>
+          <div class="badge">
+            <strong>Origine locale</strong>
+            <span id="cpOriginBadge">Verification an kou...</span>
+          </div>
+          <div class="badge">
+            <strong>Mode funding</strong>
+            <span>HTG only, focus pending vs approved</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Session</h2>
+            <p class="helper">Konekte ak kont joueur ki gen HTG en attente, pa ak yon kont admin.</p>
+          </div>
+          <div id="cpSessionState" class="warning">
+            <strong>Atansyon</strong>
+            <span class="warning-copy">Page sa a dwe soti sou localhost pou callables debug yo mache.</span>
+          </div>
+        </div>
+
+        <div class="control-grid">
+          <form id="cpLoginForm" class="panel">
+            <div class="field">
+              <label for="cpEmail">Email</label>
+              <input id="cpEmail" name="email" type="email" autocomplete="username" placeholder="user@email.com" />
+            </div>
+            <div class="field" style="margin-top: 12px;">
+              <label for="cpPassword">Modpas</label>
+              <input id="cpPassword" name="password" type="password" autocomplete="current-password" placeholder="Mot de passe" />
+            </div>
+            <div class="action-row" style="margin-top: 16px;">
+              <button id="cpLoginBtn" class="primary-btn" type="submit">Konekte konto test la</button>
+              <button id="cpLogoutBtn" class="secondary-btn" type="button">Dekonekte</button>
+            </div>
+            <p id="cpAuthMessage" class="helper" style="margin-top: 12px;"></p>
+          </form>
+
+          <div class="panel">
+            <div class="field">
+              <label for="cpStakeSelect">Mise test</label>
+              <select id="cpStakeSelect">
+                <option value="100">5 HTG</option>
+                <option value="500" selected>25 HTG</option>
+              </select>
+            </div>
+            <div class="action-row" style="margin-top: 16px;">
+              <button id="cpRefreshBtn" class="secondary-btn" type="button">Rafrechi wallet</button>
+              <button id="cpRunAllBtn" class="primary-btn" type="button">Lanse tout suite a</button>
+              <button id="cpClearBtn" class="secondary-btn" type="button">Netwaye rezilta yo</button>
+            </div>
+            <p class="helper" style="margin-top: 12px;">
+              Chak simulation touche vreman wallet kont sa a. Si ou lanse tout suite a, li pral egzekite tout probes yo youn apre lot.
+            </p>
+          </div>
+        </div>
+
+        <div class="metric-grid">
+          <article class="metric">
+            <label>HTG approuve</label>
+            <strong id="cpApprovedValue">--</strong>
+            <small>Sa ki deja monte nan approved.</small>
+          </article>
+          <article class="metric">
+            <label>HTG en attente</label>
+            <strong id="cpPendingValue">--</strong>
+            <small>Sa ki dwe rete pending si mise a te pending.</small>
+          </article>
+          <article class="metric">
+            <label>HTG jouable</label>
+            <strong id="cpPlayableValue">--</strong>
+            <small>Total ki ka antre nan yon match kounye a.</small>
+          </article>
+          <article class="metric">
+            <label>HTG retirable</label>
+            <strong id="cpWithdrawableValue">--</strong>
+            <small>Sa ki disponib pou retrait.</small>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Tests disponibles</h2>
+            <p class="helper">Bouton yo anba yo lanse yon scenario de victoire ou de settlement selon chak jeu.</p>
+          </div>
+        </div>
+        <div id="cpProbeGrid" class="probe-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Resultats</h2>
+            <p class="helper">Lis sa a montre le split wallet observe apres chaque clic.</p>
+          </div>
+        </div>
+        <div class="log-panel">
+          <div class="log-head">
+            <div>
+              <h3>Journal live</h3>
+              <p class="helper">Erreurs, demarrages de probes et retours importants passent ici.</p>
+            </div>
+          </div>
+          <div id="cpLiveLogs" class="log-stream"></div>
+        </div>
+        <div id="cpResults" class="result-grid">
+          <div class="empty">Pa gen okenn run poko. Klike sou yon probe pou demare premye test la.</div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./control-panel.js"></script>
+  </body>
+</html>

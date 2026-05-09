@@ -1,0 +1,27 @@
+{
+  "id": "/?source=pwa",
+  "name": "Kobposh",
+  "short_name": "Kobposh",
+  "description": "Plateforme web Kobposh pou domino, mopyon, pong, tounwa ak jesyon kont HTG sou mobil ak desktop.",
+  "lang": "fr-HT",
+  "start_url": "/index.html?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#f5f5f5",
+  "background_color": "#f5f5f5"
+}

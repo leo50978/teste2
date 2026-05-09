@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="ht">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+    <title>Kobposh · Domino classique</title>
+    <style>
+      :root {
+        --bg-0: #f4fbf6;
+        --bg-1: #e5f6ea;
+        --panel: rgba(255, 255, 255, 0.94);
+        --line: rgba(31, 143, 76, 0.16);
+        --text: #10311f;
+        --muted: rgba(16, 49, 31, 0.72);
+        --accent: #1f8f4c;
+        --accent-dark: #166c39;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(31, 143, 76, 0.13), transparent 24%),
+          radial-gradient(circle at 84% 18%, rgba(31, 143, 76, 0.08), transparent 26%),
+          linear-gradient(160deg, var(--bg-0), var(--bg-1));
+        overflow: hidden;
+        font-family: "Poppins", system-ui, sans-serif;
+        color: var(--text);
+      }
+
+      .shell {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .topbar {
+        height: max(56px, calc(56px + env(safe-area-inset-top)));
+        padding-top: env(safe-area-inset-top);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 252, 248, 0.92));
+        border-bottom: 1px solid rgba(31, 143, 76, 0.12);
+        color: var(--text);
+        box-shadow: 0 8px 24px rgba(22, 108, 57, 0.06);
+      }
+
+      .title {
+        font-size: 0.96rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--text);
+      }
+
+      .balance-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(31, 143, 76, 0.22);
+        background: rgba(31, 143, 76, 0.12);
+        color: var(--accent-dark);
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .frame-wrap {
+        flex: 1;
+        min-height: 0;
+      }
+
+      iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: rgba(255, 255, 255, 0.82);
+        display: block;
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(16, 49, 31, 0.26);
+        backdrop-filter: blur(6px);
+        padding: 16px;
+      }
+
+      .overlay.active {
+        display: flex;
+      }
+
+      .overlay.overlay--fullscreen {
+        padding: 0;
+        background: rgba(8, 26, 16, 0.94);
+        backdrop-filter: blur(3px);
+      }
+
+      .overlay.overlay--fullscreen .panel {
+        width: 100vw;
+        height: 100vh;
+        max-width: 100vw;
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+        background: linear-gradient(180deg, #0f3d24 0%, #0b2f1c 100%);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 28px 22px;
+      }
+
+      .overlay.overlay--fullscreen .panel h3 {
+        font-size: 1.5rem;
+        color: #fff;
+      }
+
+      .overlay.overlay--fullscreen .panel p {
+        margin-top: 12px;
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.92);
+        max-width: 520px;
+      }
+
+      .panel {
+        width: min(440px, 100%);
+        border-radius: 24px;
+        border: 1px solid rgba(31, 143, 76, 0.16);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 251, 245, 0.96));
+        color: var(--text);
+        box-shadow: 0 18px 40px rgba(22, 108, 57, 0.14);
+        padding: 18px;
+      }
+
+      .panel h3 {
+        margin: 0;
+        font-size: 1.14rem;
+      }
+
+      .panel p {
+        margin: 8px 0 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .stake-grid {
+        margin-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .stake-btn {
+        width: 100%;
+        min-height: 56px;
+        border-radius: 14px;
+        border: 1px solid rgba(31, 143, 76, 0.24);
+        background: linear-gradient(180deg, #1f8f4c, #16733c);
+        color: #fff;
+        font-size: 0.98rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 12px 24px rgba(31, 143, 76, 0.18);
+      }
+
+      .stake-btn:disabled {
+        opacity: 0.62;
+        cursor: not-allowed;
+      }
+
+      .stake-btn-alt {
+        border: 1px solid rgba(31, 143, 76, 0.18);
+        background: rgba(31, 143, 76, 0.08);
+        color: var(--text);
+        box-shadow: none;
+      }
+
+      .search-action-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: min(320px, 100%);
+        margin-top: 18px;
+      }
+
+      .search-action-btn {
+        width: 100%;
+        min-height: 58px;
+        border-radius: 18px;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+      }
+
+      .search-action-btn.search-action-btn-primary {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: linear-gradient(180deg, #2cc36b, #16934a);
+        color: #ffffff;
+        box-shadow:
+          0 16px 26px rgba(10, 40, 22, 0.22),
+          inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      .search-action-btn.search-action-btn-secondary {
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(231, 248, 237, 0.1));
+        color: #f4fff7;
+        box-shadow:
+          0 14px 22px rgba(6, 28, 15, 0.14),
+          inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      }
+
+      .search-action-btn:disabled {
+        opacity: 0.72;
+      }
+
+      .panel-note {
+        min-height: 18px;
+        margin-top: 10px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="title">Domino classique · 4 player</div>
+        <div id="balanceBadge" class="balance-badge">HTG: --</div>
+      </header>
+
+      <section class="frame-wrap">
+        <iframe id="dominoClassicFrame" src="about:blank" title="Domino classique"></iframe>
+      </section>
+    </main>
+
+    <div id="stakeOverlay" class="overlay active" role="dialog" aria-modal="true">
+      <div class="panel">
+        <h3 id="stakeHeading">Chwazi mise HTG Domino ou</h3>
+        <p>Chwazi kantite HTG ou vle jwe a pou m ka prepare pati a.</p>
+        <div class="stake-grid">
+          <button type="button" class="stake-btn" data-stake="100">5 HTG · Gwo genyen 9 HTG</button>
+          <button type="button" class="stake-btn" data-stake="500">25 HTG · Gwo genyen 45 HTG</button>
+          <button type="button" class="stake-btn" data-stake="1000">50 HTG · Gwo genyen 90 HTG</button>
+          <button type="button" id="refreshBalanceBtn" class="stake-btn stake-btn-alt">Rafrechi balans</button>
+        </div>
+        <div id="stakeNote" class="panel-note"></div>
+      </div>
+    </div>
+
+    <div id="orientationStartOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="panel">
+        <h3>Mete telefòn ou an peyizaj pou kontinye</h3>
+        <p>
+          Sou smartphone, Domino classique bezwen ekran an kouche avan li louvri.
+          Vire telefòn ou an orizontal pou m ka kontinye san kraze eksperyans jwèt la.
+        </p>
+        <div class="stake-grid" style="margin-top:16px;">
+          <button type="button" id="orientationStartContinueBtn" class="stake-btn" disabled>Mwen mete l an peyizaj</button>
+          <button type="button" id="orientationStartHomeBtn" class="stake-btn stake-btn-alt">Tounen nan akey</button>
+        </div>
+        <div id="orientationStartNote" class="panel-note">Si ekran an rete vètikal, jwèt la pap demare.</div>
+      </div>
+    </div>
+
+    <div id="turnWarningOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="panel">
+        <h3>Atansyon sou tan tour ou</h3>
+        <p>
+          Chak fwa se tou pa w, ou gen <strong>30 segonn</strong> pou jwe.
+          Si ou pa jwe avan 30 segonn yo fini, sistèm nan ap jwe yon domino otomatikman pou ou.
+        </p>
+        <div class="stake-grid" style="margin-top:16px;">
+          <button type="button" id="turnWarningContinueBtn" class="stake-btn">Mwen konprann, ann jwe</button>
+          <button type="button" id="turnWarningHomeBtn" class="stake-btn stake-btn-alt">Tounen nan akey</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="branchChoiceGuideOverlay" class="overlay" role="dialog" aria-modal="true">
+      <div class="panel">
+        <h3>Kijan pou chwazi bon bout la</h3>
+        <p>
+          Gen lè menm domino a ka antre sou <strong>2 bout diferan</strong>.
+          Lè sa rive, si ou vle jwe sou yon bout, tape <strong>mwatye domino a</strong> ki gen menm nimewo ak bout sa a.
+        </p>
+        <p class="panel-note" style="margin-top:12px;">
+          Pa tape mitan domino a nan ka sa a. Se mwatye ou chwazi a ki di jwèt la sou ki bò pou l mete domino a.
+        </p>
+        <div class="stake-grid" style="margin-top:16px;">
+          <button type="button" id="branchChoiceGuideContinueBtn" class="stake-btn">Mwen konprann, ann jwe</button>
+          <button type="button" id="branchChoiceGuideHomeBtn" class="stake-btn stake-btn-alt">Tounen nan akey</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="searchOverlay" class="overlay overlay--fullscreen" role="status" aria-live="polite">
+      <div class="panel">
+        <h3 id="searchOverlayTitle">M ap prepare pati a...</h3>
+        <p id="searchOverlayCopy">M ap valide mise a epi m ap louvri match la.</p>
+        <div class="search-action-stack">
+          <button id="searchRetryBtn" type="button" class="stake-btn search-action-btn search-action-btn-primary" style="display:none;">Reesayer ankò</button>
+          <button id="searchHomeBtn" type="button" class="stake-btn search-action-btn search-action-btn-secondary" style="display:none;">Tounen nan akey</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { auth, db, doc, getDoc, onAuthStateChanged } from "./firebase-init.js";
+      import {
+        getDepositFundingStatusSecure,
+        startDominoClassicWagerSecure,
+        touchDominoClassicWagerHeartbeatSecure,
+        recordDominoClassicMatchResultSecure,
+      } from "./secure-functions.js";
+
+      const frame = document.getElementById("dominoClassicFrame");
+      const balanceBadge = document.getElementById("balanceBadge");
+      const stakeOverlay = document.getElementById("stakeOverlay");
+      const orientationStartOverlay = document.getElementById("orientationStartOverlay");
+      const orientationStartContinueBtn = document.getElementById("orientationStartContinueBtn");
+      const orientationStartHomeBtn = document.getElementById("orientationStartHomeBtn");
+      const orientationStartNote = document.getElementById("orientationStartNote");
+      const turnWarningOverlay = document.getElementById("turnWarningOverlay");
+      const turnWarningContinueBtn = document.getElementById("turnWarningContinueBtn");
+      const turnWarningHomeBtn = document.getElementById("turnWarningHomeBtn");
+      const branchChoiceGuideOverlay = document.getElementById("branchChoiceGuideOverlay");
+      const branchChoiceGuideContinueBtn = document.getElementById("branchChoiceGuideContinueBtn");
+      const branchChoiceGuideHomeBtn = document.getElementById("branchChoiceGuideHomeBtn");
+      const searchOverlay = document.getElementById("searchOverlay");
+      const searchOverlayTitle = document.getElementById("searchOverlayTitle");
+      const searchOverlayCopy = document.getElementById("searchOverlayCopy");
+      const searchRetryBtn = document.getElementById("searchRetryBtn");
+      const searchHomeBtn = document.getElementById("searchHomeBtn");
+      const stakeNote = document.getElementById("stakeNote");
+      const stakeButtons = Array.from(document.querySelectorAll(".stake-btn[data-stake]"));
+      const refreshBalanceBtn = document.getElementById("refreshBalanceBtn");
+
+      const requestedFundingCurrency = "htg";
+      const HOME_HREF = "./index.html";
+      const HEARTBEAT_MS = 12000;
+      const DOMINO_CLASSIC_FORFEIT_QUEUE_KEY = "domino_classic_v2_forfeit_queue";
+      const DOMINO_CLASSIC_ACTIVE_WAGER_KEY = "domino_classic_v2_active_wager";
+      const DOMINO_CLASSIC_NO_PLAYER_AVAILABLE_CHANCE = 0.34;
+
+      let currentUid = "";
+      let activeWager = null;
+      let heartbeatTimer = null;
+      let pendingAutoStake = 0;
+      let launchBusy = false;
+      let backNavigationInProgress = false;
+      let heartbeatFailures = 0;
+      let forcedDisconnectLoss = false;
+      let pendingSettlementPromise = null;
+      const recordedMatchIds = new Set();
+      let pendingStakeConfirmation = 0;
+      let turnWarningAccepted = false;
+      let branchChoiceGuideAccepted = false;
+      let pendingOrientationAction = null;
+      let pendingOrientationStake = 0;
+      let orientationStartAutoContinueTimer = 0;
+
+      function safeNumber(value, fallback = 0) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+      }
+
+      function safeInt(value, fallback = 0) {
+        return Math.max(0, Math.trunc(safeNumber(value, fallback)));
+      }
+
+      function isLandscapeViewport() {
+        const mediaLandscape = typeof window.matchMedia === "function"
+          ? window.matchMedia("(orientation: landscape)").matches
+          : false;
+        const screenOrientation = String(window.screen?.orientation?.type || "").toLowerCase();
+        const screenLandscape = screenOrientation.includes("landscape");
+        const widthLandscape = safeInt(window.innerWidth) >= safeInt(window.innerHeight);
+        return mediaLandscape || screenLandscape || widthLandscape;
+      }
+
+      function isSmartphoneMobileDevice() {
+        const userAgent = String(window.navigator.userAgent || "");
+        const shortSide = Math.min(safeInt(window.innerWidth), safeInt(window.innerHeight));
+        const longSide = Math.max(safeInt(window.innerWidth), safeInt(window.innerHeight));
+        const isIphoneLike = /iphone|ipod/i.test(userAgent);
+        const isAndroidPhone = /android/i.test(userAgent) && /mobile/i.test(userAgent);
+        const isOtherPhone = /mobile|windows phone|iemobile/i.test(userAgent) && !/ipad|tablet/i.test(userAgent);
+        return (isIphoneLike || isAndroidPhone || isOtherPhone) && shortSide > 0 && shortSide <= 900 && longSide <= 1100;
+      }
+
+      function requiresLandscapeBeforeStart() {
+        return isSmartphoneMobileDevice() && !isLandscapeViewport();
+      }
+
+      function clearOrientationStartAutoContinueTimer() {
+        if (!orientationStartAutoContinueTimer) return;
+        window.clearTimeout(orientationStartAutoContinueTimer);
+        orientationStartAutoContinueTimer = 0;
+      }
+
+      function resumeOrientationStartFlow() {
+        if (requiresLandscapeBeforeStart()) {
+          refreshOrientationStartState();
+          return false;
+        }
+        clearOrientationStartAutoContinueTimer();
+        const action = pendingOrientationAction;
+        pendingOrientationAction = null;
+        closeOrientationStartOverlay();
+        if (typeof action === "function") {
+          action();
+          return true;
+        }
+        if (turnWarningAccepted === true && pendingOrientationStake > 0) {
+          void startWagerAndLaunch(pendingOrientationStake);
+          return true;
+        }
+        if (pendingOrientationStake > 0) {
+          turnWarningOverlay?.classList.add("active");
+          return true;
+        }
+        stakeOverlay?.classList.add("active");
+        return true;
+      }
+
+      function renderBalance(playableHtg = null) {
+        const parsed = Number(playableHtg);
+        if (!Number.isFinite(parsed)) {
+          balanceBadge.textContent = "HTG: --";
+          return;
+        }
+        balanceBadge.textContent = `HTG: ${safeInt(parsed).toLocaleString("fr-FR")}`;
+      }
+
+      async function refreshBalance() {
+        if (!currentUid) {
+          renderBalance(null);
+          return null;
+        }
+        try {
+          const funding = await getDepositFundingStatusSecure();
+          renderBalance(funding?.playableHtg);
+          return funding;
+        } catch (error) {
+          console.warn("[DOMINO_CLASSIC_V2] balance refresh failed", error);
+          return null;
+        }
+      }
+
+      async function resolveBackendActiveSessionId(uid = "") {
+        const safeUid = String(uid || currentUid || auth.currentUser?.uid || "").trim();
+        if (!safeUid) return "";
+        try {
+          const snap = await getDoc(doc(db, "clients", safeUid));
+          const data = snap.exists() ? (snap.data() || {}) : {};
+          const wager = data?.dominoClassicWagerState && typeof data.dominoClassicWagerState === "object"
+            ? data.dominoClassicWagerState
+            : {};
+          const status = String(wager.status || "").trim().toLowerCase();
+          const sessionId = String(wager.sessionId || "").trim();
+          return status === "active" ? sessionId : "";
+        } catch (error) {
+          console.warn("[DOMINO_CLASSIC_V2] resolve backend active session failed", error);
+          return "";
+        }
+      }
+
+      function setStakeUiBusy(busy, note = "") {
+        launchBusy = !!busy;
+        stakeButtons.forEach((btn) => {
+          btn.disabled = !!busy;
+        });
+        if (refreshBalanceBtn) refreshBalanceBtn.disabled = !!busy;
+        if (orientationStartContinueBtn) orientationStartContinueBtn.disabled = !!busy || requiresLandscapeBeforeStart();
+        if (orientationStartHomeBtn) orientationStartHomeBtn.disabled = !!busy;
+        if (turnWarningContinueBtn) turnWarningContinueBtn.disabled = !!busy;
+        if (turnWarningHomeBtn) turnWarningHomeBtn.disabled = !!busy;
+        if (branchChoiceGuideContinueBtn) branchChoiceGuideContinueBtn.disabled = !!busy;
+        if (branchChoiceGuideHomeBtn) branchChoiceGuideHomeBtn.disabled = !!busy;
+        if (stakeNote) stakeNote.textContent = String(note || "");
+      }
+
+      function refreshOrientationStartState() {
+        if (!orientationStartOverlay?.classList.contains("active")) {
+          clearOrientationStartAutoContinueTimer();
+          return;
+        }
+        const ready = !requiresLandscapeBeforeStart();
+        if (orientationStartContinueBtn) {
+          orientationStartContinueBtn.disabled = launchBusy || !ready;
+        }
+        if (orientationStartNote) {
+          orientationStartNote.textContent = ready
+            ? "Bon. Telefòn nan an peyizaj. Ou ka kontinye kounye a."
+            : "Vire telefòn ou an orizontal epi aktive wotasyon oto si sa nesesè. Jwèt la pap demare toutotan ekran an rete vètikal.";
+        }
+        if (ready && !launchBusy) {
+          if (orientationStartNote) {
+            orientationStartNote.textContent = "Bon. Telefon nan an peyizaj. M ap kontinye otomatikman...";
+          }
+          if (!orientationStartAutoContinueTimer) {
+            orientationStartAutoContinueTimer = window.setTimeout(() => {
+              orientationStartAutoContinueTimer = 0;
+              if (orientationStartOverlay?.classList.contains("active")) {
+                resumeOrientationStartFlow();
+              }
+            }, 220);
+          }
+          return;
+        }
+        clearOrientationStartAutoContinueTimer();
+      }
+
+      function closeOrientationStartOverlay() {
+        clearOrientationStartAutoContinueTimer();
+        orientationStartOverlay?.classList.remove("active");
+      }
+
+      function openOrientationStartOverlay(stakeDoes = 0, onReady = null) {
+        pendingOrientationStake = safeInt(stakeDoes);
+        pendingOrientationAction = typeof onReady === "function" ? onReady : null;
+        stakeOverlay?.classList.remove("active");
+        turnWarningOverlay?.classList.remove("active");
+        branchChoiceGuideOverlay?.classList.remove("active");
+        searchOverlay?.classList.remove("active");
+        orientationStartOverlay?.classList.add("active");
+        refreshOrientationStartState();
+      }
+
+      function guardLandscapeBeforeStart(stakeDoes = 0, onReady = null) {
+        if (!requiresLandscapeBeforeStart()) return false;
+        openOrientationStartOverlay(stakeDoes, onReady);
+        return true;
+      }
+
+      function openBranchChoiceGuideOverlay() {
+        stakeOverlay?.classList.remove("active");
+        turnWarningOverlay?.classList.remove("active");
+        searchOverlay?.classList.remove("active");
+        branchChoiceGuideOverlay?.classList.add("active");
+      }
+
+      function continueClassicPrelaunchFlow(stakeDoes = 0) {
+        const safeStakeDoes = safeInt(stakeDoes);
+        if (safeStakeDoes <= 0) {
+          stakeOverlay?.classList.add("active");
+          return;
+        }
+        if (turnWarningAccepted !== true) {
+          stakeOverlay?.classList.remove("active");
+          branchChoiceGuideOverlay?.classList.remove("active");
+          turnWarningOverlay?.classList.add("active");
+          return;
+        }
+        if (branchChoiceGuideAccepted !== true) {
+          openBranchChoiceGuideOverlay();
+          return;
+        }
+        if (guardLandscapeBeforeStart(safeStakeDoes, () => continueClassicPrelaunchFlow(safeStakeDoes))) {
+          return;
+        }
+        void startWagerAndLaunch(safeStakeDoes);
+      }
+
+      function requestClassicStart(stakeDoes = 0) {
+        const safeStakeDoes = safeInt(stakeDoes);
+        if (safeStakeDoes <= 0) return;
+        pendingStakeConfirmation = safeStakeDoes;
+        pendingAutoStake = safeStakeDoes;
+        if (guardLandscapeBeforeStart(safeStakeDoes, () => continueClassicPrelaunchFlow(safeStakeDoes))) {
+          return;
+        }
+        continueClassicPrelaunchFlow(safeStakeDoes);
+      }
+
+      function setSearchOverlayState(titleText = "", copyText = "", options = {}) {
+        const {
+          showRetry = false,
+          showHome = false,
+          retryLabel = "Reesayer ankò",
+        } = options || {};
+        if (searchOverlayTitle) searchOverlayTitle.textContent = titleText || "M ap prepare pati a...";
+        if (searchOverlayCopy) searchOverlayCopy.textContent = copyText || "Tanpri tann yon ti moman.";
+        if (searchRetryBtn) {
+          searchRetryBtn.textContent = String(retryLabel || "Reesayer ankò");
+          searchRetryBtn.style.display = showRetry ? "inline-flex" : "none";
+        }
+        if (searchHomeBtn) {
+          searchHomeBtn.style.display = showHome ? "inline-flex" : "none";
+        }
+      }
+
+      function sleep(ms = 0) {
+        return new Promise((resolve) => {
+          window.setTimeout(resolve, Math.max(0, safeInt(ms)));
+        });
+      }
+
+      function shouldShowNoPlayerAvailable() {
+        return Math.random() < DOMINO_CLASSIC_NO_PLAYER_AVAILABLE_CHANCE;
+      }
+
+      async function maybeShowNoPlayerAvailable() {
+        if (!shouldShowNoPlayerAvailable()) return false;
+        const delayMs = 900 + Math.floor(Math.random() * 1400);
+        await sleep(delayMs);
+        setSearchOverlayState(
+          "Nou pa rive konekte 3 jwe pou match la komanse",
+          "Reesayer ankò pou m tcheke si 3 jwe yo disponib, oswa tounen nan akey la.",
+          {
+            showRetry: true,
+            showHome: true,
+            retryLabel: "Reesayer ankò",
+          },
+        );
+        setStakeUiBusy(false, "Nou pa rive konekte 3 jwe pou match la komanse.");
+        stakeOverlay.classList.remove("active");
+        searchOverlay.classList.add("active");
+        return true;
+      }
+
+      function readForfeitQueue() {
+        try {
+          const raw = window.localStorage.getItem(DOMINO_CLASSIC_FORFEIT_QUEUE_KEY);
+          const parsed = JSON.parse(raw || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_) {
+          return [];
+        }
+      }
+
+      function writeForfeitQueue(items = []) {
+        try {
+          const normalized = Array.isArray(items) ? items : [];
+          if (normalized.length > 0) {
+            window.localStorage.setItem(DOMINO_CLASSIC_FORFEIT_QUEUE_KEY, JSON.stringify(normalized.slice(0, 12)));
+          } else {
+            window.localStorage.removeItem(DOMINO_CLASSIC_FORFEIT_QUEUE_KEY);
+          }
+        } catch (_) {}
+      }
+
+      function enqueueForfeit(item = {}) {
+        const sessionId = String(item.sessionId || "").trim();
+        const uid = String(item.uid || "").trim();
+        if (!uid || !sessionId) return;
+        const existing = readForfeitQueue().filter((entry) => String(entry?.sessionId || "").trim() !== sessionId);
+        existing.unshift({
+          uid,
+          sessionId,
+          stakeDoes: safeInt(item.stakeDoes),
+          stakeHtg: safeInt(item.stakeHtg),
+          botDifficulty: String(item.botDifficulty || "expert").trim().toLowerCase(),
+          reason: String(item.reason || "forfeit"),
+          createdAtMs: Date.now(),
+        });
+        writeForfeitQueue(existing);
+      }
+
+      function readStoredActiveWager() {
+        try {
+          const raw = window.localStorage.getItem(DOMINO_CLASSIC_ACTIVE_WAGER_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : null;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      function setActiveWager(nextValue = null) {
+        activeWager = nextValue && typeof nextValue === "object" ? { ...nextValue } : null;
+        if (activeWager) {
+          heartbeatFailures = 0;
+          forcedDisconnectLoss = false;
+        } else {
+          heartbeatFailures = 0;
+        }
+        try {
+          if (activeWager) {
+            window.localStorage.setItem(DOMINO_CLASSIC_ACTIVE_WAGER_KEY, JSON.stringify(activeWager));
+          } else {
+            window.localStorage.removeItem(DOMINO_CLASSIC_ACTIVE_WAGER_KEY);
+          }
+        } catch (_) {}
+        stopHeartbeat();
+        if (activeWager?.sessionId) startHeartbeat();
+      }
+
+      function queueForfeitIfNeeded(reason = "forfeit") {
+        if (!activeWager || activeWager.settled === true) return;
+        const uid = String(currentUid || auth.currentUser?.uid || "").trim();
+        const sessionId = String(activeWager?.sessionId || "").trim();
+        if (!uid || !sessionId) return;
+        enqueueForfeit({
+          uid,
+          sessionId,
+          stakeDoes: safeInt(activeWager?.stakeDoes),
+          stakeHtg: safeInt(activeWager?.stakeHtg),
+          botDifficulty: String(activeWager?.botDifficulty || "expert").trim().toLowerCase(),
+          reason,
+        });
+        setActiveWager(null);
+      }
+
+      function forceLoseForConnectivity(reason = "offline") {
+        if (forcedDisconnectLoss) return;
+        if (!activeWager || !String(activeWager?.sessionId || "").trim()) return;
+        forcedDisconnectLoss = true;
+        stopHeartbeat();
+        queueForfeitIfNeeded(reason);
+        frame.src = "about:blank";
+        searchOverlay?.classList.add("active");
+        stakeOverlay?.classList.remove("active");
+        setSearchOverlayState(
+          "Koneksyon an koupe",
+          "Rezo a koupe oswa two fèb. Nou konte sa menm jan ak si ou te kite pati a.",
+          { showRetry: false, showHome: false },
+        );
+        if (stakeNote) {
+          stakeNote.textContent = "Pati a fini kòm abandon paske koneksyon an pa estab.";
+        }
+      }
+
+      async function sendHeartbeat() {
+        const sessionId = String(activeWager?.sessionId || "").trim();
+        if (!sessionId) return;
+        if (navigator.onLine === false) {
+          forceLoseForConnectivity("offline");
+          return;
+        }
+        try {
+          const result = await touchDominoClassicWagerHeartbeatSecure({ sessionId });
+          heartbeatFailures = 0;
+          if (result?.active === false) {
+            setActiveWager(null);
+          }
+        } catch (error) {
+          console.warn("[DOMINO_CLASSIC_V2] heartbeat failed", error);
+          heartbeatFailures += 1;
+          if (heartbeatFailures >= 2) {
+            forceLoseForConnectivity("heartbeat_failed");
+          }
+        }
+      }
+
+      function startHeartbeat() {
+        stopHeartbeat();
+        if (!String(activeWager?.sessionId || "").trim()) return;
+        heartbeatTimer = window.setInterval(() => {
+          void sendHeartbeat();
+        }, HEARTBEAT_MS);
+        void sendHeartbeat();
+      }
+
+      function stopHeartbeat() {
+        if (!heartbeatTimer) return;
+        window.clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
+
+      function openGameFrame(wager = {}) {
+        const url = new URL("./jeu.html", window.location.href);
+        url.searchParams.set("uiRev", "20260509-classic-prestarthelp1");
+        url.searchParams.set("autostart", "1");
+        url.searchParams.set("embedded", "1");
+        url.searchParams.set("sessionId", String(wager?.sessionId || ""));
+        url.searchParams.set("stakeHtg", String(safeInt(wager?.stakeHtg)));
+        url.searchParams.set("botDifficulty", String(wager?.botDifficulty || "expert"));
+        frame.src = url.toString();
+      }
+
+      async function startWagerAndLaunch(stakeDoes, retryCount = 0) {
+        if (!currentUid) {
+          window.location.href = "./index.html?auth=login";
+          return;
+        }
+        if (launchBusy) return;
+        if (guardLandscapeBeforeStart(stakeDoes, () => void startWagerAndLaunch(stakeDoes, retryCount))) {
+          return;
+        }
+        pendingAutoStake = safeInt(stakeDoes);
+        setStakeUiBusy(true, "M ap valide mise a...");
+        stakeOverlay.classList.remove("active");
+        searchOverlay.classList.add("active");
+        setSearchOverlayState(
+          "M ap chache 3 jwe yo...",
+          "Tanpri tann, m ap verifye si m ka konekte 3 jwe pou match la komanse.",
+          { showRetry: false, showHome: false },
+        );
+        try {
+          if (await maybeShowNoPlayerAvailable()) {
+            return;
+          }
+          setSearchOverlayState(
+            "M ap prepare pati a...",
+            "M ap valide mise a epi m ap louvri match la.",
+            { showRetry: false, showHome: false },
+          );
+          await flushForfeitQueue(currentUid);
+          const result = await startDominoClassicWagerSecure({
+            stakeDoes: safeInt(stakeDoes),
+            fundingCurrency: requestedFundingCurrency,
+            gameVariant: "classic_local_bots",
+          });
+          const sessionId = String(result?.sessionId || "").trim();
+          if (!sessionId) throw new Error("Session invalide");
+          renderBalance(Number(result?.playableHtg ?? 0));
+          setActiveWager({
+            sessionId,
+            stakeDoes: safeInt(stakeDoes),
+            stakeHtg: safeInt(result?.stakeHtg),
+            rewardHtg: safeInt(result?.rewardAmountHtg),
+            fundingCurrency: "htg",
+            botDifficulty: String(result?.botDifficulty || "expert").trim().toLowerCase() || "expert",
+            startedAtMs: Date.now(),
+            settled: false,
+          });
+          await refreshBalance();
+          stakeOverlay.classList.remove("active");
+          searchOverlay.classList.remove("active");
+          openGameFrame(activeWager);
+          setStakeUiBusy(false, "");
+        } catch (error) {
+          console.error("[DOMINO_CLASSIC_V2] start wager failed", error);
+          const rawMessage = String(error?.message || "");
+          const message = rawMessage.toLowerCase();
+          const errorCode = String(error?.code || error?.details?.code || "").toLowerCase();
+          let uiMessage = "Nou pa rive komanse pati Domino a.";
+          const isActiveSessionError =
+            message.includes("deja en cours")
+            || message.includes("already")
+            || message.includes("active session")
+            || String(error?.details?.code || "").toLowerCase().includes("active");
+          const isMissingBackendError =
+            errorCode.includes("not-found")
+            || errorCode.includes("unimplemented")
+            || message.includes("no function")
+            || message.includes("not found");
+          if (isActiveSessionError && retryCount < 1) {
+            const activeSessionId = String(
+              error?.details?.sessionId
+              || activeWager?.sessionId
+              || readStoredActiveWager()?.sessionId
+              || ""
+            ).trim();
+            const sessionIdToForfeit = activeSessionId || await resolveBackendActiveSessionId(currentUid);
+            if (sessionIdToForfeit) {
+              try {
+                await recordDominoClassicMatchResultSecure({
+                  matchId: `forfeit_${sessionIdToForfeit}`,
+                  sessionId: sessionIdToForfeit,
+                  winner: "ai",
+                  winnerSeat: 1,
+                  botDifficulty: String(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+                  motif: "quit",
+                  reason: "auto_forfeit_active_session",
+                });
+                setActiveWager(null);
+                await flushForfeitQueue(currentUid);
+                await refreshBalance();
+                await startWagerAndLaunch(stakeDoes, retryCount + 1);
+                return;
+              } catch (forfeitError) {
+                console.warn("[DOMINO_CLASSIC_V2] auto forfeit active session failed", forfeitError);
+              }
+            }
+          }
+          if (isMissingBackendError) {
+            uiMessage = "Backend Domino classique a poko pare sou sèvè a. Frontend la la, men callables yo poko disponib.";
+          } else if (message.includes("insuffisant")) {
+            uiMessage = "Pa gen ase HTG nan kont lan.";
+          } else if (isActiveSessionError) {
+            uiMessage = "Gen yon sesyon Domino ki poko fini oswa ki fenk kòmanse.";
+          }
+          setSearchOverlayState("Nou pa rive louvri match la", uiMessage, {
+            showRetry: true,
+            showHome: true,
+            retryLabel: "Reesayer ankò",
+          });
+          setStakeUiBusy(false, uiMessage);
+        }
+      }
+
+      async function settleMatchResult(payload = {}, reason = "match_end") {
+        const uid = String(currentUid || auth.currentUser?.uid || "").trim();
+        if (!uid) return;
+        const matchId = String(payload?.matchId || "").trim();
+        if (!matchId || recordedMatchIds.has(matchId)) return;
+        recordedMatchIds.add(matchId);
+        const sessionId = String(activeWager?.sessionId || payload?.sessionId || "").trim();
+        const winnerSeat = safeInt(payload?.winnerSeat);
+        const winner = payload?.winner === "user" ? "user" : "ai";
+        const motif = String(payload?.motif || "");
+        const botDifficulty = String(activeWager?.botDifficulty || payload?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase();
+        try {
+          await recordDominoClassicMatchResultSecure({
+            matchId,
+            sessionId,
+            winner,
+            winnerSeat,
+            botDifficulty,
+            motif,
+            reason,
+          });
+        } catch (error) {
+          recordedMatchIds.delete(matchId);
+          console.warn("[DOMINO_CLASSIC_V2] match settle failed", error);
+          if (sessionId) {
+            enqueueForfeit({
+              uid,
+              sessionId,
+              stakeDoes: safeInt(activeWager?.stakeDoes),
+              stakeHtg: safeInt(activeWager?.stakeHtg),
+              reason: "sync_retry",
+            });
+          }
+        } finally {
+          setActiveWager(null);
+          await refreshBalance();
+        }
+      }
+
+      async function flushForfeitQueue(uid = "") {
+        const safeUid = String(uid || currentUid || "").trim();
+        if (!safeUid || navigator.onLine === false) return;
+        const queue = readForfeitQueue();
+        if (!queue.length) return;
+        const pending = [];
+        for (const entry of queue) {
+          const entryUid = String(entry?.uid || "").trim();
+          if (entryUid && entryUid !== safeUid) {
+            pending.push(entry);
+            continue;
+          }
+          const sessionId = String(entry?.sessionId || "").trim();
+          if (!sessionId) continue;
+          try {
+            await recordDominoClassicMatchResultSecure({
+              matchId: `forfeit_${sessionId}`,
+              sessionId,
+              winner: "ai",
+              winnerSeat: 1,
+              botDifficulty: String(entry?.botDifficulty || activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+              motif: "quit",
+              reason: String(entry?.reason || "forfeit"),
+            });
+          } catch (_) {
+            pending.push(entry);
+          }
+        }
+        writeForfeitQueue(pending);
+      }
+
+      async function handleBackNavigation(targetHref) {
+        if (backNavigationInProgress) return;
+        backNavigationInProgress = true;
+        if (activeWager?.sessionId) {
+          try {
+            await recordDominoClassicMatchResultSecure({
+              matchId: `forfeit_${String(activeWager.sessionId).trim()}`,
+              sessionId: String(activeWager.sessionId).trim(),
+              winner: "ai",
+              winnerSeat: 1,
+              botDifficulty: String(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+              motif: "quit",
+              reason: "quit",
+            });
+            setActiveWager(null);
+            await refreshBalance();
+          } catch (error) {
+            console.warn("[DOMINO_CLASSIC_V2] quit forfeit failed", error);
+            queueForfeitIfNeeded("quit");
+            if (currentUid && navigator.onLine !== false) {
+              await flushForfeitQueue(currentUid);
+            }
+          }
+        }
+        window.location.href = targetHref;
+      }
+
+      stakeButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          requestClassicStart(safeInt(btn.getAttribute("data-stake")));
+        });
+      });
+
+      refreshBalanceBtn?.addEventListener("click", () => {
+        void refreshBalance();
+      });
+
+      searchRetryBtn?.addEventListener("click", () => {
+        if (pendingAutoStake > 0) {
+          if (guardLandscapeBeforeStart(pendingAutoStake, () => void startWagerAndLaunch(pendingAutoStake))) {
+            return;
+          }
+          void startWagerAndLaunch(pendingAutoStake);
+          return;
+        }
+        searchOverlay.classList.remove("active");
+        stakeOverlay.classList.add("active");
+      });
+
+      searchHomeBtn?.addEventListener("click", () => {
+        window.location.href = HOME_HREF;
+      });
+
+      turnWarningContinueBtn?.addEventListener("click", () => {
+        const stakeDoes = safeInt(pendingStakeConfirmation);
+        turnWarningAccepted = true;
+        turnWarningOverlay?.classList.remove("active");
+        continueClassicPrelaunchFlow(stakeDoes);
+      });
+
+      turnWarningHomeBtn?.addEventListener("click", () => {
+        window.location.href = HOME_HREF;
+      });
+
+      branchChoiceGuideContinueBtn?.addEventListener("click", () => {
+        const stakeDoes = safeInt(pendingStakeConfirmation);
+        branchChoiceGuideAccepted = true;
+        branchChoiceGuideOverlay?.classList.remove("active");
+        continueClassicPrelaunchFlow(stakeDoes);
+      });
+
+      branchChoiceGuideHomeBtn?.addEventListener("click", () => {
+        window.location.href = HOME_HREF;
+      });
+
+      orientationStartContinueBtn?.addEventListener("click", () => {
+        resumeOrientationStartFlow();
+      });
+
+      orientationStartHomeBtn?.addEventListener("click", () => {
+        window.location.href = HOME_HREF;
+      });
+
+      window.addEventListener("message", (event) => {
+        if (event.origin !== window.location.origin) return;
+        const data = event?.data;
+        if (!data || typeof data !== "object") return;
+        if (data.type === "dominoClassic:playAgain") {
+          Promise.resolve(pendingSettlementPromise)
+            .catch(() => {})
+            .finally(() => {
+              frame.src = "about:blank";
+              stakeOverlay.classList.add("active");
+              searchOverlay.classList.remove("active");
+            });
+          return;
+        }
+        if (data.type === "dominoClassic:returnHome") {
+          Promise.resolve(pendingSettlementPromise)
+            .catch(() => {})
+            .finally(async () => {
+              await refreshBalance();
+              window.location.href = HOME_HREF;
+            });
+          return;
+        }
+        if (data.type !== "dominoClassic:matchResult") return;
+        pendingSettlementPromise = settleMatchResult(data.payload || {}, "match_end")
+          .catch((error) => {
+            console.warn("[DOMINO_CLASSIC_V2] pending settlement failed", error);
+          })
+          .finally(() => {
+            pendingSettlementPromise = null;
+          });
+      });
+
+      window.addEventListener("xchangeUpdated", () => {
+        if (!currentUid) return;
+        void refreshBalance();
+      });
+
+      window.addEventListener("userBalanceUpdated", () => {
+        if (!currentUid) return;
+        void refreshBalance();
+      });
+
+      try {
+        const historyState = window.history.state && typeof window.history.state === "object"
+          ? window.history.state
+          : {};
+        if (!historyState.__dominoClassicBackGuard) {
+          window.history.replaceState({ ...historyState, __dominoClassicBackGuardRoot: true }, "", window.location.href);
+          window.history.pushState({ ...historyState, __dominoClassicBackGuard: true }, "", window.location.href);
+        }
+      } catch (_) {}
+
+      window.addEventListener("popstate", () => {
+        if (backNavigationInProgress) return;
+        void handleBackNavigation(HOME_HREF);
+      });
+
+      window.addEventListener("offline", () => {
+        forceLoseForConnectivity("offline");
+      });
+
+      window.addEventListener("resize", () => {
+        refreshOrientationStartState();
+      });
+
+      window.addEventListener("orientationchange", () => {
+        window.setTimeout(() => {
+          refreshOrientationStartState();
+        }, 80);
+      });
+
+      window.addEventListener("pagehide", () => {
+        queueForfeitIfNeeded("pagehide");
+      });
+
+      window.addEventListener("beforeunload", () => {
+        queueForfeitIfNeeded("beforeunload");
+      });
+
+      onAuthStateChanged(auth, (user) => {
+        currentUid = String(user?.uid || "").trim();
+        if (!currentUid) {
+          renderBalance(null);
+          stakeOverlay.classList.add("active");
+          setStakeUiBusy(false, "Ou dwe konekte pou jwe Domino classique.");
+          return;
+        }
+        setStakeUiBusy(false, "");
+        const stale = readStoredActiveWager();
+        if (stale && String(stale?.sessionId || "").trim()) {
+          enqueueForfeit({
+            uid: currentUid,
+            sessionId: String(stale.sessionId || "").trim(),
+            stakeDoes: safeInt(stale?.stakeDoes),
+            stakeHtg: safeInt(stale?.stakeHtg),
+            botDifficulty: String(stale?.botDifficulty || "expert").trim().toLowerCase(),
+            reason: "session_resume_forfeit",
+          });
+          setActiveWager(null);
+        }
+        void flushForfeitQueue(currentUid).then(() => refreshBalance());
+      });
+    </script>
+  </body>
+</html>

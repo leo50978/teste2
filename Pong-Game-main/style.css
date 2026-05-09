@@ -1,0 +1,256 @@
+:root {
+    --bg-0: #f3fbf5;
+    --bg-1: #e8f7ed;
+    --panel: rgba(255, 255, 255, 0.88);
+    --line: rgba(34, 139, 90, 0.18);
+    --text: #0f2a1a;
+    --muted: rgba(20, 60, 40, 0.7);
+    --accent-a: #1f8f4c;
+    --accent-b: #dff5e8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    font-family: "Poppins", system-ui, sans-serif;
+    color: var(--text);
+    background:
+        radial-gradient(circle at 16% 12%, rgba(31, 143, 76, 0.12), transparent 26%),
+        radial-gradient(circle at 88% 8%, rgba(31, 143, 76, 0.1), transparent 24%),
+        linear-gradient(160deg, var(--bg-0), var(--bg-1));
+}
+
+.pong-shell {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+}
+
+.pong-card {
+    position: relative;
+    width: min(980px, 100%);
+    border-radius: 28px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    box-shadow:
+        0 20px 40px rgba(19, 55, 35, 0.12),
+        0 2px 0 rgba(255, 255, 255, 0.75) inset;
+    backdrop-filter: blur(12px);
+    padding: 16px;
+}
+
+.pong-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.eyebrow {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #1f8f4c;
+}
+
+h1 {
+    margin: 4px 0 2px;
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+}
+
+.sub {
+    margin: 0;
+    font-size: 0.86rem;
+    color: var(--muted);
+}
+
+.match-status {
+    margin: 0 0 10px;
+    font-size: 0.84rem;
+    color: var(--muted);
+}
+
+.score-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(34, 139, 90, 0.18);
+    background: rgba(31, 143, 76, 0.08);
+}
+
+.score-block {
+    min-width: 64px;
+    text-align: center;
+}
+
+.score-label {
+    display: block;
+    font-size: 0.7rem;
+    color: rgba(20, 60, 40, 0.72);
+}
+
+.score-block strong {
+    font-size: 1.35rem;
+}
+
+.score-sep {
+    font-size: 1.2rem;
+    font-weight: 800;
+}
+
+.canvas-wrap {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(34, 139, 90, 0.18);
+    background: #ffffff;
+}
+
+#pong {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: min(70dvh, 580px);
+    background: #edf9ef;
+    touch-action: none;
+}
+
+.pong-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.pong-actions button {
+    border: 1px solid rgba(31, 143, 76, 0.22);
+    background: linear-gradient(180deg, #1f8f4c, #18723d);
+    color: var(--text);
+    min-height: 40px;
+    min-width: 96px;
+    border-radius: 12px;
+    font: inherit;
+    font-weight: 700;
+    color: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(31, 143, 76, 0.18);
+}
+
+.pong-actions button.hidden {
+    display: none;
+}
+
+.pong-actions button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.03);
+}
+
+.pong-end-modal {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(11, 47, 28, 0.52);
+    backdrop-filter: blur(6px);
+}
+
+.pong-end-modal.active {
+    display: flex;
+}
+
+.pong-end-modal__card {
+    width: min(420px, 100%);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: linear-gradient(180deg, rgba(12, 67, 37, 0.98), rgba(9, 42, 25, 0.98));
+    box-shadow: 0 24px 48px rgba(4, 24, 13, 0.3);
+    color: #ffffff;
+    text-align: center;
+    padding: 24px 22px 20px;
+}
+
+.pong-end-modal__eyebrow {
+    margin: 0 0 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.pong-end-modal__title {
+    margin: 0;
+    font-size: clamp(1.4rem, 4vw, 2rem);
+    line-height: 1.1;
+}
+
+.pong-end-modal__score {
+    margin: 14px 0 10px;
+    font-size: clamp(1.7rem, 5vw, 2.4rem);
+    font-weight: 800;
+}
+
+.pong-end-modal__copy {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.pong-end-modal__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+}
+
+.pong-end-modal__btn {
+    min-height: 48px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: linear-gradient(180deg, #1f8f4c, #18723d);
+    color: #ffffff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pong-end-modal__btn:disabled {
+    opacity: 0.52;
+    cursor: wait;
+}
+
+.pong-end-modal__btn--alt {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 640px) {
+    .pong-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .score-wrap {
+        align-self: stretch;
+        justify-content: center;
+    }
+
+    .pong-end-modal__actions {
+        grid-template-columns: 1fr;
+    }
+}
