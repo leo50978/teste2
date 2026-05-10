@@ -809,6 +809,7 @@ function resolveDuelV2RewardAmountHtg(room = {}) {
 
 function buildDuelV2RoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
   const snapshot = { ...room, ...roomUpdate };
+  const resultDocId = buildDuelV2RoomResultDocId(roomId, snapshot);
   const playerUids = Array.isArray(snapshot.playerUids)
     ? snapshot.playerUids.slice(0, 2).map((item) => String(item || "").trim())
     : ["", ""];
@@ -830,9 +831,9 @@ function buildDuelV2RoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
     : {};
 
   return {
-    id: String(roomId || "").trim(),
+    id: resultDocId,
     roomId: String(roomId || "").trim(),
-    matchId: String(roomId || "").trim(),
+    matchId: resultDocId,
     status: "ended",
     roomMode: String(snapshot.roomMode || "duel_v2_public").trim() || "duel_v2_public",
     fundingCurrency: normalizeFundingCurrency(fundingCurrencyByUid[firstFundingUid] || snapshot.fundingCurrency || "htg"),
@@ -859,11 +860,19 @@ function buildDuelV2RoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
   };
 }
 
+function buildDuelV2RoomResultDocId(roomId = "", snapshot = {}) {
+  const safeRoomId = String(roomId || "").trim();
+  const endedAtMs = safeSignedInt(snapshot.endedAtMs, Date.now()) || Date.now();
+  return `${safeRoomId}_${endedAtMs}`;
+}
+
 async function writeDuelV2RoomResultIfEndedTx(tx, roomRefDoc, room = {}, roomUpdate = {}) {
   const nextStatus = String(roomUpdate.status || room.status || "").trim().toLowerCase();
   if (nextStatus !== "ended") return;
+  const snapshot = { ...room, ...roomUpdate };
+  const resultDocId = buildDuelV2RoomResultDocId(roomRefDoc.id, snapshot);
 
-  tx.set(duelRoomResultRef(roomRefDoc.id), {
+  tx.set(duelRoomResultRef(resultDocId), {
     ...buildDuelV2RoomResultDoc(roomRefDoc.id, room, roomUpdate),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1066,6 +1075,9 @@ function buildDuelV2PublicState(roomId, room = {}, uid = "", stateOverride = nul
   const privateDeckOrder = state && Array.isArray(state.deckOrder)
     ? state.deckOrder.slice(0, 28)
     : (Array.isArray(room.privateDeckOrder) ? room.privateDeckOrder.slice(0, 28) : []);
+  const rematchRequestUids = Array.isArray(room.rematchRequestUids)
+    ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   return {
     ok: true,
     roomId,
@@ -1090,6 +1102,7 @@ function buildDuelV2PublicState(roomId, room = {}, uid = "", stateOverride = nul
     turnDeadlineMs: safeSignedInt(room.turnDeadlineMs, 0),
     inviteCode: String(room.inviteCode || "").trim(),
     stakeHtg: safeInt(room.stakeHtg || 25),
+    rematchRequestUids,
     privateDeckOrder,
   };
 }
@@ -1123,6 +1136,8 @@ function buildStartedDuelV2RoomTransaction(tx, roomRefDoc, room = {}, options = 
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAtMs: nowMs,
     waitingDeadlineMs: admin.firestore.FieldValue.delete(),
+    rematchRequestUids: admin.firestore.FieldValue.delete(),
+    rematchRequestedAtMs: admin.firestore.FieldValue.delete(),
   };
   Object.assign(updates, buildDuelRoomUpdateFromGameState(room, finalState, [openingApplied.record]));
   tx.set(roomRefDoc, updates, { merge: true });
@@ -1851,6 +1866,163 @@ async function leaveRoomDuelV2({ uid, payload = {} }) {
   });
 }
 
+async function requestFriendDuelRematchV2({ uid, payload = {} }) {
+  const roomId = String(payload.roomId || "").trim();
+  if (!roomId) {
+    throw new HttpsError("invalid-argument", "roomId requis.");
+  }
+
+  return db.runTransaction(async (tx) => {
+    const nowMs = Date.now();
+    const roomRefDoc = duelV2RoomRef(roomId);
+    const roomSnap = await tx.get(roomRefDoc);
+    if (!roomSnap.exists) {
+      throw new HttpsError("not-found", "Salle Duel V2 introuvable.");
+    }
+
+    const room = roomSnap.data() || {};
+    if (!isFriendDuelV2Room(room)) {
+      throw new HttpsError("failed-precondition", "Rejouer sa a mache selman nan salon prive Duel la.");
+    }
+
+    const playerUids = Array.isArray(room.playerUids)
+      ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+      : ["", ""];
+    if (!playerUids.includes(uid)) {
+      throw new HttpsError("permission-denied", "Tu ne fais pas partie de cette salle Duel V2.");
+    }
+
+    const status = String(room.status || "").trim().toLowerCase();
+    if (status !== "ended") {
+      throw new HttpsError("failed-precondition", "Rejouer prive a disponib selman apre duel la fini.");
+    }
+
+    const activePlayers = playerUids.filter(Boolean);
+    if (activePlayers.length !== 2) {
+      throw new HttpsError("failed-precondition", "Lot jw a pa disponib ankò pou rematch la.");
+    }
+
+    const roomPresenceMs = room.roomPresenceMs && typeof room.roomPresenceMs === "object"
+      ? { ...room.roomPresenceMs }
+      : {};
+    roomPresenceMs[uid] = nowMs;
+    const rematchRequestUids = Array.isArray(room.rematchRequestUids)
+      ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+    const nextRematchRequestUids = Array.from(new Set([...rematchRequestUids, uid]));
+
+    if (nextRematchRequestUids.length < 2) {
+      const rematchRequestedAtMs = room.rematchRequestedAtMs && typeof room.rematchRequestedAtMs === "object"
+        ? { ...room.rematchRequestedAtMs }
+        : {};
+      rematchRequestedAtMs[uid] = nowMs;
+      tx.set(roomRefDoc, {
+        rematchRequestUids: nextRematchRequestUids,
+        rematchRequestedAtMs,
+        roomPresenceMs,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAtMs: nowMs,
+      }, { merge: true });
+      return {
+        ...buildDuelV2PublicState(roomId, {
+          ...room,
+          roomPresenceMs,
+          rematchRequestUids: nextRematchRequestUids,
+          updatedAtMs: nowMs,
+        }, uid),
+        started: false,
+        waitingForOpponent: true,
+        requestedCount: nextRematchRequestUids.length,
+      };
+    }
+
+    const actionsSnap = await tx.get(roomRefDoc.collection(DUEL_V2_ACTIONS_SUBCOLLECTION));
+    const settlementsSnap = await tx.get(roomRefDoc.collection("settlements"));
+    const roomStakeHtg = safeInt(room.stakeHtg || 25);
+    const roomStakeDoes = safeInt(room.entryCostDoes || room.stakeDoes || (roomStakeHtg * RATE_HTG_TO_DOES));
+    const roomRewardAmountDoes = safeInt(room.rewardAmountDoes || Math.floor(roomStakeDoes * 1.85));
+    const roomRewardAmountHtg = safeInt(room.rewardAmountHtg || buildRewardAmountHtg(roomStakeDoes, roomRewardAmountDoes));
+    const nextEntryFundingCurrencyByUid = room.entryFundingCurrencyByUid && typeof room.entryFundingCurrencyByUid === "object"
+      ? { ...room.entryFundingCurrencyByUid }
+      : {};
+    activePlayers.forEach((playerUid) => {
+      nextEntryFundingCurrencyByUid[playerUid] = normalizeFundingCurrency(nextEntryFundingCurrencyByUid[playerUid] || "htg");
+    });
+    const roomForCharge = {
+      ...room,
+      playerUids,
+      playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
+      seats: room.seats && typeof room.seats === "object" ? { ...room.seats } : {},
+      roomPresenceMs,
+      stakeHtg: roomStakeHtg,
+      stakeDoes: roomStakeDoes,
+      entryCostDoes: roomStakeDoes,
+      rewardAmountDoes: roomRewardAmountDoes,
+      rewardAmountHtg: roomRewardAmountHtg,
+      entryFundingCurrencyByUid: nextEntryFundingCurrencyByUid,
+      humanCount: 2,
+      botCount: 0,
+      allowBots: false,
+    };
+    const chargeResult = await chargeRoomEntriesTx(tx, roomForCharge, activePlayers, roomStakeDoes);
+    actionsSnap.docs.forEach((docSnap) => tx.delete(docSnap.ref));
+    settlementsSnap.docs.forEach((docSnap) => tx.delete(docSnap.ref));
+    const joinedRoom = {
+      ...roomForCharge,
+      entryFundingByUid: chargeResult.entryFundingByUid,
+      settlementStatus: "pending",
+      settlementAppliedAtMs: 0,
+      started: true,
+    };
+    tx.set(roomRefDoc, {
+      playerUids,
+      playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
+      seats: room.seats && typeof room.seats === "object" ? { ...room.seats } : {},
+      roomPresenceMs,
+      humanCount: 2,
+      botCount: 0,
+      stakeHtg: roomStakeHtg,
+      stakeDoes: roomStakeDoes,
+      entryCostDoes: roomStakeDoes,
+      rewardAmountDoes: roomRewardAmountDoes,
+      rewardAmountHtg: roomRewardAmountHtg,
+      entryFundingByUid: chargeResult.entryFundingByUid,
+      entryFundingCurrencyByUid: nextEntryFundingCurrencyByUid,
+      settlementStatus: "pending",
+      settlementAppliedAtMs: 0,
+      updatedAtMs: nowMs,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    const started = buildStartedDuelV2RoomTransaction(tx, roomRefDoc, joinedRoom, { nowMs });
+    if (String(started.finalState?.endedReason || "").trim()) {
+      await settleDuelV2RoomTx(tx, roomRefDoc, {
+        ...joinedRoom,
+        ...started.roomUpdate,
+      }, started.finalState);
+      await writeDuelV2RoomResultIfEndedTx(tx, roomRefDoc, joinedRoom, started.roomUpdate);
+    }
+
+    return {
+      ...buildDuelV2PublicState(roomRefDoc.id, {
+        ...joinedRoom,
+        ...started.roomUpdate,
+        startedAtMs: safeSignedInt(started.roomUpdate.startedAtMs, nowMs),
+        openingSeat: safeSignedInt(started.finalState.openingSeat, -1),
+        openingTileId: safeSignedInt(started.finalState.openingTileId, -1),
+        openingReason: String(started.finalState.openingReason || "").trim(),
+        privateDeckOrder: started.privateDeckOrder,
+      }, uid, started.finalState),
+      started: true,
+      waitingForOpponent: false,
+      requestedCount: 2,
+      rematchRequestUids: [],
+      charged: true,
+      does: safeInt(chargeResult.afterDoesByUid[uid]),
+    };
+  });
+}
+
 async function submitActionDuelV2({ uid, payload = {} }) {
   const roomId = String(payload.roomId || "").trim();
   const clientActionId = sanitizeText(payload.clientActionId || "", 120)
@@ -1955,6 +2127,7 @@ module.exports = {
   joinFriendDuelRoomByCodeV2,
   joinMatchmakingDuelV2,
   leaveRoomDuelV2,
+  requestFriendDuelRematchV2,
   resumeFriendDuelRoomV2,
   submitActionDuelV2,
   touchRoomPresenceDuelV2,

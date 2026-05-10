@@ -8,6 +8,7 @@ import {
   joinFriendMorpionRoomByCodeV3Secure,
   joinMatchmakingMorpionV3Secure,
   leaveRoomMorpionV3Secure,
+  requestFriendMorpionRematchV3Secure,
   resumeFriendMorpionRoomV3Secure,
   submitActionMorpionV3Secure,
   touchRoomPresenceMorpionV3Secure,
@@ -117,6 +118,8 @@ let currentRoomMode = "public";
 let currentInviteCode = "";
 let pendingStartFlow = "public";
 let friendActionBusy = false;
+let friendRematchRequestBusy = false;
+let friendRematchPending = false;
 let pendingJoinInviteCode = "";
 let pendingJoinStakeHtg = DEFAULT_STAKE_HTG;
 
@@ -189,6 +192,23 @@ async function copyText(text) {
 
 function formatHtg(amount) {
   return `${safeInt(amount, 0)} HTG`;
+}
+
+function getFriendRematchRequestUids(state = currentRoomState) {
+  return Array.isArray(state?.rematchRequestUids)
+    ? state.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function hasLocalFriendRematchRequest(state = currentRoomState) {
+  const uid = String(currentUser?.uid || auth.currentUser?.uid || "").trim();
+  return uid ? getFriendRematchRequestUids(state).includes(uid) : false;
+}
+
+function shouldHoldFriendRematch(state = currentRoomState) {
+  return currentRoomMode === "morpion_friends_v3"
+    && String(state?.status || "").trim() === "ended"
+    && (friendRematchPending || hasLocalFriendRematchRequest(state));
 }
 
 function normalizeStakeHtg(value, fallback = DEFAULT_STAKE_HTG) {
@@ -637,6 +657,10 @@ async function pingPresence() {
         endedReason,
         winnerSeat,
       };
+      if (shouldHoldFriendRematch(currentRoomState)) {
+        openFriendRematchWaitingModal();
+        return;
+      }
       stopRoomPolling();
       stopWaitingCycle();
       stopTurnUiTimer();
@@ -719,6 +743,18 @@ function startWaitingCycle() {
   tickWaitingCycle();
 }
 
+function openFriendRematchWaitingModal(
+  title = "Nou mande revanj",
+  copy = "M ap tann lot jwe a pou nou rekomanse nan menm salon prive a."
+) {
+  if (dom.waitingTitle) dom.waitingTitle.textContent = title;
+  if (dom.waitingCopy) dom.waitingCopy.textContent = copy;
+  show(dom.waitingModal);
+  hide(dom.waitingTimerWrap);
+  hide(dom.waitingActions);
+  hide(dom.waitingStopExtendBtn);
+}
+
 function stopRoomPolling() {
   if (roomPollTimer) {
     window.clearTimeout(roomPollTimer);
@@ -743,6 +779,10 @@ function openWaitingWithState() {
 }
 
 function renderEndedState() {
+  if (shouldHoldFriendRematch()) {
+    openFriendRematchWaitingModal();
+    return;
+  }
   const endedReason = String(currentRoomState?.endedReason || "").trim();
   const winnerSeat = safeInt(currentRoomState?.winnerSeat, -1);
   if (endedReason === "line") {
@@ -797,6 +837,9 @@ async function pollRoomState() {
       roomMode: String(state?.roomMode || "").trim(),
     });
     currentRoomState = state || null;
+    if (String(state?.status || "").trim() !== "ended") {
+      friendRematchPending = false;
+    }
     selectedStakeHtg = normalizeStakeHtg(state?.stakeHtg, selectedStakeHtg || DEFAULT_STAKE_HTG);
     currentRoomMode = String(state?.roomMode || currentRoomMode || "public").trim() || "public";
     currentInviteCode = String(state?.inviteCode || currentInviteCode || "").trim();
@@ -818,6 +861,11 @@ async function pollRoomState() {
       void refreshWallet();
     }
     if (String(state?.status || "") === "ended") {
+      if (shouldHoldFriendRematch(state)) {
+        openFriendRematchWaitingModal();
+        scheduleRoomPoll(1000);
+        return;
+      }
       stopRoomPolling();
       stopTurnUiTimer();
       stopPresenceLoop();
@@ -870,6 +918,7 @@ async function createFriendRoom() {
     currentRoomMode = "morpion_friends_v3";
     currentInviteCode = String(result?.inviteCode || "").trim();
     roomWaitingDeadlineMs = safeInt(result?.waitingDeadlineMs, 0);
+    friendRematchPending = false;
     syncRoomUrl();
     renderFriendStakeCopy();
     if (dom.friendInviteCodeValue) dom.friendInviteCodeValue.textContent = currentInviteCode || "------";
@@ -909,6 +958,7 @@ async function joinFriendRoomByCode(inviteCodeArg = "", stakeHtgArg = null) {
     currentRoomMode = "morpion_friends_v3";
     currentInviteCode = String(result?.inviteCode || inviteCode).trim();
     roomWaitingDeadlineMs = safeInt(result?.waitingDeadlineMs, 0);
+    friendRematchPending = false;
     syncRoomUrl();
     closeModal(dom.friendJoinModal);
     setFriendJoinStatus("");
@@ -946,6 +996,7 @@ async function resumeFriendRoomFromUrl() {
     currentRoomMode = "morpion_friends_v3";
     currentInviteCode = String(result?.inviteCode || "").trim();
     roomWaitingDeadlineMs = safeInt(result?.waitingDeadlineMs, 0);
+    friendRematchPending = hasLocalFriendRematchRequest(result || {});
     syncRoomUrl();
     await pollRoomState();
   } catch (error) {
@@ -964,6 +1015,7 @@ async function leaveCurrentRoomAndGoHome() {
   stopWaitingCycle();
   stopTurnUiTimer();
   stopPresenceLoop();
+  friendRematchPending = false;
   try {
     if (roomId) {
       const result = await leaveRoomMorpionV3Secure({ roomId });
@@ -982,6 +1034,7 @@ async function leaveCurrentRoomSilently() {
   stopWaitingCycle();
   stopTurnUiTimer();
   stopPresenceLoop();
+  friendRematchPending = false;
   try {
     if (roomId) {
       const result = await leaveRoomMorpionV3Secure({ roomId });
@@ -1015,6 +1068,36 @@ async function submitCell(index) {
   } finally {
     actionSending = false;
     renderBoard();
+  }
+}
+
+async function requestFriendRematch() {
+  if (!currentRoomId || friendRematchRequestBusy) return;
+  friendRematchRequestBusy = true;
+  try {
+    const result = await requestFriendMorpionRematchV3Secure({ roomId: currentRoomId });
+    currentRoomState = {
+      ...(currentRoomState || {}),
+      ...(result || {}),
+      status: result?.started === true ? "playing" : "ended",
+    };
+    closeModal(dom.resultModal);
+    if (result?.started === true) {
+      friendRematchPending = false;
+      openFriendRematchWaitingModal(
+        "Nouvo won",
+        "Tou de jwè yo dakò. N ap relanse pati a nan menm salon prive a..."
+      );
+    } else {
+      friendRematchPending = true;
+      openFriendRematchWaitingModal();
+    }
+    startPresenceLoop();
+    scheduleRoomPoll(250);
+  } catch (error) {
+    setResultModal("Mopyon", "Rejouer pa mache", error?.message || "Nou pa rive relanse rematch prive a.");
+  } finally {
+    friendRematchRequestBusy = false;
   }
 }
 
@@ -1161,6 +1244,10 @@ function bindEvents() {
   });
 
   dom.resultReplayBtn?.addEventListener("click", () => {
+    if (currentRoomMode === "morpion_friends_v3" && currentRoomId) {
+      void requestFriendRematch();
+      return;
+    }
     closeModal(dom.resultModal);
     leavingRoom = false;
     currentRoomId = "";
@@ -1169,6 +1256,7 @@ function bindEvents() {
     currentRoomMode = "public";
     currentInviteCode = "";
     roomWaitingDeadlineMs = 0;
+    friendRematchPending = false;
     syncRoomUrl();
     if (pendingStartFlow === "friend" || isFriendFlowFromUrl()) {
       openModal(dom.modeModal);

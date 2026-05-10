@@ -32,6 +32,7 @@ import {
   getFunctions,
   httpsCallable,
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-functions.js";
+import "./site-visit-tracker.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAROcyshONWCkiHfz-LSMPptA841eo7gds",

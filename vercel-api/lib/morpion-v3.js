@@ -678,6 +678,8 @@ function buildStartedMorpionV3RoomTransaction(tx, roomRefDoc, room = {}, nowMs =
     endedReason: admin.firestore.FieldValue.delete(),
     endedAt: admin.firestore.FieldValue.delete(),
     endedAtMs: admin.firestore.FieldValue.delete(),
+    rematchRequestUids: admin.firestore.FieldValue.delete(),
+    rematchRequestedAtMs: admin.firestore.FieldValue.delete(),
   }, { merge: true });
 
   return {
@@ -692,6 +694,9 @@ function buildStartedMorpionV3RoomTransaction(tx, roomRefDoc, room = {}, nowMs =
 }
 
 function buildRoomStateResponse(roomId = "", room = {}, state = {}, seatIndex = -1) {
+  const rematchRequestUids = Array.isArray(room.rematchRequestUids)
+    ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
   return {
     ok: true,
     roomId: String(roomId || "").trim(),
@@ -714,8 +719,15 @@ function buildRoomStateResponse(roomId = "", room = {}, state = {}, seatIndex = 
     endedReason: String(state.endedReason || "").trim(),
     winningLine: Array.isArray(state.winningLine) ? state.winningLine.slice(0, 5) : [],
     turnDeadlineMs: safeSignedInt(room.turnDeadlineMs, 0),
+    rematchRequestUids,
     engineVersion: 3,
   };
+}
+
+function buildMorpionRoomResultDocId(roomId = "", snapshot = {}) {
+  const safeRoomId = String(roomId || "").trim();
+  const endedAtMs = safeSignedInt(snapshot.endedAtMs, Date.now()) || Date.now();
+  return `${safeRoomId}_${endedAtMs}`;
 }
 
 async function settleMorpionV3RoomTx(tx, roomRefDoc, room = {}, state = {}, options = {}) {
@@ -871,6 +883,7 @@ function buildRoomResultBalanceMaps(snapshot = {}) {
 
 function buildMorpionRoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
   const snapshot = { ...room, ...roomUpdate };
+  const resultDocId = buildMorpionRoomResultDocId(roomId, snapshot);
   const playerUids = Array.isArray(snapshot.playerUids)
     ? snapshot.playerUids.map((item) => String(item || "").trim()).slice(0, 2)
     : ["", ""];
@@ -887,7 +900,9 @@ function buildMorpionRoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
   const { beforeBalanceHtgByUid, afterBalanceHtgByUid } = buildRoomResultBalanceMaps(snapshot);
 
   return {
+    id: resultDocId,
     roomId: String(roomId || "").trim(),
+    matchId: resultDocId,
     status: String(snapshot.status || "ended").trim().toLowerCase() || "ended",
     roomMode: String(snapshot.roomMode || "").trim(),
     isPrivate: snapshot.isPrivate === true,
@@ -922,10 +937,13 @@ function buildMorpionRoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
 async function writeMorpionRoomResultIfEndedTx(tx, roomRefDoc, room = {}, roomUpdate = {}) {
   const nextStatus = String(roomUpdate.status || room.status || "").trim().toLowerCase();
   if (nextStatus !== "ended") return;
+  const snapshot = { ...room, ...roomUpdate };
+  const resultDocId = buildMorpionRoomResultDocId(roomRefDoc.id, snapshot);
 
-  tx.set(morpionRoomResultRef(roomRefDoc.id), {
+  tx.set(morpionRoomResultRef(resultDocId), {
     ...buildMorpionRoomResultDoc(roomRefDoc.id, room, roomUpdate),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   }, { merge: true });
 }
 
@@ -1655,6 +1673,117 @@ async function touchRoomPresenceMorpionV3({ uid = "", payload = {} } = {}) {
   });
 }
 
+async function requestFriendMorpionRematchV3({ uid = "", payload = {} } = {}) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw makeHttpError(401, "missing-auth-token", "Connexion requise.");
+  }
+
+  const roomId = String(payload.roomId || "").trim();
+  if (!roomId) {
+    throw makeHttpError(400, "missing-room-id", "roomId requis.");
+  }
+
+  const roomRefDoc = morpionV3RoomRef(roomId);
+  return db.runTransaction(async (tx) => {
+    const roomSnap = await tx.get(roomRefDoc);
+    if (!roomSnap.exists) {
+      throw makeHttpError(404, "morpion-v3-room-not-found", "Salle Mopyon introuvable.");
+    }
+
+    const room = roomSnap.data() || {};
+    if (!isFriendMorpionV3Room(room)) {
+      throw makeHttpError(409, "morpion-v3-not-friend-room", "Rejouer sa a mache selman nan salon prive Mopyon an.");
+    }
+
+    const seatIndex = getSeatForUser(room, safeUid);
+    if (seatIndex < 0) {
+      throw makeHttpError(403, "morpion-v3-room-access-denied", "Ou pa nan sal Mopyon sa a.");
+    }
+
+    const status = String(room.status || "").trim().toLowerCase();
+    if (status !== "ended") {
+      throw makeHttpError(409, "morpion-v3-room-not-ended", "Rejouer prive a disponib selman apre match la fini.");
+    }
+
+    const playerUids = Array.isArray(room.playerUids)
+      ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+      : ["", ""];
+    const activePlayers = playerUids.filter(Boolean);
+    if (activePlayers.length !== 2) {
+      throw makeHttpError(409, "morpion-v3-rematch-missing-players", "Lot jwe a pa disponib ankò pou rematch la.");
+    }
+
+    const rematchRequestUids = Array.isArray(room.rematchRequestUids)
+      ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+    const nextRematchRequestUids = Array.from(new Set([...rematchRequestUids, safeUid]));
+    const nowMs = Date.now();
+    const roomPresenceMs = room.roomPresenceMs && typeof room.roomPresenceMs === "object"
+      ? { ...room.roomPresenceMs }
+      : {};
+    roomPresenceMs[safeUid] = nowMs;
+
+    if (nextRematchRequestUids.length < 2) {
+      const nextRematchRequestedAtMs = room.rematchRequestedAtMs && typeof room.rematchRequestedAtMs === "object"
+        ? { ...room.rematchRequestedAtMs }
+        : {};
+      nextRematchRequestedAtMs[safeUid] = nowMs;
+      tx.set(roomRefDoc, {
+        rematchRequestUids: nextRematchRequestUids,
+        rematchRequestedAtMs: nextRematchRequestedAtMs,
+        roomPresenceMs,
+        updatedAtMs: nowMs,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return {
+        ok: true,
+        roomId,
+        status: "ended",
+        roomMode: "morpion_friends_v3",
+        started: false,
+        waitingForOpponent: true,
+        requestedCount: nextRematchRequestUids.length,
+        rematchRequestUids: nextRematchRequestUids,
+        engineVersion: 3,
+      };
+    }
+
+    const roomStakeHtg = safeInt(room.stakeHtg || 25);
+    const chargeResult = await chargeMorpionEntriesTx(tx, room, activePlayers, roomStakeHtg, {
+      actorUid: safeUid,
+      ownerUid: activePlayers[0],
+    });
+    const started = buildStartedMorpionV3RoomTransaction(tx, roomRefDoc, {
+      ...room,
+      playerUids,
+      playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
+      seats: getRoomSeats(room),
+      entryFundingByUid: chargeResult.entryFundingByUid,
+      entryFundingCurrencyByUid: room.entryFundingCurrencyByUid && typeof room.entryFundingCurrencyByUid === "object"
+        ? { ...room.entryFundingCurrencyByUid }
+        : {},
+      roomPresenceMs,
+      humanCount: 2,
+      botCount: 0,
+    }, nowMs);
+
+    return {
+      ok: true,
+      roomId,
+      roomMode: "morpion_friends_v3",
+      inviteCode: String(room.inviteCode || "").trim(),
+      stakeHtg: roomStakeHtg,
+      started: true,
+      waitingForOpponent: false,
+      requestedCount: 2,
+      rematchRequestUids: [],
+      engineVersion: 3,
+      ...started,
+    };
+  });
+}
+
 async function leaveRoomMorpionV3({ uid = "", payload = {} } = {}) {
   const safeUid = String(uid || "").trim();
   if (!safeUid) {
@@ -1812,6 +1941,7 @@ module.exports = {
   joinFriendMorpionRoomByCodeV3,
   joinMatchmakingMorpionV3,
   leaveRoomMorpionV3,
+  requestFriendMorpionRematchV3,
   resumeFriendMorpionRoomV3,
   submitActionMorpionV3,
   touchRoomPresenceMorpionV3,

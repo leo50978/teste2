@@ -3,6 +3,7 @@ const { handlePreflight, sendJson } = require("../../lib/http");
 const ROUTES = Object.freeze({
   "payment-options": require("../../routes/public/payment-options"),
   "runtime-config": require("../../routes/public/runtime-config"),
+  "site-visit": require("../../routes/public/site-visit"),
   "whatsapp-modal-config": require("../../routes/public/whatsapp-modal-config"),
   "game-stake-options": require("../../routes/public/game-stake-options"),
   "home-hero-config": require("../../routes/public/home-hero-config"),

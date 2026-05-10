@@ -536,6 +536,15 @@ export async function restartDameAfterDrawSecure(payload = {}) {
   return invokeCallable("restartDameAfterDrawSecure", payload, fallbackError);
 }
 
+export async function requestFriendDameRematchSecure(payload = {}) {
+  const fallbackError = "Impossible de relanse revanche prive Dame la.";
+  return invokeBackendHttp("/api/games/dame/request-friend-rematch", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
 export async function recordDameMatchResultSecure(payload = {}) {
   const fallbackError = "Impossible d'enregistrer le resultat dame.";
   if (getConfiguredApiBaseUrl()) {
@@ -638,6 +647,14 @@ export async function joinFriendDuelRoomByCodeV2Secure(payload = {}) {
     "/api/games/duel-v2/join-friend-room-by-code",
     payload,
     "Impossible de antre nan salon prive Duel la."
+  );
+}
+
+export async function requestFriendDuelRematchV2Secure(payload = {}) {
+  return invokeDuelV2HttpOnly(
+    "/api/games/duel-v2/request-friend-rematch",
+    payload,
+    "Impossible de relanse revanche prive Duel la."
   );
 }
 
@@ -770,6 +787,15 @@ export async function joinFriendMorpionRoomByCodeV3Secure(payload = {}) {
     });
   }
   return invokeCallable("joinFriendMorpionRoomByCodeV3", payload, fallbackError);
+}
+
+export async function requestFriendMorpionRematchV3Secure(payload = {}) {
+  const fallbackError = "Impossible de relanse rematch prive Mopyon an.";
+  return invokeBackendHttp("/api/games/morpion-v3/request-friend-rematch", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
 }
 
 export async function joinMatchmakingMorpionSecure(payload = {}) {

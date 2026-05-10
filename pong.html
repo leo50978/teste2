@@ -102,12 +102,25 @@
         min-height: 0;
       }
 
+      .game-stage {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+      }
+
       iframe {
         width: 100%;
         height: 100%;
         border: 0;
         background: rgba(255, 255, 255, 0.82);
         display: block;
+      }
+
+      .u-hidden {
+        display: none !important;
       }
 
       .overlay {
@@ -319,6 +332,209 @@
         font-size: 0.82rem;
         color: var(--muted);
       }
+
+      .pong-utility-btn {
+        position: fixed;
+        right: max(12px, calc(12px + env(safe-area-inset-right)));
+        bottom: max(12px, calc(12px + env(safe-area-inset-bottom)));
+        z-index: 24;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(15, 56, 32, 0.72);
+        color: #ffffff;
+        box-shadow: 0 16px 30px rgba(9, 33, 20, 0.28);
+        backdrop-filter: blur(14px);
+        cursor: pointer;
+        transition: transform 160ms ease, background 160ms ease, opacity 160ms ease;
+      }
+
+      .pong-utility-btn:hover {
+        transform: translateY(-1px);
+        background: rgba(15, 56, 32, 0.84);
+      }
+
+      .pong-utility-btn svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      .fullscreen-hint {
+        position: fixed;
+        right: max(12px, calc(12px + env(safe-area-inset-right)));
+        bottom: max(68px, calc(68px + env(safe-area-inset-bottom)));
+        z-index: 25;
+        max-width: min(240px, calc(100vw - 28px));
+        border-radius: 14px;
+        border: 1px solid rgba(245, 158, 11, 0.24);
+        background: rgba(16, 24, 27, 0.76);
+        color: #fde68a;
+        padding: 10px 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        line-height: 1.45;
+        box-shadow: 0 14px 28px rgba(10, 20, 24, 0.26);
+        backdrop-filter: blur(14px);
+      }
+
+      #orientationOverlay {
+        z-index: 42;
+        background: rgba(7, 26, 16, 0.82);
+        backdrop-filter: blur(10px);
+      }
+
+      .orientation-guard__panel {
+        width: min(680px, 100%);
+        border-radius: 30px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: linear-gradient(180deg, rgba(15, 61, 36, 0.94), rgba(9, 38, 24, 0.98));
+        box-shadow: 0 24px 52px rgba(5, 20, 12, 0.34);
+        color: #ffffff;
+        padding: 24px 22px 22px;
+      }
+
+      .orientation-guard__header {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+      }
+
+      .orientation-guard__icon {
+        flex: 0 0 auto;
+        display: grid;
+        place-items: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+      }
+
+      .orientation-guard__icon svg {
+        width: 26px;
+        height: 26px;
+      }
+
+      .orientation-guard__eyebrow {
+        margin: 0 0 8px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(183, 247, 202, 0.92);
+      }
+
+      .orientation-guard__title {
+        margin: 0;
+        font-size: clamp(1.5rem, 4vw, 2.2rem);
+        line-height: 1.1;
+      }
+
+      .orientation-guard__copy {
+        margin: 12px 0 0;
+        font-size: 0.96rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.88);
+      }
+
+      .orientation-guard__details {
+        margin-top: 18px;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 16px;
+        font-size: 0.92rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .orientation-guard__risk {
+        margin-top: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(251, 191, 36, 0.28);
+        background: rgba(245, 158, 11, 0.14);
+        padding: 12px 14px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        line-height: 1.55;
+        color: #fef3c7;
+      }
+
+      .orientation-guard__note {
+        margin-top: 16px;
+        font-size: 0.82rem;
+        line-height: 1.55;
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .orientation-guard__actions {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .pong-page-fullscreen {
+        background: linear-gradient(180deg, #081a10, #0b2316);
+      }
+
+      .pong-page-fullscreen .topbar {
+        height: max(50px, calc(50px + env(safe-area-inset-top)));
+        background: linear-gradient(180deg, rgba(10, 34, 21, 0.92), rgba(10, 34, 21, 0.78));
+        border-bottom-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 10px 24px rgba(2, 10, 6, 0.26);
+      }
+
+      .pong-page-fullscreen .title {
+        color: #f3fff7;
+      }
+
+      .pong-page-fullscreen .back-link {
+        border-color: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.08);
+        color: #f3fff7;
+      }
+
+      .pong-page-fullscreen .balance-badge {
+        border-color: rgba(74, 222, 128, 0.26);
+        background: rgba(45, 212, 116, 0.14);
+        color: #dbffe8;
+      }
+
+      .pong-page-fullscreen .frame-wrap,
+      .pong-page-fullscreen iframe {
+        background: #081a10;
+      }
+
+      @media (max-width: 560px) {
+        .pong-utility-btn {
+          width: 46px;
+          height: 46px;
+          border-radius: 16px;
+        }
+
+        .orientation-guard__panel {
+          padding: 20px 18px 18px;
+        }
+
+        .orientation-guard__actions {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (orientation: portrait) and (max-width: 900px) {
+        .orientation-guard__panel {
+          min-height: 72vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+        }
+      }
     </style>
   </head>
   <body>
@@ -329,10 +545,25 @@
         <div id="balanceBadge" class="balance-badge">HTG: --</div>
       </header>
 
-      <section class="frame-wrap">
-        <iframe id="pongFrame" src="about:blank" title="Pong"></iframe>
+      <section class="game-stage">
+        <section class="frame-wrap">
+          <iframe id="pongFrame" src="about:blank" title="Pong"></iframe>
+        </section>
       </section>
     </main>
+
+    <button id="fullscreenToggleBtn" type="button" class="pong-utility-btn u-hidden" aria-label="Mete tablo Pong la an plein ecran" title="Mete tablo Pong la an plein ecran">
+      <svg id="fullscreenToggleIcon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3"></path>
+        <path d="M16 3h3a2 2 0 0 1 2 2v3"></path>
+        <path d="M8 21H5a2 2 0 0 1-2-2v-3"></path>
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+      </svg>
+    </button>
+
+    <div id="fullscreenHint" class="fullscreen-hint u-hidden" aria-live="polite">
+      Plein ecran pa disponib sou aparèy sa a.
+    </div>
 
     <div id="stakeOverlay" class="overlay active" role="dialog" aria-modal="true">
       <div class="panel">
@@ -361,6 +592,44 @@
       </div>
     </div>
 
+    <div id="orientationOverlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="orientationTitle">
+      <div class="orientation-guard__panel">
+        <div class="orientation-guard__header">
+          <div class="orientation-guard__icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M7 4h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"></path>
+              <path d="M10 2 8 4l2 2"></path>
+              <path d="M14 22 16 20l-2-2"></path>
+            </svg>
+          </div>
+          <div>
+            <p class="orientation-guard__eyebrow">Mode peyizaj</p>
+            <h3 id="orientationTitle" class="orientation-guard__title">Tourne ton telephone pour jouer</h3>
+            <p id="orientationCopy" class="orientation-guard__copy">
+              Mets ton telephone en mode horizontal pour profiter d'une zone de jeu complete et garder le controle de la partie.
+            </p>
+          </div>
+        </div>
+
+        <div class="orientation-guard__details">
+          Sou smartphone, Pong pi bon an peyizaj. Vire ekran an orizontal pou tablo a pran tout plas li san koupe eksperyans la.
+        </div>
+
+        <p id="orientationRisk" class="orientation-guard__risk u-hidden">
+          Atansyon: pati a ap kontinye. Remet telefòn nan an peyizaj vit pou ou pa rate bal la ni pèdi match la.
+        </p>
+
+        <p id="orientationNote" class="orientation-guard__note">
+          Si ekran an rete vètikal, jwèt la pap lanse toutotan ou pa mete l an peyizaj.
+        </p>
+
+        <div class="orientation-guard__actions">
+          <button id="orientationContinueBtn" type="button" class="stake-btn" disabled>Mwen mete l an peyizaj</button>
+          <button id="orientationHomeBtn" type="button" class="stake-btn stake-btn-alt">Tounen nan akey</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module">
       import { auth, db, doc, getDoc, onAuthStateChanged } from "./firebase-init.js";
       import {
@@ -382,6 +651,15 @@
       const stakeNote = document.getElementById("stakeNote");
       const stakeButtons = Array.from(document.querySelectorAll(".stake-btn[data-stake]"));
       const refreshBalanceBtn = document.getElementById("refreshBalanceBtn");
+      const fullscreenToggleBtn = document.getElementById("fullscreenToggleBtn");
+      const fullscreenHint = document.getElementById("fullscreenHint");
+      const orientationOverlay = document.getElementById("orientationOverlay");
+      const orientationTitle = document.getElementById("orientationTitle");
+      const orientationCopy = document.getElementById("orientationCopy");
+      const orientationRisk = document.getElementById("orientationRisk");
+      const orientationNote = document.getElementById("orientationNote");
+      const orientationContinueBtn = document.getElementById("orientationContinueBtn");
+      const orientationHomeBtn = document.getElementById("orientationHomeBtn");
 
       const VALID_AI = new Set(["soft", "normal", "ultra"]);
       const requestedFundingCurrency = "htg";
@@ -400,6 +678,9 @@
       let heartbeatFailures = 0;
       let forcedDisconnectLoss = false;
       let pendingSettlementPromise = null;
+      let orientationGuardDeferredAction = null;
+      let orientationGuardAutoContinueTimer = 0;
+      let fullscreenHintTimer = 0;
       const recordedMatchIds = new Set();
       const NO_PLAYER_AVAILABLE_CHANCE = 0.38;
 
@@ -410,6 +691,213 @@
 
       function safeInt(value, fallback = 0) {
         return Math.max(0, Math.trunc(safeNumber(value, fallback)));
+      }
+
+      function isLandscapeViewport() {
+        const mediaLandscape = typeof window.matchMedia === "function"
+          ? window.matchMedia("(orientation: landscape)").matches
+          : false;
+        const screenOrientation = String(window.screen?.orientation?.type || "").toLowerCase();
+        const screenLandscape = screenOrientation.includes("landscape");
+        const widthLandscape = safeInt(window.innerWidth, 0) >= safeInt(window.innerHeight, 0);
+        return mediaLandscape || screenLandscape || widthLandscape;
+      }
+
+      function isSmartphoneMobileDevice() {
+        const userAgent = String(window.navigator.userAgent || "");
+        const shortSide = Math.min(safeInt(window.innerWidth, 0), safeInt(window.innerHeight, 0));
+        const longSide = Math.max(safeInt(window.innerWidth, 0), safeInt(window.innerHeight, 0));
+        const touchCapable = safeInt(window.navigator.maxTouchPoints, 0) > 0;
+        const mobileUa = /android|iphone|ipod|ipad|mobile/i.test(userAgent);
+        return touchCapable && (mobileUa || (shortSide > 0 && shortSide <= 900 && longSide <= 1400));
+      }
+
+      function requiresLandscapeGuard() {
+        return isSmartphoneMobileDevice() && !isLandscapeViewport();
+      }
+
+      function isGameFrameVisible() {
+        const src = String(frame?.getAttribute("src") || "").trim().toLowerCase();
+        return !!src && src !== "about:blank";
+      }
+
+      function clearOrientationGuardAutoContinueTimer() {
+        if (!orientationGuardAutoContinueTimer) return;
+        window.clearTimeout(orientationGuardAutoContinueTimer);
+        orientationGuardAutoContinueTimer = 0;
+      }
+
+      function closeOrientationOverlay() {
+        clearOrientationGuardAutoContinueTimer();
+        orientationOverlay?.classList.remove("active");
+      }
+
+      function getOrientationGuardCopy() {
+        if (orientationGuardDeferredAction) {
+          return "Mete telefòn ou an peyizaj. Pong la pap lanse toutotan ekran an rete vetikal.";
+        }
+        if (isGameFrameVisible() || !!String(activeWager?.sessionId || "").trim()) {
+          return "Pati a ap kontinye. Remet telefòn ou an peyizaj vit pou ou ka kontwole palet la byen.";
+        }
+        return "Mete telefòn ou an peyizaj pou tablo Pong la pran tout espas li epi rete fasil pou jwe.";
+      }
+
+      function resumeOrientationGuardFlow() {
+        if (requiresLandscapeGuard()) {
+          refreshOrientationGuardState();
+          return false;
+        }
+        clearOrientationGuardAutoContinueTimer();
+        const deferred = orientationGuardDeferredAction;
+        orientationGuardDeferredAction = null;
+        closeOrientationOverlay();
+        if (typeof deferred === "function") {
+          deferred();
+          return true;
+        }
+        return true;
+      }
+
+      function refreshOrientationGuardState() {
+        if (!orientationOverlay) return;
+        const shouldGuard = requiresLandscapeGuard();
+        const hasLiveGame = isGameFrameVisible() || !!String(activeWager?.sessionId || "").trim();
+        const shouldShow = shouldGuard && (!!orientationGuardDeferredAction || hasLiveGame || launchBusy);
+
+        if (!shouldGuard && orientationGuardDeferredAction) {
+          const deferred = orientationGuardDeferredAction;
+          orientationGuardDeferredAction = null;
+          clearOrientationGuardAutoContinueTimer();
+          orientationGuardAutoContinueTimer = window.setTimeout(() => {
+            orientationGuardAutoContinueTimer = 0;
+            closeOrientationOverlay();
+            deferred();
+          }, 220);
+          return;
+        }
+
+        if (!shouldShow) {
+          closeOrientationOverlay();
+          return;
+        }
+
+        orientationOverlay.classList.add("active");
+        if (orientationTitle) {
+          orientationTitle.textContent = hasLiveGame
+            ? "Tourne ton telephone pour continuer"
+            : "Tourne ton telephone pour jouer";
+        }
+        if (orientationCopy) {
+          orientationCopy.textContent = getOrientationGuardCopy();
+        }
+        if (orientationRisk) {
+          orientationRisk.classList.toggle("u-hidden", !hasLiveGame || !!orientationGuardDeferredAction);
+        }
+        if (orientationContinueBtn) {
+          orientationContinueBtn.disabled = launchBusy || requiresLandscapeGuard();
+        }
+        if (orientationNote) {
+          if (!requiresLandscapeGuard()) {
+            orientationNote.textContent = "Bon. Telefòn nan an peyizaj. M ap kontinye otomatikman...";
+          } else if (hasLiveGame) {
+            orientationNote.textContent = "Si ekran an rete vetikal, ou ka rate bal la. Aktive wotasyon oto si sa nesese.";
+          } else {
+            orientationNote.textContent = "Si ekran an rete vetikal, jeu a pap lanse toutotan ou pa mete l an peyizaj.";
+          }
+        }
+
+        clearOrientationGuardAutoContinueTimer();
+        if (!requiresLandscapeGuard() && !launchBusy) {
+          orientationGuardAutoContinueTimer = window.setTimeout(() => {
+            orientationGuardAutoContinueTimer = 0;
+            resumeOrientationGuardFlow();
+          }, 220);
+        }
+      }
+
+      function guardLandscapeBeforeStart(onReady = null) {
+        if (!requiresLandscapeGuard()) return false;
+        orientationGuardDeferredAction = typeof onReady === "function" ? onReady : null;
+        refreshOrientationGuardState();
+        return true;
+      }
+
+      function getFullscreenElement() {
+        return document.fullscreenElement || document.webkitFullscreenElement || null;
+      }
+
+      function supportsFullscreen() {
+        return !!(
+          document.fullscreenEnabled
+          || document.webkitFullscreenEnabled
+          || document.documentElement?.requestFullscreen
+          || document.documentElement?.webkitRequestFullscreen
+        );
+      }
+
+      function hideFullscreenHint() {
+        if (fullscreenHintTimer) {
+          window.clearTimeout(fullscreenHintTimer);
+          fullscreenHintTimer = 0;
+        }
+        fullscreenHint?.classList.add("u-hidden");
+      }
+
+      function showFullscreenHint(message = "Plein ecran pa disponib sou aparey sa a.") {
+        if (!fullscreenHint) return;
+        fullscreenHint.textContent = String(message || "Plein ecran pa disponib sou aparey sa a.");
+        fullscreenHint.classList.remove("u-hidden");
+        if (fullscreenHintTimer) window.clearTimeout(fullscreenHintTimer);
+        fullscreenHintTimer = window.setTimeout(() => {
+          fullscreenHintTimer = 0;
+          fullscreenHint.classList.add("u-hidden");
+        }, 2400);
+      }
+
+      function updateFullscreenButtonState() {
+        const isFullscreen = !!getFullscreenElement();
+        const shouldShow = isGameFrameVisible() || isFullscreen;
+        document.body.classList.toggle("pong-page-fullscreen", isFullscreen);
+        if (fullscreenToggleBtn) {
+          fullscreenToggleBtn.classList.toggle("u-hidden", !shouldShow);
+          fullscreenToggleBtn.setAttribute(
+            "aria-label",
+            isFullscreen ? "Kite mòd plein ecran Pong la" : "Mete tablo Pong la an plein ecran"
+          );
+          fullscreenToggleBtn.setAttribute(
+            "title",
+            isFullscreen ? "Kite mòd plein ecran Pong la" : "Mete tablo Pong la an plein ecran"
+          );
+        }
+        if (!isFullscreen) hideFullscreenHint();
+      }
+
+      async function toggleFullscreenMode() {
+        if (!supportsFullscreen()) {
+          showFullscreenHint();
+          return;
+        }
+        try {
+          if (getFullscreenElement()) {
+            if (document.exitFullscreen) {
+              await document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+              document.webkitExitFullscreen();
+            }
+          } else if (document.documentElement?.requestFullscreen) {
+            await document.documentElement.requestFullscreen();
+          } else if (document.documentElement?.webkitRequestFullscreen) {
+            document.documentElement.webkitRequestFullscreen();
+          } else {
+            showFullscreenHint();
+            return;
+          }
+        } catch (error) {
+          console.warn("[PONG_V2] fullscreen toggle failed", error);
+          showFullscreenHint("Nou pa rive mete Pong la an plein ecran sou aparèy sa a.");
+        } finally {
+          updateFullscreenButtonState();
+        }
       }
 
       function formatHtg(value) {
@@ -469,6 +957,8 @@
         });
         if (refreshBalanceBtn) refreshBalanceBtn.disabled = !!busy;
         if (stakeNote) stakeNote.textContent = String(note || "");
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
       }
 
       function setSearchOverlayState(titleText = "", copyText = "", options = {}) {
@@ -580,6 +1070,8 @@
         } catch (_) {}
         stopHeartbeat();
         if (activeWager?.sessionId) startHeartbeat();
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
       }
 
       function queueForfeitIfNeeded(reason = "forfeit") {
@@ -614,6 +1106,8 @@
         if (stakeNote) {
           stakeNote.textContent = "Pati a fini kòm abandon paske koneksyon an pa estab.";
         }
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
       }
 
       async function sendHeartbeat() {
@@ -660,11 +1154,18 @@
         const url = new URL("./Pong-Game-main/index.html", window.location.href);
         url.searchParams.set("aiProfile", safeProfile);
         frame.src = url.toString();
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
       }
 
       async function startWagerAndLaunch(stakeDoes, retryCount = 0) {
         if (!currentUid) {
           window.location.href = "./index.html?auth=login";
+          return;
+        }
+        if (guardLandscapeBeforeStart(() => {
+          void startWagerAndLaunch(stakeDoes, retryCount);
+        })) {
           return;
         }
         if (launchBusy) return;
@@ -889,6 +1390,46 @@
         window.location.href = href;
       });
 
+      fullscreenToggleBtn?.addEventListener("click", () => {
+        void toggleFullscreenMode();
+      });
+
+      orientationContinueBtn?.addEventListener("click", () => {
+        resumeOrientationGuardFlow();
+      });
+
+      orientationHomeBtn?.addEventListener("click", () => {
+        const href = String(backLink?.getAttribute("href") || "./index.html");
+        void handleBackNavigation(href);
+      });
+
+      frame?.addEventListener("load", () => {
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        updateFullscreenButtonState();
+        refreshOrientationGuardState();
+      });
+
+      document.addEventListener("webkitfullscreenchange", () => {
+        updateFullscreenButtonState();
+        refreshOrientationGuardState();
+      });
+
+      window.addEventListener("resize", () => {
+        refreshOrientationGuardState();
+        updateFullscreenButtonState();
+      });
+
+      window.addEventListener("orientationchange", () => {
+        window.setTimeout(() => {
+          refreshOrientationGuardState();
+          updateFullscreenButtonState();
+        }, 80);
+      });
+
       window.addEventListener("message", (event) => {
         if (event.origin !== window.location.origin) return;
         const data = event?.data;
@@ -994,6 +1535,9 @@
         }
         void flushForfeitQueue(currentUid).then(() => refreshBalance());
       });
+
+      updateFullscreenButtonState();
+      refreshOrientationGuardState();
     </script>
   </body>
 </html>

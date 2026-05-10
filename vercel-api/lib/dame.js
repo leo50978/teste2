@@ -414,6 +414,7 @@ function buildStartedDameRoomTransaction(tx, roomRefDoc, room = {}, options = {}
     status: "playing",
     startedAt: admin.firestore.FieldValue.serverTimestamp(),
     startedAtMs,
+    endedAt: admin.firestore.FieldValue.delete(),
     endedAtMs: 0,
     waitingDeadlineMs: admin.firestore.FieldValue.delete(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -437,6 +438,8 @@ function buildStartedDameRoomTransaction(tx, roomRefDoc, room = {}, options = {}
     endedReason: admin.firestore.FieldValue.delete(),
     winnerSeat: admin.firestore.FieldValue.delete(),
     winnerUid: admin.firestore.FieldValue.delete(),
+    rematchRequestUids: admin.firestore.FieldValue.delete(),
+    rematchRequestedAtMs: admin.firestore.FieldValue.delete(),
   }, { merge: true });
 
   return {
@@ -883,7 +886,7 @@ async function resumeFriendDameRoom({ uid, payload = {} }) {
     ? room.playerUids.map((item) => String(item || "").trim()).filter(Boolean).length
     : safeInt(room.humanCount);
 
-  if (status === "closed" || status === "ended") {
+  if (status === "closed") {
     throw makeHttpError(412, "room-unavailable", "Cette salle dame n'est plus disponible.");
   }
   if (status === "waiting" && waitingDeadlineMs > 0 && humans < 2 && nowMs >= waitingDeadlineMs) {
@@ -954,7 +957,7 @@ async function joinFriendDameRoomByCode({ uid, email, payload = {} }) {
     const fundingRequest = assertHtgFundingRequest(payload, roomStakeDoes);
 
     if (playerUids.includes(uid)) {
-      if (roomStatus === "ended" || roomStatus === "closed") {
+      if (roomStatus === "closed") {
         throw makeHttpError(412, "room-unavailable", "Cette salle dame est terminee.");
       }
       const seatIndex = getSeatForUser(room, uid);
@@ -980,6 +983,9 @@ async function joinFriendDameRoomByCode({ uid, email, payload = {} }) {
         rewardAmountHtg: resolveRoomRewardHtg(room),
         inviteCode: roomInviteCode,
         waitingDeadlineMs,
+        rematchRequestUids: Array.isArray(room.rematchRequestUids)
+          ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+          : [],
       };
     }
 
@@ -1662,7 +1668,7 @@ async function finalizeDameMatch({ uid, email, payload = {} }) {
       rewardAmountHtg,
       afterDoes,
       afterApprovedHtgAvailable,
-      shouldCleanup: status === "ended" || status === "closed" || rewardGranted,
+      shouldCleanup: !isFriendDameRoom(room) && (status === "ended" || status === "closed" || rewardGranted),
     };
   });
 
@@ -1749,6 +1755,151 @@ async function restartDameAfterDraw({ uid, payload = {} }) {
       startingPlayerSeat: nextStarter,
       drawHalfMoveCount: 0,
       roundIndex: nextRoundIndex,
+    };
+  });
+}
+
+async function requestFriendDameRematch({ uid, payload = {} }) {
+  const roomId = String(payload.roomId || "").trim();
+  if (!roomId) {
+    throw makeHttpError(400, "missing-room-id", "roomId requis.");
+  }
+
+  const roomRefDoc = dameRoomRef(roomId);
+  const nowMs = Date.now();
+  return db.runTransaction(async (tx) => {
+    const roomSnap = await tx.get(roomRefDoc);
+    if (!roomSnap.exists) {
+      throw makeHttpError(404, "room-not-found", "Salle dame introuvable.");
+    }
+
+    const room = roomSnap.data() || {};
+    if (!isFriendDameRoom(room)) {
+      throw makeHttpError(412, "invalid-room", "Rejouer sa a mache selman nan salon prive Dame la.");
+    }
+
+    const seatIndex = getSeatForUser(room, uid);
+    if (seatIndex < 0) {
+      throw makeHttpError(403, "not-room-member", "Tu ne fais pas partie de cette salle dame.");
+    }
+
+    const status = String(room.status || "").trim().toLowerCase();
+    if (status !== "ended") {
+      throw makeHttpError(412, "room-not-ended", "Rejouer prive a disponib selman apre pati a fini.");
+    }
+
+    const endedReason = String(room.endedReason || "").trim().toLowerCase();
+    if (endedReason.startsWith("draw")) {
+      throw makeHttpError(412, "draw-restart-only", "Pou yon pati nul, itilize bouton depataj la.");
+    }
+
+    const playerUids = Array.isArray(room.playerUids)
+      ? room.playerUids.slice(0, 2).map((value) => String(value || "").trim())
+      : ["", ""];
+    const activePlayers = playerUids.filter(Boolean);
+    if (activePlayers.length !== 2) {
+      throw makeHttpError(412, "missing-players", "Les deux joueurs doivent etre presents pour rejouer.");
+    }
+
+    const winnerUid = String(room.winnerUid || "").trim();
+    const isRefund = endedReason === "timeout_refund" || endedReason === "quit_refund_before_opening";
+    if (!isRefund && winnerUid) {
+      const settlementRef = roomRefDoc.collection("settlements").doc(winnerUid);
+      const settlementSnap = await tx.get(settlementRef);
+      const settlementData = settlementSnap.exists ? (settlementSnap.data() || {}) : {};
+      if (settlementData.rewardPaid !== true) {
+        throw makeHttpError(412, "winner-finalize-required", "Gayan an dwe finalize premye pati a anvan revanj la.");
+      }
+    }
+
+    const roomPresenceMs = room.roomPresenceMs && typeof room.roomPresenceMs === "object"
+      ? { ...room.roomPresenceMs }
+      : {};
+    roomPresenceMs[uid] = nowMs;
+    const rematchRequestUids = Array.isArray(room.rematchRequestUids)
+      ? room.rematchRequestUids.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    const nextRematchRequestUids = Array.from(new Set([...rematchRequestUids, uid]));
+
+    if (nextRematchRequestUids.length < 2) {
+      const rematchRequestedAtMs = room.rematchRequestedAtMs && typeof room.rematchRequestedAtMs === "object"
+        ? { ...room.rematchRequestedAtMs }
+        : {};
+      rematchRequestedAtMs[uid] = nowMs;
+      tx.set(roomRefDoc, {
+        rematchRequestUids: nextRematchRequestUids,
+        rematchRequestedAtMs,
+        roomPresenceMs,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAtMs: nowMs,
+      }, { merge: true });
+      return {
+        ok: true,
+        roomId,
+        status: "ended",
+        roomMode: "dame_friends",
+        started: false,
+        waitingForOpponent: true,
+        requestedCount: nextRematchRequestUids.length,
+        rematchRequestUids: nextRematchRequestUids,
+        stakeDoes: safeInt(room.entryCostDoes || room.stakeDoes),
+        stakeHtg: resolveRoomStakeHtg(room),
+        inviteCode: String(room.inviteCode || "").trim(),
+      };
+    }
+
+    const actionsSnap = await tx.get(roomRefDoc.collection("actions"));
+    const settlementsSnap = await tx.get(roomRefDoc.collection("settlements"));
+    const stakeDoes = safeInt(room.entryCostDoes || room.stakeDoes);
+    const nextEntryFundingCurrencyByUid = room.entryFundingCurrencyByUid && typeof room.entryFundingCurrencyByUid === "object"
+      ? { ...room.entryFundingCurrencyByUid }
+      : {};
+    activePlayers.forEach((playerUid) => {
+      nextEntryFundingCurrencyByUid[playerUid] = normalizeFundingCurrency(nextEntryFundingCurrencyByUid[playerUid] || "htg");
+    });
+    const chargeResult = await chargeRoomEntriesTx(tx, {
+      ...room,
+      entryFundingCurrencyByUid: nextEntryFundingCurrencyByUid,
+    }, activePlayers, stakeDoes);
+    actionsSnap.docs.forEach((docSnap) => tx.delete(docSnap.ref));
+    settlementsSnap.docs.forEach((docSnap) => tx.delete(docSnap.ref));
+    tx.set(roomRefDoc, {
+      playerUids,
+      playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
+      seats: room.seats && typeof room.seats === "object" ? { ...room.seats } : {},
+      roomPresenceMs,
+      humanCount: 2,
+      botCount: 0,
+      entryFundingByUid: chargeResult.entryFundingByUid,
+      entryFundingCurrencyByUid: nextEntryFundingCurrencyByUid,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAtMs: nowMs,
+    }, { merge: true });
+
+    return {
+      ok: true,
+      roomId,
+      roomMode: "dame_friends",
+      inviteCode: String(room.inviteCode || "").trim(),
+      stakeDoes,
+      stakeHtg: resolveRoomStakeHtg(room),
+      rewardAmountDoes: safeInt(room.rewardAmountDoes || buildPrivateDameRewardDoes(stakeDoes)),
+      rewardAmountHtg: resolveRoomRewardHtg(room),
+      started: true,
+      waitingForOpponent: false,
+      requestedCount: 2,
+      rematchRequestUids: [],
+      ...buildStartedDameRoomTransaction(tx, roomRefDoc, {
+        ...room,
+        playerUids,
+        playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
+        seats: room.seats && typeof room.seats === "object" ? { ...room.seats } : {},
+        roomPresenceMs,
+        humanCount: 2,
+        botCount: 0,
+        entryFundingByUid: chargeResult.entryFundingByUid,
+        entryFundingCurrencyByUid: nextEntryFundingCurrencyByUid,
+      }, { nowMs }),
     };
   });
 }
@@ -1880,6 +2031,7 @@ module.exports = {
   joinMatchmakingDame,
   leaveRoomDame,
   recordDameMatchResult,
+  requestFriendDameRematch,
   restartDameAfterDraw,
   resumeFriendDameRoom,
   submitActionDame,

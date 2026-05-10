@@ -12,6 +12,7 @@ const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
 const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 const ANALYTICS_META_COLLECTION = "analyticsMeta";
+const ANALYTICS_SITE_VISIT_SESSIONS_COLLECTION = "analyticsSiteVisitSessions";
 const ANALYTICS_SITE_VISITS_DAILY_COLLECTION = "analyticsSiteVisitsDaily";
 const ANALYTICS_SITE_VISITS_HOURLY_COLLECTION = "analyticsSiteVisitsHourly";
 const ANALYTICS_SITE_VISITS_HOUR_COLLECTION = "analyticsSiteVisitsHours";
@@ -58,6 +59,10 @@ const presenceWeekdayFormatter = new Intl.DateTimeFormat("en-US", {
 
 function analyticsMetaRef(docId = "") {
   return db.collection(ANALYTICS_META_COLLECTION).doc(String(docId || "").trim());
+}
+
+function siteVisitSessionRef(sessionId = "") {
+  return db.collection(ANALYTICS_SITE_VISIT_SESSIONS_COLLECTION).doc(String(sessionId || "").trim());
 }
 
 function siteVisitsDailyCollection() {
@@ -130,6 +135,49 @@ function getSiteVisitLocalKeys(nowMs = Date.now()) {
   return getPresenceLocalKeys(nowMs);
 }
 
+function normalizeSiteVisitPath(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "/";
+  const withoutOrigin = raw.replace(/^https?:\/\/[^/]+/i, "");
+  const normalized = withoutOrigin.startsWith("/") ? withoutOrigin : `/${withoutOrigin}`;
+  return normalized.replace(/\/{2,}/g, "/") || "/";
+}
+
+function buildSiteVisitDailyRecord(dayKey = "", existing = {}, nowMs = Date.now()) {
+  const safeNow = safeSignedInt(nowMs) || Date.now();
+  return {
+    dayKey: String(dayKey || ""),
+    dayStartMs: getDayBucketStartMs(safeNow),
+    visitCount: safeInt(existing.visitCount) + 1,
+    updatedAtMs: safeNow,
+    updatedAt: new Date(safeNow).toISOString(),
+  };
+}
+
+function buildSiteVisitHourlyRecord(bucketKey = "", localKeys = {}, existing = {}, nowMs = Date.now()) {
+  const safeNow = safeSignedInt(nowMs) || Date.now();
+  return {
+    bucketKey: String(bucketKey || ""),
+    dayKey: String(localKeys.dayKey || ""),
+    hourKey: String(localKeys.hourKey || "").padStart(2, "0"),
+    weekdayKey: String(localKeys.weekdayKey || "").toLowerCase(),
+    bucketStartMs: getHourBucketStartMs(safeNow),
+    visitCount: safeInt(existing.visitCount) + 1,
+    updatedAtMs: safeNow,
+    updatedAt: new Date(safeNow).toISOString(),
+  };
+}
+
+function buildSiteVisitDimensionRecord(keyField = "", keyValue = "", existing = {}, nowMs = Date.now()) {
+  const safeNow = safeSignedInt(nowMs) || Date.now();
+  return {
+    [String(keyField || "key")]: String(keyValue || ""),
+    visitCount: safeInt(existing.visitCount) + 1,
+    updatedAtMs: safeNow,
+    updatedAt: new Date(safeNow).toISOString(),
+  };
+}
+
 function toMillis(value) {
   if (!value) return 0;
   if (value instanceof Date) return value.getTime();
@@ -174,6 +222,99 @@ function normalizeFirestoreErrorCode(error) {
 function shouldFallbackOrderCollectionGroup(error) {
   const code = normalizeFirestoreErrorCode(error);
   return code === "failed-precondition";
+}
+
+async function recordSiteVisit(payload = {}) {
+  const sessionId = String(payload.sessionId || "").trim().slice(0, 120);
+  const path = normalizeSiteVisitPath(payload.path || payload.pathname || "/");
+  const referrer = String(payload.referrer || "").trim().slice(0, 160);
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const localKeys = getSiteVisitLocalKeys(nowMs);
+  const hourBucketKey = `${localKeys.dayKey} ${localKeys.hourKey}:00`;
+  const sessionRef = siteVisitSessionRef(sessionId || `${path}:${nowMs}`);
+  const metaRef = analyticsMetaRef(SITE_VISITS_META_DOC);
+  const dailyRef = siteVisitsDailyCollection().doc(localKeys.dayKey);
+  const hourlyRef = siteVisitsHourlyCollection().doc(hourBucketKey);
+  const hourRef = siteVisitsHourCollection().doc(localKeys.hourKey);
+  const weekdayRef = siteVisitsWeekdayCollection().doc(localKeys.weekdayKey);
+
+  return db.runTransaction(async (tx) => {
+    const [sessionSnap, metaSnap, dailySnap, hourlySnap, hourSnap, weekdaySnap] = await Promise.all([
+      tx.get(sessionRef),
+      tx.get(metaRef),
+      tx.get(dailyRef),
+      tx.get(hourlyRef),
+      tx.get(hourRef),
+      tx.get(weekdayRef),
+    ]);
+
+    if (sessionSnap.exists) {
+      const existing = sessionSnap.data() || {};
+      tx.set(sessionRef, {
+        lastSeenAtMs: nowMs,
+        lastSeenAt: nowIso,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      return {
+        ok: true,
+        counted: false,
+        sessionId: String(existing.sessionId || sessionId || ""),
+        path,
+      };
+    }
+
+    const meta = metaSnap.exists ? (metaSnap.data() || {}) : {};
+    tx.set(sessionRef, {
+      sessionId,
+      path,
+      referrer,
+      createdAtMs: nowMs,
+      createdAt: nowIso,
+      lastSeenAtMs: nowMs,
+      lastSeenAt: nowIso,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(metaRef, {
+      totalVisitCount: safeInt(meta.totalVisitCount) + 1,
+      lastVisitAtMs: nowMs,
+      lastVisitAt: nowIso,
+      updatedAtMs: nowMs,
+      updatedAt: nowIso,
+    }, { merge: true });
+    tx.set(
+      dailyRef,
+      buildSiteVisitDailyRecord(localKeys.dayKey, dailySnap.exists ? (dailySnap.data() || {}) : {}, nowMs),
+      { merge: true }
+    );
+    tx.set(
+      hourlyRef,
+      buildSiteVisitHourlyRecord(hourBucketKey, localKeys, hourlySnap.exists ? (hourlySnap.data() || {}) : {}, nowMs),
+      { merge: true }
+    );
+    tx.set(
+      hourRef,
+      buildSiteVisitDimensionRecord("hourKey", localKeys.hourKey, hourSnap.exists ? (hourSnap.data() || {}) : {}, nowMs),
+      { merge: true }
+    );
+    tx.set(
+      weekdayRef,
+      buildSiteVisitDimensionRecord(
+        "weekdayKey",
+        localKeys.weekdayKey,
+        weekdaySnap.exists ? (weekdaySnap.data() || {}) : {},
+        nowMs
+      ),
+      { merge: true }
+    );
+
+    return {
+      ok: true,
+      counted: true,
+      sessionId: String(sessionId || ""),
+      path,
+    };
+  });
 }
 
 async function mapWithConcurrency(items, mapper, concurrency = 4) {
@@ -2542,4 +2683,5 @@ module.exports = {
   computeMorpionAnalyticsSnapshot,
   computePresenceAnalyticsSnapshot,
   computeSiteVisitsAnalyticsSnapshot,
+  recordSiteVisit,
 };

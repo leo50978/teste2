@@ -14,6 +14,7 @@ import {
   joinFriendDuelRoomByCodeV2Secure,
   joinMatchmakingDuelV2Secure,
   leaveRoomDuelV2Secure,
+  requestFriendDuelRematchV2Secure,
   resumeFriendDuelRoomV2Secure,
   submitActionDuelV2Secure,
   touchRoomPresenceDuelV2Secure,
@@ -53,6 +54,8 @@ let gameLaunched = false;
 let actionsReady = false;
 let duelStakeEntryAccepted = false;
 let friendActionBusy = false;
+let friendRematchBusy = false;
+let friendRematchPending = false;
 let waitingTimer = null;
 let waitDeadlineMs = 0;
 let roomWaitingDeadlineMs = 0;
@@ -184,6 +187,23 @@ function syncLocalRoomMetaFromState(state = {}) {
     syncActiveStakeFromRoomData(currentRoomData);
   }
   syncRoomUrl();
+}
+
+function getFriendRematchRequestUids(state = currentRoomData || {}) {
+  return Array.isArray(state?.rematchRequestUids)
+    ? state.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+}
+
+function hasLocalFriendRematchRequest(state = currentRoomData || {}) {
+  const uid = String(currentUser?.uid || auth.currentUser?.uid || "").trim();
+  return uid ? getFriendRematchRequestUids(state).includes(uid) : false;
+}
+
+function shouldHoldFriendRematch(state = currentRoomData || {}) {
+  return currentRoomMode === "duel_v2_friends"
+    && String(state?.status || "").trim().toLowerCase() === "ended"
+    && (friendRematchPending || hasLocalFriendRematchRequest(state));
 }
 
 function normalizePlayerName(value, fallback = "") {
@@ -693,6 +713,24 @@ function renderWaitingSearch() {
   tickWaitingCycle();
 }
 
+function openFriendRematchWaitingState(
+  titleText = "Nou mande revanj",
+  bodyText = "M ap tann lot jw a konfime pou nou relanse menm salon prive a."
+) {
+  stopWaitingCycle();
+  setSearchOpponentVisible(false);
+  renderFriendSearchBox();
+  const title = $("MatchLoadingTitle");
+  const text = $("MatchLoadingText");
+  if (title) title.textContent = titleText;
+  if (text) text.textContent = bodyText;
+  setWaitingTimerVisible(false);
+  configureWaitingActionButtons({ showRetry: false, showGroup: false, showHome: false });
+  setWaitingProgress(0);
+  setLeaveRoomButtonVisible(true);
+  setMatchLoading(true);
+}
+
 function startWaitingWindow(nextDeadlineMs = 0) {
   roomWaitingDeadlineMs = safeSignedInt(nextDeadlineMs, roomWaitingDeadlineMs);
   stopWaitingCycle();
@@ -715,6 +753,7 @@ async function createFriendRoom() {
   try {
     const result = await createFriendDuelRoomV2Secure({ stakeHtg: activeStakeHtg });
     syncLocalRoomMetaFromState(result || {});
+    friendRematchPending = false;
     if (String(result?.status || "").trim().toLowerCase() === "playing") {
       watchRoom(currentRoomId);
       await refreshFullRoomState();
@@ -750,6 +789,7 @@ async function joinFriendRoomByCode(inviteCodeArg = "") {
   try {
     const result = await joinFriendDuelRoomByCodeV2Secure({ inviteCode });
     syncLocalRoomMetaFromState(result || {});
+    friendRematchPending = hasLocalFriendRematchRequest(result || {});
     closeOverlay("DuelFriendJoinOverlay");
     setFriendJoinStatus("");
     if ($("DuelFriendJoinCodeInput")) $("DuelFriendJoinCodeInput").value = "";
@@ -777,6 +817,7 @@ async function resumeFriendRoomFromUrl() {
   try {
     const result = await resumeFriendDuelRoomV2Secure({ roomId });
     syncLocalRoomMetaFromState(result || {});
+    friendRematchPending = hasLocalFriendRematchRequest(result || {});
     watchRoom(currentRoomId);
     await refreshFullRoomState();
   } catch (error) {
@@ -785,6 +826,7 @@ async function resumeFriendRoomFromUrl() {
     currentInviteCode = "";
     friendFlowAction = "";
     requestedFriendRoomId = "";
+    friendRematchPending = false;
     syncRoomUrl();
     setMatchLoading(true, error?.message || "Nou pa rive reprann salon prive Duel la.");
     configureWaitingActionButtons({ showRetry: false, showGroup: false, showHome: true });
@@ -914,6 +956,26 @@ function syncGameSessionFromRoom(roomData) {
   if (window.Domino?.Partida && typeof window.Domino.Partida.PrepararSesion === "function") {
     window.Domino.Partida.PrepararSesion();
   }
+}
+
+function prepareDuelFriendRematchStart() {
+  friendRematchPending = false;
+  hideEndedOverlay();
+  clearTurnTimer();
+  stopWaitingCycle();
+  waitDeadlineMs = 0;
+  roomWaitingDeadlineMs = 0;
+  if (actionsUnsub) {
+    actionsUnsub();
+    actionsUnsub = null;
+  }
+  currentActions = [];
+  duelDeckOrder = [];
+  gameLaunched = false;
+  actionsReady = false;
+  window.GameSession = null;
+  setLeaveRoomButtonVisible(true);
+  setMatchLoading(true, "Nouvo won Domino a ap pare...");
 }
 
 function hideEndedOverlay() {
@@ -1080,6 +1142,7 @@ function watchRoom(roomId) {
         });
         return;
       }
+      const previousStatus = String(currentRoomData?.status || "").trim().toLowerCase();
       currentRoomData = snapshot.data() || {};
       syncActiveStakeFromRoomData(currentRoomData);
       syncLocalRoomMetaFromState({ roomId, ...currentRoomData });
@@ -1089,7 +1152,10 @@ function watchRoom(roomId) {
         if (typeof nextSeat === "number") currentSeatIndex = nextSeat;
       }
 
-      const status = String(currentRoomData.status || "");
+      const status = String(currentRoomData.status || "").trim().toLowerCase();
+      if (status !== "ended") {
+        friendRematchPending = false;
+      }
       refreshOrientationGuardState();
       if (status === "waiting") {
         hideEndedOverlay();
@@ -1098,11 +1164,18 @@ function watchRoom(roomId) {
         roomWaitingDeadlineMs = safeSignedInt(currentRoomData?.waitingDeadlineMs, roomWaitingDeadlineMs);
         startWaitingWindow(roomWaitingDeadlineMs);
       } else if (status === "playing") {
+        const isRestartAfterEnded = previousStatus === "ended";
         stopWaitingCycle();
         waitDeadlineMs = 0;
         roomWaitingDeadlineMs = 0;
         hideEndedOverlay();
+        if (isRestartAfterEnded) {
+          prepareDuelFriendRematchStart();
+        }
         await refreshFullRoomState();
+        if (isRestartAfterEnded) {
+          await refreshWallet();
+        }
         launchLocalGame(currentRoomData);
         if (actionsReady) {
           setMatchLoading(false);
@@ -1113,6 +1186,12 @@ function watchRoom(roomId) {
         waitDeadlineMs = 0;
         roomWaitingDeadlineMs = 0;
         await refreshFullRoomState();
+        if (shouldHoldFriendRematch(currentRoomData)) {
+          clearTurnTimer();
+          hideEndedOverlay();
+          openFriendRematchWaitingState();
+          return;
+        }
         setMatchLoading(false);
         setLeaveRoomButtonVisible(false);
         clearTurnTimer();
@@ -1142,6 +1221,7 @@ async function joinPublicRoom() {
       duelDeckOrder = result.privateDeckOrder.slice(0, 28);
     }
     syncLocalRoomMetaFromState(result || {});
+    friendRematchPending = false;
     setStatus(result?.status === "waiting" ? `Sal la kreye. Pozisyon ${currentSeatIndex + 1}/2.` : `Duel la pare. Pozisyon ${currentSeatIndex + 1}/2.`);
     if (String(result?.status || "") === "waiting") {
       waitDeadlineMs = 0;
@@ -1194,6 +1274,7 @@ async function leaveCurrentRoom(reason = "manual") {
   currentInviteCode = "";
   friendFlowAction = "";
   requestedFriendRoomId = "";
+  friendRematchPending = false;
   activeStakeHtg = PUBLIC_DUEL_STAKE_HTG;
   currentActions = [];
   duelDeckOrder = [];
@@ -1245,7 +1326,12 @@ async function pingPresence() {
     if (String(currentRoomData?.status || "") === "ended") {
       stopWaitingCycle();
       clearTurnTimer();
-      showEndedOverlay();
+      if (shouldHoldFriendRematch(currentRoomData)) {
+        hideEndedOverlay();
+        openFriendRematchWaitingState();
+      } else {
+        showEndedOverlay();
+      }
     }
   } catch (_) {}
 }
@@ -1255,6 +1341,39 @@ function startPresenceHeartbeat() {
   if (!currentRoomId) return;
   void pingPresence();
   presenceTimer = setInterval(() => { void pingPresence(); }, PRESENCE_PING_MS);
+}
+
+async function requestFriendRematch() {
+  if (!currentRoomId || friendRematchBusy) return;
+  friendRematchBusy = true;
+  try {
+    const result = await requestFriendDuelRematchV2Secure({ roomId: currentRoomId });
+    syncLocalRoomMetaFromState({
+      ...(currentRoomData || {}),
+      ...(result || {}),
+      roomId: currentRoomId,
+      status: "ended",
+    });
+    if (result?.started === true) {
+      friendRematchPending = false;
+      openFriendRematchWaitingState(
+        "Nouvo won",
+        "Tou de jw yo dakò. N ap relanse duel prive a nan menm salon an..."
+      );
+      await refreshWallet();
+    } else {
+      friendRematchPending = true;
+      openFriendRematchWaitingState();
+    }
+  } catch (error) {
+    renderWaitingError(error?.message || "Nou pa rive relanse revanj prive Domino a.", {
+      showRetry: false,
+      showGroup: false,
+      showHome: true,
+    });
+  } finally {
+    friendRematchBusy = false;
+  }
 }
 
 function bindButtons() {
@@ -1370,6 +1489,10 @@ function bindButtons() {
   const replayBtn = $("GameEndReplayBtn");
   if (replayBtn) {
     replayBtn.addEventListener("click", async () => {
+      if (currentRoomMode === "duel_v2_friends" && currentRoomId) {
+        void requestFriendRematch();
+        return;
+      }
       await leaveCurrentRoom("replay");
       window.location.href = "./jeu-duel-v2.html?entry=public";
     });

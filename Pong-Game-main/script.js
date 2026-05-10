@@ -135,14 +135,15 @@ const AI_PROFILES = Object.freeze({
   ultra: Object.freeze({
     key: "ultra",
     label: "Mòd rapid",
-    maxSpeed: 9.5,
+    maxSpeed: 42,
     reactionFrames: 0,
-    deadZone: 3,
-    noiseAmplitude: 0.5,
+    deadZone: 1,
+    noiseAmplitude: 0,
     hesitationChance: 0,
     throwChance: 0,
     throwDurationFrames: 0,
     throwOffset: 0,
+    trackIntercept: true,
   }),
 });
 
@@ -207,6 +208,47 @@ let endActionsEnabled = false;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function reflectIntoRange(value, min, max) {
+  const span = max - min;
+  if (!(span > 0)) {
+    return min;
+  }
+  const period = span * 2;
+  let normalized = value - min;
+  normalized = ((normalized % period) + period) % period;
+  if (normalized > span) {
+    normalized = period - normalized;
+  }
+  return min + normalized;
+}
+
+function predictBallCenterYAtAiPaddle() {
+  const minCenterY = ball.size / 2;
+  const maxCenterY = HEIGHT - (ball.size / 2);
+  const ballCenterY = ball.y + ball.size / 2;
+  if (!(ball.speedX > 0)) {
+    return clamp(ballCenterY, minCenterY, maxCenterY);
+  }
+  const aiCollisionX = rightPaddle.x - ball.size;
+  const distanceX = Math.max(0, aiCollisionX - ball.x);
+  const framesUntilCollision = distanceX / Math.max(0.001, ball.speedX);
+  const projectedCenterY = ballCenterY + (ball.speedY * framesUntilCollision);
+  return reflectIntoRange(projectedCenterY, minCenterY, maxCenterY);
+}
+
+function getEffectiveAiProfile() {
+  if (aiProfile?.key !== "soft" || roundPlayElapsedMs >= SOFT_RANDOM_MOVE_DELAY_MS) {
+    return aiProfile;
+  }
+  return {
+    ...aiProfile,
+    throwChance: 0,
+    randomMoveChance: 0,
+    randomMoveDurationFrames: 0,
+    randomMoveAmplitude: 0,
+  };
 }
 
 function updateMatchStatus(text) {
@@ -301,7 +343,7 @@ function startRoundNow() {
 
 function moveAiPaddle() {
   const softRoundUnlocked = !(aiProfile?.key === "soft") || roundPlayElapsedMs >= SOFT_RANDOM_MOVE_DELAY_MS;
-  const effectiveProfile = softRoundUnlocked ? aiProfile : AI_PROFILES.ultra;
+  const effectiveProfile = getEffectiveAiProfile();
 
   aiReactionTick += 1;
   aiNoiseTick += 1;
@@ -350,7 +392,10 @@ function moveAiPaddle() {
     aiRandomTargetY = clamp(center + ((Math.random() * 2 - 1) * amplitude), 0, HEIGHT);
   }
 
-  let targetY = ballCenterY + aiAimOffset;
+  let targetY = (effectiveProfile.trackIntercept && ballComingToAi)
+    ? predictBallCenterYAtAiPaddle()
+    : ballCenterY;
+  targetY += aiAimOffset;
   if (aiRandomFrames > 0) {
     aiRandomFrames -= 1;
     targetY = aiRandomTargetY;

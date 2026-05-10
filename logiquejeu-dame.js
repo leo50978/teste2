@@ -19,6 +19,7 @@ import {
   submitActionDameSecure,
   finalizeDameMatchSecure,
   restartDameAfterDrawSecure,
+  requestFriendDameRematchSecure,
   recordDameMatchResultSecure,
   getPublicWhatsappModalConfigSecure,
   updateClientProfileSecure,
@@ -123,8 +124,11 @@ let dameRulesModal = null;
 let dameResultShownForRoomId = "";
 let dameFinalizeInFlight = false;
 let dameDrawRestartInFlight = false;
+let dameFriendRematchBusy = false;
+let dameFriendRematchPending = false;
 let pendingBootAfterRulesModal = false;
 let dameHistoryGuardArmed = false;
+let currentSearchCountdownOverride = "";
 const dameRecordedHistoryKeys = new Set();
 
 function formatDoes(value) {
@@ -228,6 +232,31 @@ function buildDameWaitingMessage({ roomData = currentRoomData || {}, opponentNam
     return `Advese w ${safeOpponentName} deja nan sal la. Pati a pral komanse taler konsa.`;
   }
   return "N ap chache yon lot jwe pou pati Dame ou a.";
+}
+
+function getDameFriendRematchRequestUids(roomData = currentRoomData || {}) {
+  return Array.isArray(roomData?.rematchRequestUids)
+    ? roomData.rematchRequestUids.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
+}
+
+function hasLocalDameFriendRematchRequest(roomData = currentRoomData || {}) {
+  const uid = String(currentUid || auth.currentUser?.uid || "").trim();
+  return uid ? getDameFriendRematchRequestUids(roomData).includes(uid) : false;
+}
+
+function shouldHoldDameFriendRematch(roomData = currentRoomData || {}) {
+  return currentRoomMode === "dame_friends"
+    && String(roomData?.status || "").trim().toLowerCase() === "ended"
+    && (dameFriendRematchPending || hasLocalDameFriendRematchRequest(roomData));
+}
+
+function buildDameFriendRematchWaitingMessage(roomData = currentRoomData || {}) {
+  const opponentName = String(getOpponentName(roomData) || "").trim();
+  if (opponentName) {
+    return `Nou mande revanj la. N ap tann ${opponentName} konfime pou nou relanse menm salon prive a.`;
+  }
+  return "Nou mande revanj la. N ap tann lot jw a konfime pou nou relanse menm salon prive a.";
 }
 
 function updateStatus(text) {
@@ -438,6 +467,10 @@ function handleDameResultModalAction(action = "home") {
     return;
   }
   if (normalized === "replay") {
+    if (currentRoomMode === "dame_friends" && currentRoomId) {
+      void requestFriendDameRematch();
+      return;
+    }
     isLeavingRoom = true;
     window.location.href = buildDameReplayUrl();
     return;
@@ -659,6 +692,93 @@ async function restartDameAfterDraw() {
 function closeDameResultModal() {
   if (!dameResultModal) return;
   dameResultModal.classList.add("hidden");
+}
+
+function resetDameRoundRuntimeState({ clearBoard = true } = {}) {
+  if (actionsUnsub) {
+    actionsUnsub();
+    actionsUnsub = null;
+  }
+  latestDameActionDocs = [];
+  lastAppliedActionSeq = 0;
+  startedAtMs = 0;
+  submittedResultKey = "";
+  dameResultShownForRoomId = "";
+  dameFinalizeInFlight = false;
+  if (clearBoard) {
+    resetDameBoardState();
+  }
+  renderTurnTimer({ status: "" });
+  setBoardInteractionEnabled(false);
+}
+
+function openDameFriendRematchWaitingModal() {
+  const message = buildDameFriendRematchWaitingMessage();
+  closeDameResultModal();
+  closeExpiredModal();
+  openSearchModal(
+    message,
+    0,
+    "N ap tann lot jw a konfime revanj la."
+  );
+  updateStatus(message);
+}
+
+function prepareDameNextRoundStart() {
+  dameFriendRematchPending = false;
+  closeDameResultModal();
+  closeExpiredModal();
+  resetDameRoundRuntimeState({ clearBoard: true });
+  updateStatus("Nouvo won Dame a ap pare...");
+  void refreshLiveWalletState("round-restart");
+}
+
+async function requestFriendDameRematch() {
+  if (!currentRoomId || dameFriendRematchBusy) return;
+  dameFriendRematchBusy = true;
+  try {
+    updateStatus("N ap voye demann revanj la...");
+    const result = await requestFriendDameRematchSecure({ roomId: currentRoomId });
+    currentRoomData = {
+      ...(currentRoomData || {}),
+      ...(result || {}),
+      roomId: currentRoomId,
+      status: "ended",
+    };
+    syncActiveStakeFromRoomData(currentRoomData || {});
+    if (currentRoomMode === "dame_friends") {
+      currentInviteCode = normalizeInviteCode(result?.inviteCode || currentInviteCode);
+      requestedFriendRoomId = currentRoomId || requestedFriendRoomId;
+    }
+    syncDameRoomUrl();
+    dameResultShownForRoomId = "";
+    closeDameResultModal();
+    closeExpiredModal();
+    if (result?.started === true) {
+      dameFriendRematchPending = false;
+      openSearchModal(
+        "Tou de jw yo dakò. N ap relanse pati Dame prive a...",
+        0,
+        "Nouvo won an ap pare."
+      );
+      void refreshLiveWalletState("friend-rematch-started");
+    } else {
+      dameFriendRematchPending = true;
+      openDameFriendRematchWaitingModal();
+    }
+  } catch (error) {
+    console.warn("[DAME] friend rematch failed", error);
+    openDameInfoModal({
+      title: "Rejouer pa mache",
+      copy: String(error?.message || "Nou pa rive relanse revanj prive Dame la."),
+      replayLabel: "Femen",
+      replayAction: "close",
+      secondaryLabel: "Tounen nan paj akey",
+      secondaryAction: "home",
+    });
+  } finally {
+    dameFriendRematchBusy = false;
+  }
 }
 
 function updateBalanceLabel(value) {
@@ -1013,6 +1133,10 @@ function getSearchSecondsLeft() {
 
 function renderSearchCountdown() {
   if (!searchCountdownEl) return;
+  if (currentSearchCountdownOverride) {
+    searchCountdownEl.textContent = currentSearchCountdownOverride;
+    return;
+  }
   const remaining = getSearchSecondsLeft();
   if (remaining > 0) {
     searchCountdownEl.textContent = `${remaining} s ki rete`;
@@ -1023,8 +1147,9 @@ function renderSearchCountdown() {
   }
 }
 
-function openSearchModal(message = "", deadlineMs = 0) {
+function openSearchModal(message = "", deadlineMs = 0, countdownOverride = "") {
   currentWaitingDeadlineMs = Number.isFinite(Number(deadlineMs)) ? Math.max(0, Number(deadlineMs)) : 0;
+  currentSearchCountdownOverride = String(countdownOverride || "").trim();
   if (searchCopyEl && message) {
     searchCopyEl.textContent = String(message);
   }
@@ -1057,6 +1182,7 @@ function closeSearchModal() {
     searchFriendBoxEl.classList.add("hidden");
   }
   currentWaitingDeadlineMs = 0;
+  currentSearchCountdownOverride = "";
   stopSearchTimer();
 }
 
@@ -1066,6 +1192,7 @@ function openExpiredModal() {
   }
   stopSearchTimer();
   currentWaitingDeadlineMs = 0;
+  currentSearchCountdownOverride = "";
   if (expiredOverlayEl) {
     expiredOverlayEl.classList.remove("hidden");
   }
@@ -1145,6 +1272,7 @@ async function restartDameSearch({ fresh = true } = {}) {
   dameResultShownForRoomId = "";
   closeExpiredModal();
   closeSearchModal();
+  dameFriendRematchPending = false;
   currentRoomData = null;
   currentRoomId = "";
   requestedFriendRoomId = "";
@@ -1216,6 +1344,7 @@ async function leaveCurrentDameRoom({ redirect = true } = {}) {
     stopRoomSync();
     closeSearchModal();
     closeExpiredModal();
+    dameFriendRematchPending = false;
     currentRoomId = "";
     currentRoomData = null;
     mySeatIndex = -1;
@@ -1504,10 +1633,16 @@ function startRoomSync() {
     const currentPlayer = Number.isFinite(Number(currentRoomData?.currentPlayer))
       ? Number(currentRoomData.currentPlayer)
       : -1;
+    const previousStatus = String(previousRoomData?.status || "").trim().toLowerCase();
+    if (status !== "ended") {
+      dameFriendRematchPending = false;
+    }
+    if (previousStatus === "ended" && status === "playing") {
+      prepareDameNextRoundStart();
+    }
     const nextLastActionSeq = Number.isFinite(Number(currentRoomData?.lastActionSeq))
       ? Number(currentRoomData.lastActionSeq)
       : 0;
-    const previousStatus = String(previousRoomData?.status || "").trim().toLowerCase();
     const shouldReplayActions = status === "playing" && (previousStatus !== "playing" || nextLastActionSeq !== lastAppliedActionSeq);
     console.log("[DAME_TRACE] room-sync:snapshot", {
       roomId: currentRoomId,
@@ -1591,6 +1726,10 @@ function startRoomSync() {
         ...(currentRoomData || {}),
         roomId: currentRoomId,
       });
+      if (shouldHoldDameFriendRematch(currentRoomData)) {
+        openDameFriendRematchWaitingModal();
+        return;
+      }
       closeSearchModal();
       const winnerUid = String(currentRoomData?.winnerUid || "").trim();
       const winnerSeat = Number.isFinite(Number(currentRoomData?.winnerSeat)) ? Number(currentRoomData.winnerSeat) : -1;
@@ -1745,9 +1884,11 @@ async function bootRoomFlow() {
     if (currentRoomMode === "dame_friends") {
       currentInviteCode = normalizeInviteCode(result?.inviteCode || currentInviteCode);
       requestedFriendRoomId = currentRoomId || requestedFriendRoomId;
+      dameFriendRematchPending = hasLocalDameFriendRematchRequest(result || {});
     } else {
       currentInviteCode = "";
       requestedFriendRoomId = "";
+      dameFriendRematchPending = false;
     }
     syncDameRoomUrl();
     await refreshLiveWalletState("join");
