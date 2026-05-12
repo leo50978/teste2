@@ -550,6 +550,9 @@ async function forceRemoveUserFromDameRoom(roomId = "", uid = "") {
           winnerSeat,
           winnerUid,
           playerUids: originalPlayerUids.filter(Boolean),
+          entryFundingByUid: room.entryFundingByUid && typeof room.entryFundingByUid === "object"
+            ? room.entryFundingByUid
+            : {},
           fundingCurrency: normalizeFundingCurrency(room.entryFundingCurrencyByUid?.[safeUid] || "htg"),
           stakeDoes: safeInt(room.entryCostDoes || room.stakeDoes),
           stakeHtg: resolveRoomStakeHtg(room),
@@ -1643,6 +1646,9 @@ async function finalizeDameMatch({ uid, email, payload = {} }) {
       winnerSeat,
       winnerUid,
       playerUids,
+      entryFundingByUid: room.entryFundingByUid && typeof room.entryFundingByUid === "object"
+        ? room.entryFundingByUid
+        : {},
       fundingCurrency: normalizeFundingCurrency(room.entryFundingCurrencyByUid?.[uid] || "htg"),
       stakeDoes: safeInt(room.entryCostDoes || room.stakeDoes),
       stakeHtg: resolveRoomStakeHtg(room),
@@ -2001,6 +2007,9 @@ async function recordDameMatchResult({ uid, payload = {} }) {
     playerUids,
     humanCount,
     botCount,
+    entryFundingByUid: payload.entryFundingByUid && typeof payload.entryFundingByUid === "object"
+      ? payload.entryFundingByUid
+      : {},
     fundingCurrency,
     stakeDoes,
     stakeHtg,

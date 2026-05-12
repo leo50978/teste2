@@ -1868,7 +1868,7 @@ async function computeMorpionAnalyticsSnapshot(options = {}) {
       winnerType,
       winnerSeat: safeSignedInt(data.winnerSeat),
       endedReason: String(data.endedReason || "").trim(),
-      botDifficulty: String(data.botDifficulty || "").trim().toLowerCase() || "amateur",
+      botDifficulty: String(data.botDifficulty || "").trim().toLowerCase() || "userpro",
     });
   });
 

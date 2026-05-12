@@ -918,6 +918,9 @@ function buildMorpionRoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
     totalSeats: playerUids.filter(Boolean).length,
     playerUids,
     playerNames,
+    entryFundingByUid: snapshot.entryFundingByUid && typeof snapshot.entryFundingByUid === "object"
+      ? snapshot.entryFundingByUid
+      : {},
     entryFundingCurrencyByUid: snapshot.entryFundingCurrencyByUid && typeof snapshot.entryFundingCurrencyByUid === "object"
       ? snapshot.entryFundingCurrencyByUid
       : {},

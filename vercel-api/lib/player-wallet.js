@@ -14,9 +14,24 @@ const HTG_TRANSFER_MIN_HTG = 25;
 const HTG_TRANSFER_FEE_HTG = 5;
 const HTG_TRANSFER_TIME_ZONE = "America/Port-au-Prince";
 const HTG_TRANSFER_COLLECTION = "htgTransfers";
+const DUEL_ROOM_RESULTS_COLLECTION = "duelRoomResults";
+const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
+const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
+const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
+const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 
 const MIN_WITHDRAWAL_HTG = 50;
 const MAX_WITHDRAWAL_HTG = 500000;
+const WITHDRAWAL_PLAY_REQUIREMENT_HTG = 50;
+const WITHDRAWAL_PLAY_RULE_VERSION = 2;
+const WITHDRAWAL_PLAY_POLICY_START_AT_MS = Date.parse("2026-05-02T04:00:00.000Z");
+const WITHDRAWAL_PLAY_POLICY_START_LABEL = "2 me 2026";
+const GAME_RESULTS_REFUND_REASONS = new Set([
+  "draw",
+  "no_play_refund",
+  "quit_refund_before_opening",
+  "timeout_refund",
+]);
 
 function walletRef(uid) {
   return db.collection("clients").doc(String(uid || "").trim());
@@ -24,6 +39,10 @@ function walletRef(uid) {
 
 function transferHistoryRef(uid) {
   return walletRef(uid).collection("transfers");
+}
+
+function walletHistoryRef(uid) {
+  return walletRef(uid).collection("walletHistory");
 }
 
 function transferLedgerRef() {
@@ -156,6 +175,112 @@ function computeRealApprovedDepositsHtg(orders = []) {
   }, 0);
 }
 
+function getOrderApprovedRealAmountHtg(order = {}) {
+  if (getOrderResolutionStatus(order) !== "approved") return 0;
+  if (isWelcomeBonusOrder(order)) return 0;
+  return safeInt(computeOrderAmount(order));
+}
+
+function getOrderApprovalEffectiveAtMs(order = {}) {
+  return safeSignedInt(
+    order.approvedAtMs
+    || order.reviewResolvedAtMs
+    || order.reviewedAtMs
+    || order.resolvedAtMs
+    || order.updatedAtMs
+    || order.createdAtMs
+  );
+}
+
+function getWalletHistoryCreatedAtMs(entry = {}) {
+  return safeSignedInt(entry.createdAtMs || entry.updatedAtMs || entry.occurredAtMs);
+}
+
+function getWalletHistoryApprovedWithdrawalPlayHtg(entry = {}) {
+  if (String(entry?.type || "").trim().toLowerCase() !== "game_entry") return 0;
+
+  const explicit = safeInt(entry?.approvedWithdrawalPlayHtg);
+  if (explicit > 0) return explicit;
+
+  const fundingApprovedHtg = safeInt(entry?.gameEntryFunding?.approvedHtg);
+  if (fundingApprovedHtg > 0) return fundingApprovedHtg;
+
+  const approvedDoes = safeInt(entry?.gameEntryFunding?.approvedDoes);
+  if (approvedDoes > 0) return Math.floor(approvedDoes / 20);
+
+  return 0;
+}
+
+function getGameResultCreatedAtMs(result = {}) {
+  return safeSignedInt(
+    result.startedAtMs
+    || result.createdAtMs
+    || result.endedAtMs
+    || result.updatedAtMs
+  );
+}
+
+function getGameResultApprovedWithdrawalPlayHtg(result = {}, uid = "") {
+  const endedReason = String(result?.endedReason || "").trim().toLowerCase();
+  if (GAME_RESULTS_REFUND_REASONS.has(endedReason)) return 0;
+
+  const fundingCurrency = String(result?.fundingCurrency || "").trim().toLowerCase();
+  if (fundingCurrency && fundingCurrency !== "htg") return 0;
+
+  const explicit = safeInt(result?.approvedWithdrawalPlayHtg);
+  if (explicit > 0) return explicit;
+
+  if (result?.gameEntryFunding && typeof result.gameEntryFunding === "object") {
+    return Math.max(0, getWalletHistoryApprovedWithdrawalPlayHtg({
+      type: "game_entry",
+      gameEntryFunding: result.gameEntryFunding,
+    }));
+  }
+
+  const safeUid = String(uid || "").trim();
+  const entryFundingByUid = result?.entryFundingByUid && typeof result.entryFundingByUid === "object"
+    ? result.entryFundingByUid
+    : {};
+  if (safeUid && entryFundingByUid[safeUid] && typeof entryFundingByUid[safeUid] === "object") {
+    return Math.max(0, getWalletHistoryApprovedWithdrawalPlayHtg({
+      type: "game_entry",
+      gameEntryFunding: entryFundingByUid[safeUid],
+    }));
+  }
+
+  return Math.max(0, safeInt(result?.stakeHtg));
+}
+
+async function listGameResultsForWithdrawalProgress(uid = "") {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) return [];
+
+  const [
+    duelSnap,
+    morpionSnap,
+    dameSnap,
+    dominoClassicSnap,
+    pongSnap,
+  ] = await Promise.all([
+    db.collection(DUEL_ROOM_RESULTS_COLLECTION).where("playerUids", "array-contains", safeUid).get(),
+    db.collection(MORPION_ROOM_RESULTS_COLLECTION).where("playerUids", "array-contains", safeUid).get(),
+    db.collection(DAME_ROOM_RESULTS_COLLECTION).where("playerUids", "array-contains", safeUid).get(),
+    db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION).where("uid", "==", safeUid).get(),
+    db.collection(PONG_MATCH_RESULTS_COLLECTION).where("uid", "==", safeUid).get(),
+  ]);
+
+  return [
+    ...duelSnap.docs,
+    ...morpionSnap.docs,
+    ...dameSnap.docs,
+    ...dominoClassicSnap.docs,
+    ...pongSnap.docs,
+  ].map((docSnap) => ({
+    id: docSnap.id,
+    ...(docSnap.data() || {}),
+  }));
+}
+
 function computeApprovedWelcomeBonusHtg(orders = []) {
   return (Array.isArray(orders) ? orders : []).reduce((sum, order) => {
     if (getOrderResolutionStatus(order) !== "approved") return sum;
@@ -274,6 +399,97 @@ function buildFundingStatusDecorations(clientData = {}, orders = []) {
   };
 }
 
+function buildWithdrawalFundingStatus({
+  walletData = {},
+  orders = [],
+  withdrawals = [],
+  exchangeHistory = [],
+  gameResults = [],
+} = {}) {
+  const approvedHtgAvailable = safeInt(walletData.approvedHtgAvailable ?? walletData.approvedGourdesAvailable);
+  const provisionalHtgAvailable = safeInt(walletData.provisionalHtgAvailable ?? walletData.provisionalGourdesAvailable);
+  const currentWithdrawableHtg = safeInt(walletData.withdrawableHtg ?? walletData.withdrawableGourdes);
+  const approvedDepositsHtg = safeInt(computeRealApprovedDepositsHtg(orders));
+  const reservedWithdrawalsHtg = (Array.isArray(withdrawals) ? withdrawals : []).reduce((sum, item) => {
+    if (!isWithdrawalReservedStatus(item)) return sum;
+    return sum + computeReservedWithdrawalAmount(item);
+  }, 0);
+
+  const qualifyingWithdrawalDeposits = (Array.isArray(orders) ? orders : [])
+    .filter((item) => getOrderApprovedRealAmountHtg(item) > 0)
+    .map((item) => ({
+      atMs: getOrderApprovalEffectiveAtMs(item),
+    }))
+    .filter((item) => item.atMs >= WITHDRAWAL_PLAY_POLICY_START_AT_MS)
+    .sort((left, right) => left.atMs - right.atMs);
+
+  const qualifyingWithdrawalPlays = (Array.isArray(exchangeHistory) ? exchangeHistory : [])
+    .map((item) => ({
+      atMs: getWalletHistoryCreatedAtMs(item),
+      amountHtg: getWalletHistoryApprovedWithdrawalPlayHtg(item),
+    }))
+    .filter((item) => item.atMs >= WITHDRAWAL_PLAY_POLICY_START_AT_MS && item.amountHtg > 0)
+    .sort((left, right) => left.atMs - right.atMs);
+
+  const qualifyingWithdrawalResultPlays = (Array.isArray(gameResults) ? gameResults : [])
+    .map((item) => ({
+      atMs: getGameResultCreatedAtMs(item),
+      amountHtg: getGameResultApprovedWithdrawalPlayHtg(item, walletData.uid || walletData.clientUid || ""),
+    }))
+    .filter((item) => item.atMs >= WITHDRAWAL_PLAY_POLICY_START_AT_MS && item.amountHtg > 0)
+    .sort((left, right) => left.atMs - right.atMs);
+
+  const latestQualifyingDeposit = qualifyingWithdrawalDeposits.length
+    ? qualifyingWithdrawalDeposits[qualifyingWithdrawalDeposits.length - 1]
+    : null;
+
+  const approvedWithdrawalPlayFromHistoryHtg = latestQualifyingDeposit
+    ? qualifyingWithdrawalPlays.reduce((sum, item) => {
+        if (item.atMs < latestQualifyingDeposit.atMs) return sum;
+        return sum + safeInt(item.amountHtg);
+      }, 0)
+    : 0;
+
+  const approvedWithdrawalPlayFromResultsHtg = latestQualifyingDeposit
+    ? qualifyingWithdrawalResultPlays.reduce((sum, item) => {
+        if (item.atMs < latestQualifyingDeposit.atMs) return sum;
+        return sum + safeInt(item.amountHtg);
+      }, 0)
+    : 0;
+
+  const approvedWithdrawalPlayHtg = latestQualifyingDeposit
+    ? Math.min(
+        WITHDRAWAL_PLAY_REQUIREMENT_HTG,
+        Math.max(approvedWithdrawalPlayFromHistoryHtg, approvedWithdrawalPlayFromResultsHtg)
+      )
+    : 0;
+
+  const hasQualifyingWithdrawalDeposit = qualifyingWithdrawalDeposits.length > 0;
+  const pendingWithdrawalPlayHtg = hasQualifyingWithdrawalDeposit
+    ? Math.max(0, WITHDRAWAL_PLAY_REQUIREMENT_HTG - approvedWithdrawalPlayHtg)
+    : 0;
+
+  const withdrawableHtg = hasQualifyingWithdrawalDeposit && pendingWithdrawalPlayHtg <= 0
+    ? Math.max(0, Math.min(approvedHtgAvailable, currentWithdrawableHtg || approvedHtgAvailable))
+    : 0;
+
+  return {
+    approvedDepositsHtg,
+    approvedHtgAvailable,
+    provisionalHtgAvailable,
+    reservedWithdrawalsHtg,
+    hasQualifyingWithdrawalDeposit,
+    qualifyingWithdrawalDepositCount: qualifyingWithdrawalDeposits.length,
+    totalRequiredWithdrawalPlayHtg: hasQualifyingWithdrawalDeposit ? WITHDRAWAL_PLAY_REQUIREMENT_HTG : 0,
+    approvedWithdrawalPlayHtg,
+    pendingWithdrawalPlayHtg,
+    withdrawalPlayRuleVersion: WITHDRAWAL_PLAY_RULE_VERSION,
+    withdrawalPlayPolicyStartAtMs: WITHDRAWAL_PLAY_POLICY_START_AT_MS,
+    withdrawalPlayPolicyStartLabel: WITHDRAWAL_PLAY_POLICY_START_LABEL,
+    withdrawableHtg,
+  };
+}
+
 function buildTransferRecipientRecord(clientId = "", raw = {}) {
   return {
     uid: String(raw.uid || clientId || "").trim(),
@@ -367,7 +583,8 @@ module.exports = {
   buildTransferRecipientRecord,
   buildWithdrawalHoldError,
   computeRealApprovedDepositsHtg,
-  computeReservedWithdrawalAmount,
+    buildWithdrawalFundingStatus,
+    computeReservedWithdrawalAmount,
   generateReferralCode,
   generateWelcomeBonusProofCode,
   getTransferDateKey,
@@ -377,9 +594,15 @@ module.exports = {
   isWelcomeBonusOrder,
   normalizeWelcomeBonusPromptStatus,
   resolveWelcomeBonusEligibility,
-  sanitizePublicAsset,
-  sanitizeUsername,
-  transferHistoryRef,
-  transferLedgerRef,
-  walletRef,
+    sanitizePublicAsset,
+    sanitizeUsername,
+    listGameResultsForWithdrawalProgress,
+    transferHistoryRef,
+    transferLedgerRef,
+  WITHDRAWAL_PLAY_POLICY_START_AT_MS,
+  WITHDRAWAL_PLAY_POLICY_START_LABEL,
+    WITHDRAWAL_PLAY_REQUIREMENT_HTG,
+    WITHDRAWAL_PLAY_RULE_VERSION,
+    walletHistoryRef,
+    walletRef,
 };

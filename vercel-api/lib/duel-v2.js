@@ -842,6 +842,9 @@ function buildDuelV2RoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
     humanCount: Math.max(0, safeInt(snapshot.humanCount, playerUids.filter(Boolean).length)),
     botCount: 0,
     totalSeats: playerUids.filter(Boolean).length,
+    entryFundingByUid: snapshot.entryFundingByUid && typeof snapshot.entryFundingByUid === "object"
+      ? snapshot.entryFundingByUid
+      : {},
     winnerSeat,
     winnerUid,
     winnerType: winnerUid ? "human" : "unknown",

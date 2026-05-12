@@ -14,14 +14,14 @@ const {
   MAX_WITHDRAWAL_HTG,
   MIN_WITHDRAWAL_HTG,
   assertWithdrawalAllowed,
-  computeRealApprovedDepositsHtg,
+  buildWithdrawalFundingStatus,
+  listGameResultsForWithdrawalProgress,
   walletRef,
 } = require("../../lib/player-wallet");
 const {
   buildBalancesPatch,
   readApprovedHtg,
   readProvisionalHtg,
-  readWithdrawableHtg,
 } = require("../../lib/wallet-htg");
 
 module.exports = async function handler(req, res) {
@@ -49,13 +49,16 @@ module.exports = async function handler(req, res) {
 
     const clientRef = walletRef(uid);
     const withdrawalsRef = clientRef.collection("withdrawals");
+    const gameResults = await listGameResultsForWithdrawalProgress(uid);
 
     const result = await db.runTransaction(async (tx) => {
       const newWithdrawalRef = withdrawalsRef.doc();
-      const [clientSnap, ordersSnap, withdrawalsSnap] = await Promise.all([
+      const walletHistoryRef = clientRef.collection("walletHistory");
+      const [clientSnap, ordersSnap, withdrawalsSnap, walletHistorySnap] = await Promise.all([
         tx.get(clientRef),
         tx.get(clientRef.collection("orders")),
         tx.get(withdrawalsRef),
+        tx.get(walletHistoryRef),
       ]);
 
       const clientData = clientSnap.exists ? (clientSnap.data() || {}) : {};
@@ -64,6 +67,7 @@ module.exports = async function handler(req, res) {
         id: docSnap.id,
         data: docSnap.data() || {},
       }));
+      const walletHistory = walletHistorySnap.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }));
 
       assertWithdrawalAllowed(clientData);
 
@@ -81,9 +85,16 @@ module.exports = async function handler(req, res) {
 
       const approvedHtg = readApprovedHtg(clientData);
       const provisionalHtg = readProvisionalHtg(clientData);
-      const withdrawableHtg = readWithdrawableHtg(clientData, approvedHtg);
-      const pendingWithdrawalPlayHtg = safeInt(clientData.pendingWithdrawalPlayHtg);
-      const approvedDepositsHtg = safeInt(computeRealApprovedDepositsHtg(existingOrders));
+      const withdrawalFunding = buildWithdrawalFundingStatus({
+        walletData: { uid, ...clientData },
+        orders: existingOrders,
+        withdrawals: existingWithdrawals.map((item) => item.data),
+        exchangeHistory: walletHistory,
+        gameResults,
+      });
+      const withdrawableHtg = safeInt(withdrawalFunding.withdrawableHtg);
+      const pendingWithdrawalPlayHtg = safeInt(withdrawalFunding.pendingWithdrawalPlayHtg);
+      const approvedDepositsHtg = safeInt(withdrawalFunding.approvedDepositsHtg);
 
       if (provisionalHtg > 0) {
         throw makeHttpError(
@@ -122,6 +133,10 @@ module.exports = async function handler(req, res) {
             approvedDepositsHtg,
             withdrawableHtg,
             approvedHtgAvailable: approvedHtg,
+            hasQualifyingWithdrawalDeposit: withdrawalFunding.hasQualifyingWithdrawalDeposit === true,
+            qualifyingWithdrawalDepositCount: safeInt(withdrawalFunding.qualifyingWithdrawalDepositCount),
+            withdrawalPlayPolicyStartAtMs: safeInt(withdrawalFunding.withdrawalPlayPolicyStartAtMs),
+            withdrawalPlayPolicyStartLabel: String(withdrawalFunding.withdrawalPlayPolicyStartLabel || ""),
             requestedAmount,
           }
         );

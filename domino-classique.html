@@ -620,6 +620,13 @@
         });
       }
 
+      function normalizeDominoClassicBotDifficulty(value = "") {
+        const level = String(value || "").trim().toLowerCase();
+        if (level === "ultra" || level === "expert") return "ultra";
+        if (level === "userpro" || level === "amateur") return "userpro";
+        return "userpro";
+      }
+
       function shouldShowNoPlayerAvailable() {
         return Math.random() < DOMINO_CLASSIC_NO_PLAYER_AVAILABLE_CHANCE;
       }
@@ -674,7 +681,7 @@
           sessionId,
           stakeDoes: safeInt(item.stakeDoes),
           stakeHtg: safeInt(item.stakeHtg),
-          botDifficulty: String(item.botDifficulty || "expert").trim().toLowerCase(),
+          botDifficulty: normalizeDominoClassicBotDifficulty(item.botDifficulty || "userpro"),
           reason: String(item.reason || "forfeit"),
           createdAtMs: Date.now(),
         });
@@ -721,7 +728,7 @@
           sessionId,
           stakeDoes: safeInt(activeWager?.stakeDoes),
           stakeHtg: safeInt(activeWager?.stakeHtg),
-          botDifficulty: String(activeWager?.botDifficulty || "expert").trim().toLowerCase(),
+          botDifficulty: normalizeDominoClassicBotDifficulty(activeWager?.botDifficulty || "userpro"),
           reason,
         });
         setActiveWager(null);
@@ -790,7 +797,7 @@
         url.searchParams.set("embedded", "1");
         url.searchParams.set("sessionId", String(wager?.sessionId || ""));
         url.searchParams.set("stakeHtg", String(safeInt(wager?.stakeHtg)));
-        url.searchParams.set("botDifficulty", String(wager?.botDifficulty || "expert"));
+        url.searchParams.set("botDifficulty", normalizeDominoClassicBotDifficulty(wager?.botDifficulty || "userpro"));
         frame.src = url.toString();
       }
 
@@ -836,7 +843,7 @@
             stakeHtg: safeInt(result?.stakeHtg),
             rewardHtg: safeInt(result?.rewardAmountHtg),
             fundingCurrency: "htg",
-            botDifficulty: String(result?.botDifficulty || "expert").trim().toLowerCase() || "expert",
+            botDifficulty: normalizeDominoClassicBotDifficulty(result?.botDifficulty || "userpro"),
             startedAtMs: Date.now(),
             settled: false,
           });
@@ -876,7 +883,7 @@
                   sessionId: sessionIdToForfeit,
                   winner: "ai",
                   winnerSeat: 1,
-                  botDifficulty: String(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+                  botDifficulty: normalizeDominoClassicBotDifficulty(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "userpro"),
                   motif: "quit",
                   reason: "auto_forfeit_active_session",
                 });
@@ -916,7 +923,7 @@
         const winnerSeat = safeInt(payload?.winnerSeat);
         const winner = payload?.winner === "user" ? "user" : "ai";
         const motif = String(payload?.motif || "");
-        const botDifficulty = String(activeWager?.botDifficulty || payload?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase();
+        const botDifficulty = normalizeDominoClassicBotDifficulty(activeWager?.botDifficulty || payload?.botDifficulty || readStoredActiveWager()?.botDifficulty || "userpro");
         try {
           await recordDominoClassicMatchResultSecure({
             matchId,
@@ -965,7 +972,7 @@
               sessionId,
               winner: "ai",
               winnerSeat: 1,
-              botDifficulty: String(entry?.botDifficulty || activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+              botDifficulty: normalizeDominoClassicBotDifficulty(entry?.botDifficulty || activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "userpro"),
               motif: "quit",
               reason: String(entry?.reason || "forfeit"),
             });
@@ -986,7 +993,7 @@
               sessionId: String(activeWager.sessionId).trim(),
               winner: "ai",
               winnerSeat: 1,
-              botDifficulty: String(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "expert").trim().toLowerCase(),
+                  botDifficulty: normalizeDominoClassicBotDifficulty(activeWager?.botDifficulty || readStoredActiveWager()?.botDifficulty || "userpro"),
               motif: "quit",
               reason: "quit",
             });
@@ -1155,7 +1162,7 @@
             sessionId: String(stale.sessionId || "").trim(),
             stakeDoes: safeInt(stale?.stakeDoes),
             stakeHtg: safeInt(stale?.stakeHtg),
-            botDifficulty: String(stale?.botDifficulty || "expert").trim().toLowerCase(),
+                    botDifficulty: normalizeDominoClassicBotDifficulty(stale?.botDifficulty || "userpro"),
             reason: "session_resume_forfeit",
           });
           setActiveWager(null);

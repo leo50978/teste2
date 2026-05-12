@@ -122,31 +122,24 @@ var Domino_Partida = function() {
 
     this.ObtenerDelayBotLocalMs = function(EsApertura) {
         var Dificultad = this.ObtenerDificultadBotLocal();
-        var Minimo = 1500;
-        var Maximo = 4200;
+        var Minimo = 2400;
+        var Maximo = 5200;
         if (Dificultad === "userpro") {
             Minimo = (EsApertura === true) ? 2600 : 2500;
             Maximo = (EsApertura === true) ? 5200 : 5400;
         }
-        else if (Dificultad === "amateur") {
-            Minimo = (EsApertura === true) ? 2200 : 1900;
-            Maximo = (EsApertura === true) ? 4300 : 4600;
-        }
-        else if (Dificultad === "expert") {
-            Minimo = (EsApertura === true) ? 1600 : 1300;
-            Maximo = (EsApertura === true) ? 3200 : 3300;
-        }
         else if (Dificultad === "ultra") {
-            Minimo = (EsApertura === true) ? 900 : 800;
-            Maximo = (EsApertura === true) ? 2200 : 2400;
+            Minimo = (EsApertura === true) ? 650 : 520;
+            Maximo = (EsApertura === true) ? 1350 : 1550;
         }
         return Minimo + Math.floor(Math.random() * ((Maximo - Minimo) + 1));
     };
 
     this.NormalizarDificultadBotLocal = function(Valor) {
         var Nivel = String(Valor || "").trim().toLowerCase();
-        if (Nivel === "userpro" || Nivel === "amateur" || Nivel === "expert" || Nivel === "ultra") return Nivel;
-        return "expert";
+        if (Nivel === "ultra" || Nivel === "expert") return "ultra";
+        if (Nivel === "userpro" || Nivel === "amateur") return "userpro";
+        return "userpro";
     };
 
     this.ObtenerDificultadBotLocal = function() {
@@ -167,6 +160,49 @@ var Domino_Partida = function() {
             }
         }
         return Coincidencias;
+    };
+
+    this.EsAliadoBotLocal = function(SeatA, SeatB) {
+        if (typeof(SeatA) !== "number" || typeof(SeatB) !== "number") return false;
+        return ((SeatA % 2) === (SeatB % 2));
+    };
+
+    this.ContarPipsRestantesSeatBotLocal = function(Seat, PosFichaExcluida) {
+        var Total = 0;
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (idx === PosFichaExcluida) continue;
+            if (!this.Ficha[idx] || this.Ficha[idx].Colocada === true) continue;
+            Total += (this.Ficha[idx].Valores[0] + this.Ficha[idx].Valores[1]);
+        }
+        return Total;
+    };
+
+    this.ContarFichasRestantesSeatBotLocal = function(Seat, PosFichaExcluida) {
+        var Total = 0;
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (idx === PosFichaExcluida) continue;
+            if (!this.Ficha[idx] || this.Ficha[idx].Colocada === true) continue;
+            Total++;
+        }
+        return Total;
+    };
+
+    this.ContarSoporteValoresSeatBotLocal = function(Seat, PosFichaExcluida, ValorIzquierda, ValorDerecha) {
+        var Total = 0;
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (idx === PosFichaExcluida) continue;
+            if (!this.Ficha[idx] || this.Ficha[idx].Colocada === true) continue;
+            var Valores = this.Ficha[idx].Valores;
+            if (Valores[0] === ValorIzquierda || Valores[1] === ValorIzquierda) Total++;
+            if (ValorDerecha !== ValorIzquierda && (Valores[0] === ValorDerecha || Valores[1] === ValorDerecha)) Total++;
+        }
+        return Total;
     };
 
     this.EvaluarMovimientoBotLocal = function(Seat, Movimiento) {
@@ -199,6 +235,71 @@ var Domino_Partida = function() {
         return (Pips * 4) + (FuturasCoincidencias * 6) + (MantieneDiversidad * 3) + (EsDoble * 2) + CierraExtremoAlto;
     };
 
+    this.EvaluarMovimientoUltraBotLocal = function(Seat, Movimiento) {
+        if (!Movimiento || typeof(Movimiento.Pos) !== "number") return Number.NEGATIVE_INFINITY;
+        var FichaBot = this.Ficha[Movimiento.Pos];
+        if (!FichaBot || FichaBot.Colocada === true) return Number.NEGATIVE_INFINITY;
+
+        var IzquierdaActual = this.FichaIzquierda.ValorLibre();
+        var DerechaActual = this.FichaDerecha.ValorLibre();
+        var V0 = FichaBot.Valores[0];
+        var V1 = FichaBot.Valores[1];
+        var ValorIzquierda = IzquierdaActual;
+        var ValorDerecha = DerechaActual;
+
+        if (Movimiento.Rama === "izquierda") {
+            if (V0 === IzquierdaActual) ValorIzquierda = V1;
+            else if (V1 === IzquierdaActual) ValorIzquierda = V0;
+        }
+        else {
+            if (V0 === DerechaActual) ValorDerecha = V1;
+            else if (V1 === DerechaActual) ValorDerecha = V0;
+        }
+
+        var FichasRestantes = this.ContarFichasRestantesSeatBotLocal(Seat, Movimiento.Pos);
+        if (FichasRestantes <= 0) return 1000000;
+
+        var Base = this.EvaluarMovimientoBotLocal(Seat, Movimiento);
+        var SiguenteSeat = (Seat + 1) % 4;
+        var AllySeat = (Seat + 2) % 4;
+        var OppositeSeat = (Seat + 3) % 4;
+
+        var SelfOptions = this.ContarOpcionesRestantesBotLocal(Seat, Movimiento.Pos, ValorIzquierda, ValorDerecha);
+        var AllyOptions = this.ContarOpcionesRestantesBotLocal(AllySeat, -1, ValorIzquierda, ValorDerecha);
+        var NextOpponentOptions = this.ContarOpcionesRestantesBotLocal(SiguenteSeat, -1, ValorIzquierda, ValorDerecha);
+        var OtherOpponentOptions = this.ContarOpcionesRestantesBotLocal(OppositeSeat, -1, ValorIzquierda, ValorDerecha);
+
+        var TeamSupport = this.ContarSoporteValoresSeatBotLocal(Seat, Movimiento.Pos, ValorIzquierda, ValorDerecha)
+            + this.ContarSoporteValoresSeatBotLocal(AllySeat, -1, ValorIzquierda, ValorDerecha);
+        var RivalSupport = this.ContarSoporteValoresSeatBotLocal(SiguenteSeat, -1, ValorIzquierda, ValorDerecha)
+            + this.ContarSoporteValoresSeatBotLocal(OppositeSeat, -1, ValorIzquierda, ValorDerecha);
+
+        var TeamPipsLeft = this.ContarPipsRestantesSeatBotLocal(Seat, Movimiento.Pos)
+            + this.ContarPipsRestantesSeatBotLocal(AllySeat, -1);
+        var RivalPipsLeft = this.ContarPipsRestantesSeatBotLocal(SiguenteSeat, -1)
+            + this.ContarPipsRestantesSeatBotLocal(OppositeSeat, -1);
+
+        var NextOpponentBlocked = (NextOpponentOptions === 0) ? 1 : 0;
+        var BothOpponentsBlocked = (NextOpponentOptions === 0 && OtherOpponentOptions === 0) ? 1 : 0;
+        var TeamDry = (SelfOptions + AllyOptions) === 0 ? 1 : 0;
+        var KeepsTwoEnds = (ValorIzquierda !== ValorDerecha) ? 1 : 0;
+        var HighPips = V0 + V1;
+
+        return Base
+            + (SelfOptions * 24)
+            + (AllyOptions * 11)
+            - (NextOpponentOptions * 32)
+            - (OtherOpponentOptions * 18)
+            + ((TeamSupport - RivalSupport) * 14)
+            + (RivalPipsLeft * 0.45)
+            - (TeamPipsLeft * 1.15)
+            + (NextOpponentBlocked * 140)
+            + (BothOpponentsBlocked * 90)
+            - (TeamDry * 180)
+            + (KeepsTwoEnds * 10)
+            + (HighPips * 5);
+    };
+
     this.ElegirMovimientoBotLocal = function(Seat, PosibilidadesBot) {
         if (!Array.isArray(PosibilidadesBot) || PosibilidadesBot.length <= 0) return null;
         var Dificultad = this.ObtenerDificultadBotLocal();
@@ -209,7 +310,9 @@ var Domino_Partida = function() {
         var Evaluadas = PosibilidadesBot.map(function(Mov) {
             return {
                 move: Mov,
-                score: this.EvaluarMovimientoBotLocal(Seat, Mov)
+                score: (Dificultad === "ultra")
+                    ? this.EvaluarMovimientoUltraBotLocal(Seat, Mov)
+                    : this.EvaluarMovimientoBotLocal(Seat, Mov)
             };
         }.bind(this)).sort(function(A, B) {
             return B.score - A.score;
@@ -218,14 +321,7 @@ var Domino_Partida = function() {
         if (Dificultad === "ultra") {
             return Evaluadas[0].move;
         }
-
-        if (Dificultad === "expert") {
-            var TopExpert = Evaluadas.slice(0, Math.min(2, Evaluadas.length));
-            return (Math.random() < 0.72 ? TopExpert[0] : TopExpert[Math.floor(Math.random() * TopExpert.length)]).move;
-        }
-
-        var PoolAmateur = Evaluadas.slice(0, Math.max(1, Math.ceil(Evaluadas.length * 0.65)));
-        return PoolAmateur[Math.floor(Math.random() * PoolAmateur.length)].move;
+        return PosibilidadesBot[Math.floor(Math.random() * PosibilidadesBot.length)] || PosibilidadesBot[0];
     };
 
     this.IniciarCuentaAtrasTurnoHumanoLocal = function() {

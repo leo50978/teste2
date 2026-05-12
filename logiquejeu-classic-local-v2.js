@@ -24,9 +24,9 @@ let classicHudChromeHidden = false;
 
 function normalizeClassicBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
-  return level === "userpro" || level === "amateur" || level === "expert" || level === "ultra"
-    ? level
-    : "expert";
+  if (level === "ultra" || level === "expert") return "ultra";
+  if (level === "userpro" || level === "amateur") return "userpro";
+  return "userpro";
 }
 
 function safeText(id, value) {

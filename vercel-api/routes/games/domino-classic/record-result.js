@@ -180,6 +180,10 @@ module.exports = async function handler(req, res) {
         stakeDoes: safeInt(currentWager.stakeDoes || payload.stakeDoes),
         stakeHtg: safeInt(currentWager.stakeHtg),
         fundingCurrency: normalizeFundingCurrency(currentWager.fundingCurrency || payload.fundingCurrency || "htg"),
+        approvedWithdrawalPlayHtg: safeInt(currentWager?.gameEntryFunding?.approvedHtg),
+        gameEntryFunding: currentWager?.gameEntryFunding && typeof currentWager.gameEntryFunding === "object"
+          ? currentWager.gameEntryFunding
+          : null,
         rewardExpectedDoes: safeInt(currentWager.rewardDoes),
         rewardExpectedHtg: safeInt(currentWager.rewardAmountHtg),
         rewardGranted,

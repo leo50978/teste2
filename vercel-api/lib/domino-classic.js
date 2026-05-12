@@ -8,8 +8,8 @@ const { RATE_HTG_TO_DOES, normalizeFundingCurrency } = require("./wallet-htg");
 
 const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
-const DEFAULT_BOT_DIFFICULTY = "expert";
-const BOT_DIFFICULTY_LEVELS = new Set(["amateur", "expert", "ultra", "userpro"]);
+const DEFAULT_BOT_DIFFICULTY = "userpro";
+const BOT_DIFFICULTY_LEVELS = new Set(["userpro", "ultra"]);
 const BOT_PILOT_MODES = new Set(["manual", "auto"]);
 const BOT_PILOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BOT_PILOT_SNAPSHOT_LIMIT = 5000;
@@ -31,7 +31,9 @@ function safeFloat(value, fallback = 0) {
 
 function normalizeBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
-  return BOT_DIFFICULTY_LEVELS.has(level) ? level : DEFAULT_BOT_DIFFICULTY;
+  if (level === "ultra" || level === "expert") return "ultra";
+  if (level === "userpro" || level === "amateur") return "userpro";
+  return DEFAULT_BOT_DIFFICULTY;
 }
 
 function normalizeBotPilotMode(value = "") {
@@ -98,23 +100,20 @@ function chooseAutoBotDifficulty(snapshot = {}) {
       marginPct: 0,
     };
   }
-  if (drawdownPct >= 0.18 || (drawdownDoes >= 400 && drawdownPct >= 0.12)) {
+  if (drawdownPct >= 0.03 || drawdownDoes >= 120) {
     return { level: "ultra", band: "danger", reason: "drawdown_critical", marginPct, drawdownPct };
   }
-  if (netDoes < 0 || marginPct < 0.03) {
+  if (netDoes < 0 || marginPct < 0.14) {
     return { level: "ultra", band: "danger", reason: "margin_too_low", marginPct, drawdownPct };
   }
-  if (drawdownPct >= 0.08) {
-    return { level: "expert", band: "defense", reason: "drawdown_high", marginPct, drawdownPct };
+  if (drawdownPct > 0 || !isNearPeak) {
+    return { level: "ultra", band: "defense", reason: "drawdown_high", marginPct, drawdownPct };
   }
-  if (marginPct < 0.08) {
-    return { level: "expert", band: "defense", reason: "margin_low", marginPct, drawdownPct };
+  if (marginPct < 0.22) {
+    return { level: "ultra", band: "defense", reason: "margin_low", marginPct, drawdownPct };
   }
-  if (!isNearPeak) {
-    return { level: "amateur", band: "equilibrium", reason: "recovery_guard", marginPct, drawdownPct };
-  }
-  if (marginPct < 0.16) {
-    return { level: "amateur", band: "equilibrium", reason: "margin_ok", marginPct, drawdownPct };
+  if (!isNearPeak || marginPct < 0.3) {
+    return { level: "ultra", band: "equilibrium", reason: "recovery_guard", marginPct, drawdownPct };
   }
   return { level: "userpro", band: "comfort", reason: "new_high_comfort", marginPct, drawdownPct };
 }
