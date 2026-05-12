@@ -268,7 +268,7 @@ function ensureDominoModeModal() {
       return;
     }
     close();
-    ensureDominoClassicUnavailableModal().open();
+    window.location.href = `${modeTargets.classic}?autostart=1`;
   });
   renderSelectedMode();
   dominoModeModal = {

@@ -120,13 +120,26 @@ var Domino_Partida = function() {
         this.CancelarTurnoBotLocalPendiente();
     };
 
-    this.ObtenerDelayBotLocalMs = function(EsApertura) {
+    this.ObtenerPerfilBotLocal = function(Seat) {
         var Dificultad = this.ObtenerDificultadBotLocal();
+        if (Dificultad !== "ultra") return Dificultad;
+        var SeatBot = (typeof(Seat) === "number") ? Seat : this.JugadorActual;
+        if (SeatBot === this.LocalSeat) return "ultra";
+        if (this.EsAliadoBotLocal(SeatBot, this.LocalSeat) === true) return "ally_nerfed";
+        return "ultra";
+    };
+
+    this.ObtenerDelayBotLocalMs = function(EsApertura, Seat) {
+        var Dificultad = this.ObtenerPerfilBotLocal(Seat);
         var Minimo = 2400;
         var Maximo = 5200;
         if (Dificultad === "userpro") {
             Minimo = (EsApertura === true) ? 2600 : 2500;
             Maximo = (EsApertura === true) ? 5200 : 5400;
+        }
+        else if (Dificultad === "ally_nerfed") {
+            Minimo = (EsApertura === true) ? 2800 : 2600;
+            Maximo = (EsApertura === true) ? 5600 : 5800;
         }
         else if (Dificultad === "ultra") {
             Minimo = (EsApertura === true) ? 650 : 520;
@@ -302,7 +315,7 @@ var Domino_Partida = function() {
 
     this.ElegirMovimientoBotLocal = function(Seat, PosibilidadesBot) {
         if (!Array.isArray(PosibilidadesBot) || PosibilidadesBot.length <= 0) return null;
-        var Dificultad = this.ObtenerDificultadBotLocal();
+        var Dificultad = this.ObtenerPerfilBotLocal(Seat);
         if (Dificultad === "userpro") {
             return PosibilidadesBot[Math.floor(Math.random() * PosibilidadesBot.length)] || PosibilidadesBot[0];
         }
@@ -320,6 +333,12 @@ var Domino_Partida = function() {
 
         if (Dificultad === "ultra") {
             return Evaluadas[0].move;
+        }
+        if (Dificultad === "ally_nerfed") {
+            var InicioPeorTercio = Math.max(0, Evaluadas.length - Math.max(1, Math.ceil(Evaluadas.length * 0.35)));
+            var OpcionesFaibles = Evaluadas.slice(InicioPeorTercio);
+            var Candidatos = (OpcionesFaibles.length > 0) ? OpcionesFaibles : Evaluadas.slice(-1);
+            return Candidatos[Math.floor(Math.random() * Candidatos.length)].move;
         }
         return PosibilidadesBot[Math.floor(Math.random() * PosibilidadesBot.length)] || PosibilidadesBot[0];
     };
@@ -345,7 +364,7 @@ var Domino_Partida = function() {
         if (this.Multijugador === true || this.ManoTerminada === true) return;
         var SeatBot = (typeof(Seat) === "number") ? Seat : this.JugadorActual;
         var Token = ++this.TokenBotLocal;
-        var DelayMs = this.ObtenerDelayBotLocalMs(EsApertura === true);
+        var DelayMs = this.ObtenerDelayBotLocalMs(EsApertura === true, SeatBot);
         this.ActualizarVisualTimerTurno("...");
         this.TimerBotLocal = setTimeout(function() {
             this.TimerBotLocal = 0;
@@ -1230,6 +1249,9 @@ var Domino_Partida = function() {
             this.MostrarMensaje(this.JugadorActual,
                 "<span>" + this.Opciones.NombreJugador[this.JugadorActual] + "</span>" +
                 "<span data-idioma-en='Pass...' data-idioma-cat='Pasa...' data-idioma-es='Pasa...'></span>", "rojo");
+            if (window.UI && typeof(window.UI.MostrarPassVisual) === "function") {
+                window.UI.MostrarPassVisual();
+            }
             this.Pasado++;
             this.TurnoActual++;
             this.JugadorActual++;
