@@ -552,6 +552,106 @@ var Domino_Partida = function() {
         return this.EsSeatHumano(this.JugadorActual) && this.JugadorActual !== this.LocalSeat;
     };
 
+    this.CalcularFuerzaFichaUltraLocal = function(FichaDomino) {
+        if (!FichaDomino || !Array.isArray(FichaDomino.Valores)) return Number.NEGATIVE_INFINITY;
+        var V0 = Number(FichaDomino.Valores[0] || 0);
+        var V1 = Number(FichaDomino.Valores[1] || 0);
+        var Pips = V0 + V1;
+        var EsDoble = (V0 === V1) ? 1 : 0;
+        var Altos = (V0 >= 4 ? 1 : 0) + (V1 >= 4 ? 1 : 0);
+        var Bajos = (V0 <= 1 ? 1 : 0) + (V1 <= 1 ? 1 : 0);
+        var Ceros = (V0 === 0 ? 1 : 0) + (V1 === 0 ? 1 : 0);
+        var TieneSeis = (V0 === 6 || V1 === 6) ? 1 : 0;
+        var TieneCinco = (V0 === 5 || V1 === 5) ? 1 : 0;
+        return (Pips * 10) + (EsDoble * 18) + (Altos * 8) + (TieneSeis * 8) + (TieneCinco * 4) - (Bajos * 6) - (Ceros * 7);
+    };
+
+    this.CalcularCargaFichaUltraLocal = function(FichaDomino) {
+        if (!FichaDomino || !Array.isArray(FichaDomino.Valores)) return Number.NEGATIVE_INFINITY;
+        var V0 = Number(FichaDomino.Valores[0] || 0);
+        var V1 = Number(FichaDomino.Valores[1] || 0);
+        var Pips = V0 + V1;
+        var EsDoble = (V0 === V1) ? 1 : 0;
+        var Altos = (V0 >= 4 ? 1 : 0) + (V1 >= 4 ? 1 : 0);
+        var Bajos = (V0 <= 1 ? 1 : 0) + (V1 <= 1 ? 1 : 0);
+        var Ceros = (V0 === 0 ? 1 : 0) + (V1 === 0 ? 1 : 0);
+        var Apertura = (V0 === 6 && V1 === 6) ? 1 : 0;
+        var Separacion = Math.abs(V0 - V1);
+        return (Pips * 9) + (Ceros * 14) + (Bajos * 7) + (Separacion * 4) - (Altos * 4) - (EsDoble * 5) - (Apertura * 40);
+    };
+
+    this.BarajarListaUltraLocal = function(Lista) {
+        var Copia = Array.isArray(Lista) ? Lista.slice() : [];
+        for (var i = Copia.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var Tmp = Copia[i];
+            Copia[i] = Copia[j];
+            Copia[j] = Tmp;
+        }
+        return Copia;
+    };
+
+    this.ConstruirOrdenFichasUltraLocal = function() {
+        var Pool = [];
+        for (var i = 0; i < this.Ficha.length; i++) {
+            Pool.push(this.Ficha[i]);
+        }
+
+        var SacarIndice = function(Lista, Predicado) {
+            for (var p = 0; p < Lista.length; p++) {
+                if (Predicado(Lista[p]) === true) return p;
+            }
+            return -1;
+        };
+
+        var Oponentes = [ [], [] ];
+        var CampoJugador = [];
+        var idx66 = SacarIndice(Pool, function(FichaDomino) {
+            return FichaDomino && FichaDomino.Valores && FichaDomino.Valores[0] === 6 && FichaDomino.Valores[1] === 6;
+        });
+        if (idx66 >= 0) {
+            Oponentes[0].push(Pool.splice(idx66, 1)[0]);
+        }
+
+        Pool.sort(function(A, B) {
+            return this.CalcularFuerzaFichaUltraLocal(B) - this.CalcularFuerzaFichaUltraLocal(A);
+        }.bind(this));
+
+        var CorteFortes = Math.min(Pool.length, 18);
+        var PoolForte = this.BarajarListaUltraLocal(Pool.slice(0, CorteFortes));
+        var PoolReste = this.BarajarListaUltraLocal(Pool.slice(CorteFortes));
+        Pool = PoolForte.concat(PoolReste);
+
+        while ((Oponentes[0].length + Oponentes[1].length) < 14 && Pool.length > 0) {
+            var Objetivo = (Oponentes[0].length <= Oponentes[1].length) ? Oponentes[0] : Oponentes[1];
+            Objetivo.push(Pool.shift());
+        }
+
+        Pool.sort(function(A, B) {
+            return this.CalcularCargaFichaUltraLocal(B) - this.CalcularCargaFichaUltraLocal(A);
+        }.bind(this));
+
+        var CorteCarga = Math.min(Pool.length, 14);
+        var PoolCharge = this.BarajarListaUltraLocal(Pool.slice(0, CorteCarga));
+        var PoolFaible = this.BarajarListaUltraLocal(Pool.slice(CorteCarga));
+        Pool = PoolCharge.concat(PoolFaible);
+
+        while (CampoJugador.length < 14 && Pool.length > 0) {
+            CampoJugador.push(Pool.shift());
+        }
+
+        CampoJugador = this.BarajarListaUltraLocal(CampoJugador);
+        Oponentes[0] = this.BarajarListaUltraLocal(Oponentes[0]);
+        Oponentes[1] = this.BarajarListaUltraLocal(Oponentes[1]);
+
+        var ManoJugador = CampoJugador.slice(0, 7);
+        var ManoAliado = CampoJugador.slice(7, 14);
+        var ManoOponente1 = Oponentes[0].slice(0, 7);
+        var ManoOponente2 = Oponentes[1].slice(0, 7);
+
+        return ManoJugador.concat(ManoOponente1, ManoAliado, ManoOponente2);
+    };
+
     this.TableroListo = function() {
         return (
             this.FichaIzquierda &&
@@ -806,10 +906,12 @@ var Domino_Partida = function() {
 
     this.AplicarOrdenFichas = function() {
         var S = (typeof(window.GameSession) !== "undefined") ? window.GameSession : null;
+        var DificultadLocal = this.ObtenerDificultadBotLocal();
         this.DebugLog("AplicarOrdenFichas:begin", {
             multijugador: this.Multijugador,
             hasSession: !!S,
-            deckOrderLength: (S && Array.isArray(S.deckOrder)) ? S.deckOrder.length : 0
+            deckOrderLength: (S && Array.isArray(S.deckOrder)) ? S.deckOrder.length : 0,
+            botDifficulty: DificultadLocal
         });
         if (this.Multijugador === false || !S || !Array.isArray(S.deckOrder) || S.deckOrder.length !== 28) {
             if (this.Multijugador === true) {
@@ -817,6 +919,16 @@ var Domino_Partida = function() {
                     hasSession: !!S,
                     deckOrderLength: (S && Array.isArray(S.deckOrder)) ? S.deckOrder.length : 0
                 });
+            }
+            if (this.Multijugador === false && DificultadLocal === "ultra") {
+                for (var r = 0; r < this.Ficha.length; r++) {
+                    this.Ficha[r].Colocada = false;
+                }
+                this.Ficha = this.ConstruirOrdenFichasUltraLocal();
+                this.DebugLog("AplicarOrdenFichas:ultraRiggedLocal", {
+                    localSeat: this.LocalSeat
+                });
+                return;
             }
             for (var i = this.Ficha.length - 1; i > 0; i--) {
                 this.Ficha[i].Colocada = false;
