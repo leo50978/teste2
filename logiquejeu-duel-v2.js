@@ -28,7 +28,7 @@ const HTG_TO_DOES_RATE = 20;
 const PRESENCE_PING_MS = 15000;
 const TURN_LIMIT_MS = 30000;
 const WAIT_SECONDS = 15;
-const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/I8VfW1Tdv6nF1d7ZkMfOg0?mode=gi_t";
+const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1";
 const URL_PARAMS = new URLSearchParams(window.location.search);
 
 let currentUser = null;

@@ -51,7 +51,7 @@ const SITE_PRESENCE_TTL_MS = 70 * 1000;
 const INVITE_POLL_MS = 6 * 1000;
 const BOT_TURN_NUDGE_COOLDOWN_MS = 4 * 1000;
 const TIMEOUT_NUDGE_COOLDOWN_MS = 4 * 1000;
-const MORPION_WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/I8VfW1Tdv6nF1d7ZkMfOg0?mode=gi_t";
+const MORPION_WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1";
 const ABANDONED_ROOMS_STORAGE_KEY = "domino_morpion_abandoned_rooms_v1";
 const MORPION_BOT_NUMERIC_IDS = Object.freeze([35601379, 40507232, 41752992]);
 

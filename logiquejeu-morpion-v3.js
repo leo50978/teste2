@@ -19,7 +19,7 @@ const BOARD_SIZE = 15;
 const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
 const WAIT_SECONDS = 15;
 const DEFAULT_STAKE_HTG = 25;
-const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/I8VfW1Tdv6nF1d7ZkMfOg0?mode=gi_t";
+const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1";
 
 const dom = {
   board: document.getElementById("morpionBoard"),
