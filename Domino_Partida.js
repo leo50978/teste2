@@ -122,8 +122,13 @@ var Domino_Partida = function() {
 
     this.ObtenerPerfilBotLocal = function(Seat) {
         var Dificultad = this.ObtenerDificultadBotLocal();
-        if (Dificultad !== "ultra") return Dificultad;
         var SeatBot = (typeof(Seat) === "number") ? Seat : this.JugadorActual;
+        if (Dificultad === "dominov1") {
+            if (SeatBot === this.LocalSeat) return "dominov1_human";
+            if (this.EsAliadoBotLocal(SeatBot, this.LocalSeat) === true) return "dominov1_traitor";
+            return "dominov1_hunter";
+        }
+        if (Dificultad !== "ultra") return Dificultad;
         if (SeatBot === this.LocalSeat) return "ultra";
         if (this.EsAliadoBotLocal(SeatBot, this.LocalSeat) === true) return "ally_nerfed";
         return "ultra";
@@ -136,6 +141,10 @@ var Domino_Partida = function() {
         if (Dificultad === "userpro") {
             Minimo = (EsApertura === true) ? 2600 : 2500;
             Maximo = (EsApertura === true) ? 5200 : 5400;
+        }
+        else if (Dificultad === "dominov1_hunter" || Dificultad === "dominov1_traitor" || Dificultad === "dominov1_human") {
+            Minimo = (EsApertura === true) ? 1550 : 1350;
+            Maximo = (EsApertura === true) ? 3100 : 2950;
         }
         else if (Dificultad === "ally_nerfed") {
             Minimo = (EsApertura === true) ? 2800 : 2600;
@@ -150,6 +159,7 @@ var Domino_Partida = function() {
 
     this.NormalizarDificultadBotLocal = function(Valor) {
         var Nivel = String(Valor || "").trim().toLowerCase();
+        if (Nivel === "dominov1" || Nivel === "v1") return "dominov1";
         if (Nivel === "ultra" || Nivel === "expert") return "ultra";
         if (Nivel === "userpro" || Nivel === "amateur") return "userpro";
         return "userpro";
@@ -158,6 +168,18 @@ var Domino_Partida = function() {
     this.ObtenerDificultadBotLocal = function() {
         var S = (typeof(window.GameSession) !== "undefined") ? window.GameSession : null;
         return this.NormalizarDificultadBotLocal(S && S.botDifficulty);
+    };
+
+    this.EsModoDominov1TresContraUno = function() {
+        return (this.Multijugador === false && this.ObtenerDificultadBotLocal() === "dominov1");
+    };
+
+    this.EsSeatGanadorHumanoLocal = function(SeatGanador) {
+        var Seat = (typeof(SeatGanador) === "number") ? SeatGanador : 0;
+        if (this.EsModoDominov1TresContraUno() === true) {
+            return Seat === this.LocalSeat;
+        }
+        return (Seat === this.LocalSeat || (this.Multijugador === false && (Seat % 2) === (this.LocalSeat % 2)));
     };
 
     this.ContarOpcionesRestantesBotLocal = function(Seat, PosFicha, ValorIzquierda, ValorDerecha) {
@@ -299,23 +321,132 @@ var Domino_Partida = function() {
         var HighPips = V0 + V1;
 
         return Base
-            + (SelfOptions * 24)
-            + (AllyOptions * 11)
-            - (NextOpponentOptions * 32)
-            - (OtherOpponentOptions * 18)
-            + ((TeamSupport - RivalSupport) * 14)
-            + (RivalPipsLeft * 0.45)
-            - (TeamPipsLeft * 1.15)
-            + (NextOpponentBlocked * 140)
-            + (BothOpponentsBlocked * 90)
-            - (TeamDry * 180)
-            + (KeepsTwoEnds * 10)
-            + (HighPips * 5);
+            + (SelfOptions * 28)
+            + (AllyOptions * 14)
+            - (NextOpponentOptions * 46)
+            - (OtherOpponentOptions * 28)
+            + ((TeamSupport - RivalSupport) * 18)
+            + (RivalPipsLeft * 0.7)
+            - (TeamPipsLeft * 1.45)
+            + (NextOpponentBlocked * 180)
+            + (BothOpponentsBlocked * 180)
+            - (TeamDry * 260)
+            + (KeepsTwoEnds * 16)
+            + (HighPips * 6);
+    };
+
+    this.EvaluarMovimientoDominov1BotLocal = function(Seat, Movimiento) {
+        if (!Movimiento || typeof(Movimiento.Pos) !== "number") return Number.NEGATIVE_INFINITY;
+        var FichaBot = this.Ficha[Movimiento.Pos];
+        if (!FichaBot || FichaBot.Colocada === true) return Number.NEGATIVE_INFINITY;
+
+        var Rol = this.ObtenerPerfilBotLocal(Seat);
+        var HumanoSeat = this.LocalSeat;
+        var TraidorSeat = (HumanoSeat + 2) % 4;
+        var HunterASeat = (HumanoSeat + 1) % 4;
+        var HunterBSeat = (HumanoSeat + 3) % 4;
+
+        var IzquierdaActual = this.FichaIzquierda.ValorLibre();
+        var DerechaActual = this.FichaDerecha.ValorLibre();
+        var V0 = FichaBot.Valores[0];
+        var V1 = FichaBot.Valores[1];
+        var ValorIzquierda = IzquierdaActual;
+        var ValorDerecha = DerechaActual;
+        if (Movimiento.Rama === "izquierda") {
+            if (V0 === IzquierdaActual) ValorIzquierda = V1;
+            else if (V1 === IzquierdaActual) ValorIzquierda = V0;
+        }
+        else {
+            if (V0 === DerechaActual) ValorDerecha = V1;
+            else if (V1 === DerechaActual) ValorDerecha = V0;
+        }
+
+        var PosExcluida = Movimiento.Pos;
+        var PipsJouee = V0 + V1;
+        var RestantesSeat = this.ContarFichasRestantesSeatBotLocal(Seat, PosExcluida);
+        var HumanOptions = this.ContarOpcionesRestantesBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        var TraitorOptions = this.ContarOpcionesRestantesBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        var HunterAOptions = this.ContarOpcionesRestantesBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        var HunterBOptions = this.ContarOpcionesRestantesBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+
+        var HumanPips = this.ContarPipsRestantesSeatBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1);
+        var TraitorPips = this.ContarPipsRestantesSeatBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1);
+        var HunterAPips = this.ContarPipsRestantesSeatBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1);
+        var HunterBPips = this.ContarPipsRestantesSeatBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1);
+
+        var HumanSupport = this.ContarSoporteValoresSeatBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        var TraitorSupport = this.ContarSoporteValoresSeatBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        var HunterSupport = this.ContarSoporteValoresSeatBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha)
+            + this.ContarSoporteValoresSeatBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+
+        var HunterOptions = HunterAOptions + HunterBOptions;
+        var HunterPips = HunterAPips + HunterBPips;
+        var UserCampPips = HumanPips + TraitorPips;
+        var UserBlocked = (HumanOptions === 0) ? 1 : 0;
+        var CoalitionOptions = TraitorOptions + HunterOptions;
+        var TwoOpenEnds = (ValorIzquierda !== ValorDerecha) ? 1 : 0;
+        var Base = this.EvaluarMovimientoBotLocal(Seat, Movimiento);
+
+        if (Rol === "dominov1_hunter") {
+            if (RestantesSeat <= 0) return 2000000;
+            return Base
+                + (UserCampPips * 18)
+                - (HunterPips * 16)
+                - (HumanOptions * 165)
+                + (HunterOptions * 24)
+                + (HunterSupport * 22)
+                + (TraitorSupport * 12)
+                + (UserBlocked * 420)
+                + ((UserBlocked === 1 && CoalitionOptions > 0) ? 260 : 0)
+                + ((HumanPips <= 10 && UserBlocked === 1) ? 160 : 0)
+                + (PipsJouee * 14)
+                + (TwoOpenEnds * 18);
+        }
+
+        if (Rol === "dominov1_traitor") {
+            if (RestantesSeat <= 0) return -2000000;
+            return Base
+                + (UserCampPips * 24)
+                - (HunterPips * 10)
+                - (HumanOptions * 170)
+                + (HunterOptions * 26)
+                + (HunterSupport * 26)
+                + (UserBlocked * 440)
+                + ((UserBlocked === 1 && CoalitionOptions > 0) ? 300 : 0)
+                - (PipsJouee * 18)
+                - ((RestantesSeat <= 2) ? 260 : 0)
+                + ((TraitorPips >= 18) ? 120 : 0)
+                + ((TraitorOptions === 0) ? 80 : 0)
+                + (TwoOpenEnds * 10);
+        }
+
+        if (RestantesSeat <= 0) return -2000000;
+        return Base
+            + (UserCampPips * 14)
+            - (HunterPips * 10)
+            - (HumanOptions * 170)
+            + (HunterOptions * 18)
+            + (HunterSupport * 14)
+            + (UserBlocked * 360)
+            - (PipsJouee * 8)
+            - (HumanSupport * 20)
+            + (TwoOpenEnds * 8);
     };
 
     this.ElegirMovimientoBotLocal = function(Seat, PosibilidadesBot) {
         if (!Array.isArray(PosibilidadesBot) || PosibilidadesBot.length <= 0) return null;
         var Dificultad = this.ObtenerPerfilBotLocal(Seat);
+        if (Dificultad === "dominov1_hunter" || Dificultad === "dominov1_traitor") {
+            var EvaluadasDominov1 = PosibilidadesBot.map(function(Mov) {
+                return {
+                    move: Mov,
+                    score: this.EvaluarMovimientoDominov1BotLocal(Seat, Mov)
+                };
+            }.bind(this)).sort(function(A, B) {
+                return B.score - A.score;
+            });
+            return EvaluadasDominov1[0] && EvaluadasDominov1[0].move ? EvaluadasDominov1[0].move : (PosibilidadesBot[0] || null);
+        }
         if (Dificultad === "userpro") {
             return PosibilidadesBot[Math.floor(Math.random() * PosibilidadesBot.length)] || PosibilidadesBot[0];
         }
@@ -335,10 +466,7 @@ var Domino_Partida = function() {
             return Evaluadas[0].move;
         }
         if (Dificultad === "ally_nerfed") {
-            var InicioPeorTercio = Math.max(0, Evaluadas.length - Math.max(1, Math.ceil(Evaluadas.length * 0.35)));
-            var OpcionesFaibles = Evaluadas.slice(InicioPeorTercio);
-            var Candidatos = (OpcionesFaibles.length > 0) ? OpcionesFaibles : Evaluadas.slice(-1);
-            return Candidatos[Math.floor(Math.random() * Candidatos.length)].move;
+            return Evaluadas[Evaluadas.length - 1].move;
         }
         return PosibilidadesBot[Math.floor(Math.random() * PosibilidadesBot.length)] || PosibilidadesBot[0];
     };
@@ -443,6 +571,32 @@ var Domino_Partida = function() {
         var Posibilidades = this.PosibilidadesJugador(this.LocalSeat);
         if (Posibilidades.length <= 0) return false;
         var AutoMove = Posibilidades[Math.floor(Math.random() * Posibilidades.length)] || Posibilidades[0];
+        if (this.ObtenerDificultadBotLocal() === "ultra") {
+            var EvaluadasHumano = Posibilidades.map(function(Mov) {
+                return {
+                    move: Mov,
+                    score: this.EvaluarMovimientoUltraBotLocal(this.LocalSeat, Mov)
+                };
+            }.bind(this)).sort(function(A, B) {
+                return A.score - B.score;
+            });
+            if (EvaluadasHumano.length > 0 && EvaluadasHumano[0].move) {
+                AutoMove = EvaluadasHumano[0].move;
+            }
+        }
+        else if (this.ObtenerDificultadBotLocal() === "dominov1") {
+            var EvaluadasHumanoDominov1 = Posibilidades.map(function(Mov) {
+                return {
+                    move: Mov,
+                    score: this.EvaluarMovimientoDominov1BotLocal(this.LocalSeat, Mov)
+                };
+            }.bind(this)).sort(function(A, B) {
+                return B.score - A.score;
+            });
+            if (EvaluadasHumanoDominov1.length > 0 && EvaluadasHumanoDominov1[0].move) {
+                AutoMove = EvaluadasHumanoDominov1[0].move;
+            }
+        }
         var Rama = (AutoMove.Rama === "izquierda") ? this.FichaIzquierda : this.FichaDerecha;
         this.Ficha[AutoMove.Pos].Colocar(Rama, true);
         this.MostrarMensaje(this.LocalSeat,
@@ -613,11 +767,26 @@ var Domino_Partida = function() {
             Oponentes[0].push(Pool.splice(idx66, 1)[0]);
         }
 
+        var ExtraDobles = [];
+        for (var d = Pool.length - 1; d >= 0; d--) {
+            if (!Pool[d] || !Pool[d].Valores) continue;
+            if (Pool[d].Valores[0] === Pool[d].Valores[1] && Pool[d].Valores[0] >= 4) {
+                ExtraDobles.push(Pool.splice(d, 1)[0]);
+            }
+        }
+        ExtraDobles.sort(function(A, B) {
+            return this.CalcularFuerzaFichaUltraLocal(B) - this.CalcularFuerzaFichaUltraLocal(A);
+        }.bind(this));
+        while (ExtraDobles.length > 0) {
+            var ManoObjetivoDobles = (Oponentes[0].length <= Oponentes[1].length) ? Oponentes[0] : Oponentes[1];
+            ManoObjetivoDobles.push(ExtraDobles.shift());
+        }
+
         Pool.sort(function(A, B) {
             return this.CalcularFuerzaFichaUltraLocal(B) - this.CalcularFuerzaFichaUltraLocal(A);
         }.bind(this));
 
-        var CorteFortes = Math.min(Pool.length, 18);
+        var CorteFortes = Math.min(Pool.length, 20);
         var PoolForte = this.BarajarListaUltraLocal(Pool.slice(0, CorteFortes));
         var PoolReste = this.BarajarListaUltraLocal(Pool.slice(CorteFortes));
         Pool = PoolForte.concat(PoolReste);
@@ -632,7 +801,7 @@ var Domino_Partida = function() {
         }.bind(this));
 
         var CorteCarga = Math.min(Pool.length, 14);
-        var PoolCharge = this.BarajarListaUltraLocal(Pool.slice(0, CorteCarga));
+        var PoolCharge = Pool.slice(0, CorteCarga);
         var PoolFaible = this.BarajarListaUltraLocal(Pool.slice(CorteCarga));
         Pool = PoolCharge.concat(PoolFaible);
 
@@ -640,14 +809,47 @@ var Domino_Partida = function() {
             CampoJugador.push(Pool.shift());
         }
 
-        CampoJugador = this.BarajarListaUltraLocal(CampoJugador);
+        CampoJugador.sort(function(A, B) {
+            return this.CalcularCargaFichaUltraLocal(B) - this.CalcularCargaFichaUltraLocal(A);
+        }.bind(this));
         Oponentes[0] = this.BarajarListaUltraLocal(Oponentes[0]);
         Oponentes[1] = this.BarajarListaUltraLocal(Oponentes[1]);
 
         var ManoJugador = CampoJugador.slice(0, 7);
         var ManoAliado = CampoJugador.slice(7, 14);
+        ManoJugador = this.BarajarListaUltraLocal(ManoJugador);
+        ManoAliado = this.BarajarListaUltraLocal(ManoAliado);
         var ManoOponente1 = Oponentes[0].slice(0, 7);
         var ManoOponente2 = Oponentes[1].slice(0, 7);
+
+        return ManoJugador.concat(ManoOponente1, ManoAliado, ManoOponente2);
+    };
+
+    this.ConstruirOrdenFichasDominov1Local = function() {
+        var Pool = [];
+        for (var i = 0; i < this.Ficha.length; i++) {
+            Pool.push(this.Ficha[i]);
+        }
+
+        Pool.sort(function(A, B) {
+            return this.CalcularFuerzaFichaUltraLocal(B) - this.CalcularFuerzaFichaUltraLocal(A);
+        }.bind(this));
+
+        var ManoOponente1 = Pool.slice(0, 7);
+        var ManoOponente2 = Pool.slice(7, 14);
+        var Resto = Pool.slice(14);
+
+        Resto.sort(function(A, B) {
+            return this.CalcularCargaFichaUltraLocal(B) - this.CalcularCargaFichaUltraLocal(A);
+        }.bind(this));
+
+        var ManoJugador = Resto.slice(0, 7);
+        var ManoAliado = Resto.slice(7, 14);
+
+        ManoJugador = this.BarajarListaUltraLocal(ManoJugador);
+        ManoAliado = this.BarajarListaUltraLocal(ManoAliado);
+        ManoOponente1 = this.BarajarListaUltraLocal(ManoOponente1);
+        ManoOponente2 = this.BarajarListaUltraLocal(ManoOponente2);
 
         return ManoJugador.concat(ManoOponente1, ManoAliado, ManoOponente2);
     };
@@ -919,6 +1121,16 @@ var Domino_Partida = function() {
                     hasSession: !!S,
                     deckOrderLength: (S && Array.isArray(S.deckOrder)) ? S.deckOrder.length : 0
                 });
+            }
+            if (this.Multijugador === false && DificultadLocal === "dominov1") {
+                for (var q = 0; q < this.Ficha.length; q++) {
+                    this.Ficha[q].Colocada = false;
+                }
+                this.Ficha = this.ConstruirOrdenFichasDominov1Local();
+                this.DebugLog("AplicarOrdenFichas:dominov1RiggedLocal", {
+                    localSeat: this.LocalSeat
+                });
+                return;
             }
             if (this.Multijugador === false && DificultadLocal === "ultra") {
                 for (var r = 0; r < this.Ficha.length; r++) {
@@ -1718,15 +1930,7 @@ var Domino_Partida = function() {
         }
 
         if (this.Pasado === 4) {
-            var MejorJugador = 0;
-            var MenorPuntuacion = this.ContarPuntos(0);
-            for (var j = 1; j < 4; j++) {
-                var Puntos = this.ContarPuntos(j);
-                if (Puntos < MenorPuntuacion) {
-                    MenorPuntuacion = Puntos;
-                    MejorJugador = j;
-                }
-            }
+            var MejorJugador = this.ResolverGanadorBloqueo();
             this.MostrarMensaje(MejorJugador,
                 "<span>" + this.Opciones.NombreJugador[MejorJugador] + "</span>" +
                 "<span data-idioma-en=' wins by block' data-idioma-cat=' guanya per bloqueig' data-idioma-es=' gana por bloqueo'></span>", "verde");
@@ -1821,6 +2025,47 @@ var Domino_Partida = function() {
             }
         }
         return Total;
+    };
+
+    this.ContarPuntosEquipo = function(Jugador) {
+        if (typeof(Jugador) !== "number" || Jugador < 0 || Jugador > 3) return 0;
+        var SeatBase = (Jugador % 2 === 0) ? 0 : 1;
+        return this.ContarPuntos(SeatBase) + this.ContarPuntos(SeatBase + 2);
+    };
+
+    this.ObtenerSeatBotGanadorDominov1 = function() {
+        var SeatsBots = [1, 2, 3];
+        var MejorSeat = 1;
+        var MejorPuntaje = Number.POSITIVE_INFINITY;
+        for (var i = 0; i < SeatsBots.length; i++) {
+            var Seat = SeatsBots[i];
+            var Puntos = this.ContarPuntos(Seat);
+            if (Puntos < MejorPuntaje) {
+                MejorPuntaje = Puntos;
+                MejorSeat = Seat;
+            }
+        }
+        return MejorSeat;
+    };
+
+    this.ResolverGanadorBloqueo = function() {
+        var PuntosEquipoPar = this.ContarPuntosEquipo(0);
+        var PuntosEquipoImpar = this.ContarPuntosEquipo(1);
+        var Dificultad = this.ObtenerDificultadBotLocal();
+        var EquipoGanador = 0;
+        if (this.Multijugador === false && Dificultad === "dominov1") {
+            return this.ObtenerSeatBotGanadorDominov1();
+        }
+        else if (PuntosEquipoImpar < PuntosEquipoPar) {
+            EquipoGanador = 1;
+        }
+        else if (PuntosEquipoImpar === PuntosEquipoPar && this.Multijugador === false && Dificultad === "ultra") {
+            EquipoGanador = 1;
+        }
+
+        var SeatA = EquipoGanador;
+        var SeatB = EquipoGanador + 2;
+        return (this.ContarPuntos(SeatA) <= this.ContarPuntos(SeatB)) ? SeatA : SeatB;
     };
 
     this.MostrarMensaje = function(Jugador, Texto, ColFondo) {

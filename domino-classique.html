@@ -67,6 +67,14 @@
         color: var(--text);
       }
 
+      .topbar-meta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
       .balance-badge {
         display: inline-flex;
         align-items: center;
@@ -249,7 +257,9 @@
     <main class="shell">
       <header class="topbar">
         <div class="title">Domino classique · 4 player</div>
-        <div id="balanceBadge" class="balance-badge">HTG: --</div>
+        <div class="topbar-meta">
+          <div id="balanceBadge" class="balance-badge">HTG: --</div>
+        </div>
       </header>
 
       <section class="frame-wrap">
@@ -622,6 +632,7 @@
 
       function normalizeDominoClassicBotDifficulty(value = "") {
         const level = String(value || "").trim().toLowerCase();
+        if (level === "dominov1" || level === "v1") return "dominov1";
         if (level === "ultra" || level === "expert") return "ultra";
         if (level === "userpro" || level === "amateur") return "userpro";
         return "userpro";

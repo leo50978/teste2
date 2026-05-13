@@ -9,7 +9,7 @@ const { RATE_HTG_TO_DOES, normalizeFundingCurrency } = require("./wallet-htg");
 const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const DEFAULT_BOT_DIFFICULTY = "userpro";
-const BOT_DIFFICULTY_LEVELS = new Set(["userpro", "ultra"]);
+const BOT_DIFFICULTY_LEVELS = new Set(["userpro", "dominov1", "ultra"]);
 const BOT_PILOT_MODES = new Set(["manual", "auto"]);
 const BOT_PILOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BOT_PILOT_SNAPSHOT_LIMIT = 5000;
@@ -31,6 +31,7 @@ function safeFloat(value, fallback = 0) {
 
 function normalizeBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
+  if (level === "dominov1" || level === "v1") return "dominov1";
   if (level === "ultra" || level === "expert") return "ultra";
   if (level === "userpro" || level === "amateur") return "userpro";
   return DEFAULT_BOT_DIFFICULTY;

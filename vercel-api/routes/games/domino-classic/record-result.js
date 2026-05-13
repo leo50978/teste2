@@ -108,11 +108,18 @@ module.exports = async function handler(req, res) {
         || payload.botDifficulty
         || "expert"
       );
+      const dominov1ThreeVsOne = botDifficulty === "dominov1";
+      const normalizedRequestedWinner = (
+        dominov1ThreeVsOne === true
+        && winnerSeat >= 0
+        && winnerSeat !== 0
+        && requestedWinner === "user"
+      ) ? "ai" : requestedWinner;
       const disconnectedTooLong = canSettleWager
         && wagerLastEventAtMs > 0
         && (nowMs - wagerLastEventAtMs) >= DOMINO_CLASSIC_DISCONNECT_FORFEIT_MS;
       const forcedLoss = FORCED_LOSS_REASONS.has(settleReason) || motif === "quit";
-      const resolvedWinner = (disconnectedTooLong || forcedLoss) ? "ai" : requestedWinner;
+      const resolvedWinner = (disconnectedTooLong || forcedLoss) ? "ai" : normalizedRequestedWinner;
       const resolvedSettleReason = disconnectedTooLong ? "disconnect_forfeit" : (settleReason || "match_end");
       const nextRecentOutcomes = [
         ...currentRecentOutcomes.slice(-(DOMINO_CLASSIC_RECENT_OUTCOMES_LIMIT - 1)),

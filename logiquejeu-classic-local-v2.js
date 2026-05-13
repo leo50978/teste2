@@ -24,9 +24,17 @@ let classicHudChromeHidden = false;
 
 function normalizeClassicBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
+  if (level === "dominov1" || level === "v1") return "dominov1";
   if (level === "ultra" || level === "expert") return "ultra";
   if (level === "userpro" || level === "amateur") return "userpro";
   return "userpro";
+}
+
+function getClassicOpponentHudLabel() {
+  const normalized = normalizeClassicBotDifficulty(requestedBotDifficulty || "userpro");
+  if (normalized === "dominov1") return "adves\u00E8 yo";
+  if (normalized === "ultra") return "3 advese yo";
+  return "3 adves\u00E8 yo";
 }
 
 function safeText(id, value) {
@@ -75,6 +83,9 @@ function postClassicShellMessage(type, payload = {}) {
 
 function isLocalTeamWinner(winnerSeat) {
   const safeWinnerSeat = Math.max(0, Math.trunc(Number(winnerSeat)));
+  if (normalizeClassicBotDifficulty(requestedBotDifficulty || "userpro") === "dominov1") {
+    return safeWinnerSeat === 0;
+  }
   return safeWinnerSeat % 2 === 0;
 }
 
@@ -111,7 +122,7 @@ function applyLocalHudMode(forceNew = false) {
   hideNode("OnlineUsersHud");
   hideNode("LeaveRoomTopBtn");
   hideNode("FullscreenHint");
-  safeText("LocalTurnLabel", "3 advesè yo");
+  safeText("LocalTurnLabel", getClassicOpponentHudLabel());
   safeHtml(
     "LocalTurnValue",
     identity.botNames

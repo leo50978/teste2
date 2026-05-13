@@ -350,7 +350,12 @@ var Domino_UI = function() {
         if (window.Domino && window.Domino.Partida && typeof(window.Domino.Partida.LocalSeat) === "number") {
             var LocalSeat = window.Domino.Partida.LocalSeat;
             var IsSoloClassic = (window.Domino.Partida.Multijugador !== true);
-            IsLocalWinner = (LocalSeat === WinnerSeat || (IsSoloClassic === true && (LocalSeat % 2) === (WinnerSeat % 2)));
+            if (typeof(window.Domino.Partida.EsSeatGanadorHumanoLocal) === "function") {
+                IsLocalWinner = (window.Domino.Partida.EsSeatGanadorHumanoLocal(WinnerSeat) === true);
+            }
+            else {
+                IsLocalWinner = (LocalSeat === WinnerSeat || (IsSoloClassic === true && (LocalSeat % 2) === (WinnerSeat % 2)));
+            }
         }
         var WinnerText = (IsLocalWinner === true)
             ? "Tu as gagné"
