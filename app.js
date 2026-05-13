@@ -166,7 +166,6 @@ let dominoDuelStakeModal = null;
 let dameStakeModal = null;
 let dameBlockedModal = null;
 let upcomingGameModal = null;
-let dominoClassicUnavailableModal = null;
 let deferredPwaInstallPrompt = null;
 let pwaInstallModalRefs = null;
 let pwaInstallModalTimer = null;
@@ -209,7 +208,7 @@ function ensureDominoModeModal() {
             <div class="min-w-0">
             <p class="text-sm text-[#1e2a23]">Ou chwazi mòd</p>
             </div>
-            <p class="shrink-0 text-xl font-black text-[#20b15a]" data-domino-mode-current-label>Domino 2 player</p>
+            <p class="shrink-0 text-xl font-black text-[#20b15a]" data-domino-mode-current-label>Domino 4 player</p>
           </div>
           <button type="button" class="mt-8 h-14 w-full rounded-[20px] bg-[#2cc460] text-lg font-black text-white shadow-[0_18px_30px_rgba(44,196,96,0.26)] transition hover:brightness-[1.03]" data-domino-mode-continue>Kontinye</button>
         </div>
@@ -228,7 +227,7 @@ function ensureDominoModeModal() {
     classic: "./domino-classique.html",
     duel: "./jeu-duel-v2.html",
   };
-  let selectedMode = "duel";
+  let selectedMode = "classic";
 
   const optionButtons = Array.from(overlay.querySelectorAll("[data-domino-mode-option]"));
   const currentLabel = overlay.querySelector("[data-domino-mode-current-label]");
@@ -258,13 +257,7 @@ function ensureDominoModeModal() {
   overlay.querySelector("[data-close-domino-mode]")?.addEventListener("click", close);
   optionButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      const optionMode = button.getAttribute("data-domino-mode-option") === "classic" ? "classic" : "duel";
-      if (optionMode === "classic") {
-        close();
-        ensureDominoClassicUnavailableModal().open();
-        return;
-      }
-      selectedMode = "duel";
+      selectedMode = button.getAttribute("data-domino-mode-option") === "duel" ? "duel" : "classic";
       renderSelectedMode();
     });
   });
@@ -275,7 +268,7 @@ function ensureDominoModeModal() {
       return;
     }
     close();
-    ensureDominoClassicUnavailableModal().open();
+    window.location.href = `${modeTargets.classic}?autostart=1`;
   });
   renderSelectedMode();
   dominoModeModal = {
@@ -288,88 +281,6 @@ function ensureDominoModeModal() {
   };
 
   return dominoModeModal;
-}
-
-function ensureDominoClassicUnavailableModal() {
-  if (dominoClassicUnavailableModal) return dominoClassicUnavailableModal;
-
-  const overlay = document.createElement("div");
-  overlay.className = "fixed inset-0 z-[4208] hidden items-center justify-center bg-black/55 px-4 py-6 backdrop-blur-sm";
-  overlay.setAttribute("data-kobposh-domino-classic-unavailable-modal", "");
-  overlay.innerHTML = `
-    <div class="w-full max-w-lg overflow-hidden rounded-[34px] border border-white/40 bg-[linear-gradient(180deg,rgba(255,252,247,0.985)_0%,rgba(245,250,246,0.97)_100%)] shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
-      <div class="border-b border-[#e7ece6] px-6 py-6 sm:px-8 sm:py-7">
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#6f7f76]">Domino 4 player</p>
-            <h2 class="mt-2 text-[28px] font-black leading-tight text-[#18212b]">Jwèt la indisponib pou kounye a</h2>
-            <p class="mt-3 text-sm leading-6 text-[#61706a]">
-              Domino classique gen kèk erè pou kounye a. Nou dezaktive li tanporèman pou evite move eksperyans pandan n ap fini ranje li.
-            </p>
-          </div>
-          <button type="button" class="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#dbe4dc] bg-white/90 text-slate-700 transition hover:bg-[#f6faf7]" data-close-domino-classic-unavailable aria-label="Femen">
-            <i data-lucide="x" class="icon" aria-hidden="true"></i>
-          </button>
-        </div>
-      </div>
-      <div class="px-6 py-6 sm:px-8 sm:py-7">
-        <div class="rounded-[26px] border border-[#dceadf] bg-[#f4fbf6] px-5 py-5">
-          <p class="text-base font-black text-[#1a6b3d]">Sa ou ka fè kounye a</p>
-          <p class="mt-2 text-sm leading-6 text-[#53635c]">
-            Si ou vle kontinye jwe domino sou Kobposh menm kounye a, peze sou bouton anba a pou louvri branch Domino 2 player la.
-          </p>
-        </div>
-        <div class="mt-6 grid gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            class="h-14 rounded-[18px] border border-[#dce5df] bg-white px-5 text-base font-black text-[#2d3a34] transition hover:bg-[#f7fbf8]"
-            data-close-domino-classic-unavailable
-          >
-            Fèmen
-          </button>
-          <button
-            type="button"
-            class="h-14 rounded-[18px] bg-[#1b6b3f] px-5 text-base font-black text-white shadow-[0_18px_32px_rgba(27,107,63,0.24)] transition hover:brightness-[1.03]"
-            data-open-domino-duel-from-unavailable
-          >
-            Jwe 2 player pito
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-  renderIconsSafely();
-
-  const close = () => {
-    overlay.classList.add("hidden");
-    overlay.classList.remove("flex");
-    document.body.classList.remove("modal-open");
-  };
-
-  overlay.addEventListener("click", (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    if (target === overlay || target?.closest("[data-close-domino-classic-unavailable]")) {
-      close();
-    }
-  });
-
-  overlay.querySelector("[data-open-domino-duel-from-unavailable]")?.addEventListener("click", () => {
-    close();
-    ensureDominoDuelStakeModal().open();
-  });
-
-  dominoClassicUnavailableModal = {
-    open() {
-      overlay.classList.remove("hidden");
-      overlay.classList.add("flex");
-      document.body.classList.add("modal-open");
-    },
-    close,
-  };
-
-  return dominoClassicUnavailableModal;
 }
 
 function ensureDominoDuelStakeModal() {
