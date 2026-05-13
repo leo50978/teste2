@@ -7,6 +7,7 @@ const { safeInt, safeSignedInt } = require("./safe");
 const CLIENTS_COLLECTION = "clients";
 const ROOMS_COLLECTION = "rooms";
 const ROOM_RESULTS_COLLECTION = "roomResults";
+const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const DUEL_ROOM_RESULTS_COLLECTION = "duelRoomResults";
 const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
 const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
@@ -56,6 +57,66 @@ const presenceWeekdayFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: PRESENCE_ANALYTICS_TIMEZONE,
   weekday: "short",
 });
+
+const gamesAnalyticsDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: PRESENCE_ANALYTICS_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+function getGamesAnalyticsLocalParts(nowMs = Date.now()) {
+  const parts = gamesAnalyticsDateTimeFormatter.formatToParts(new Date(nowMs));
+  const values = {};
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  });
+  return {
+    year: safeSignedInt(values.year),
+    month: safeSignedInt(values.month),
+    day: safeSignedInt(values.day),
+    hour: String(values.hour || "00") === "24" ? 0 : safeSignedInt(values.hour),
+    minute: safeSignedInt(values.minute),
+    second: safeSignedInt(values.second),
+  };
+}
+
+function getGamesAnalyticsZonedTimestamp(parts = {}, hour = 0, minute = 0, second = 0, millisecond = 0) {
+  const year = safeSignedInt(parts.year);
+  const month = safeSignedInt(parts.month);
+  const day = safeSignedInt(parts.day);
+  if (year <= 0 || month <= 0 || day <= 0) return 0;
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const observed = getGamesAnalyticsLocalParts(utcGuess);
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute, second, millisecond);
+  const observedAsUtc = Date.UTC(
+    safeSignedInt(observed.year),
+    Math.max(0, safeSignedInt(observed.month) - 1),
+    safeSignedInt(observed.day),
+    safeSignedInt(observed.hour),
+    safeSignedInt(observed.minute),
+    safeSignedInt(observed.second),
+    millisecond
+  );
+  return utcGuess + (targetAsUtc - observedAsUtc);
+}
+
+function getGamesAnalyticsShiftedDayParts(nowMs = Date.now(), deltaDays = 0) {
+  const current = getGamesAnalyticsLocalParts(nowMs);
+  const shiftedUtc = Date.UTC(current.year, Math.max(0, current.month - 1), current.day + safeSignedInt(deltaDays), 12, 0, 0, 0);
+  const shifted = new Date(shiftedUtc);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
 
 function analyticsMetaRef(docId = "") {
   return db.collection(ANALYTICS_META_COLLECTION).doc(String(docId || "").trim());
@@ -534,17 +595,21 @@ async function getAggregationCount(query) {
 }
 
 async function fetchClientSignupRowsForRange(startMs = 0, endMs = 0) {
+  const startAt = new Date(Math.max(0, safeSignedInt(startMs)));
+  const endAt = new Date(Math.max(0, safeSignedInt(endMs)));
   const rows = [];
   let lastDoc = null;
   let truncated = false;
 
   while (rows.length < ACQUISITION_DOC_LIMIT) {
     let query = db.collection(CLIENTS_COLLECTION)
-      .where("createdAtMs", ">=", startMs)
-      .where("createdAtMs", "<=", endMs)
-      .orderBy("createdAtMs", "asc")
+      .where("createdAt", ">=", startAt)
+      .where("createdAt", "<=", endAt)
+      .orderBy("createdAt", "asc")
       .select(
+        "createdAt",
         "createdAtMs",
+        "lastSeenAt",
         "lastSeenAtMs",
         "hasApprovedDeposit",
         "welcomeBonusClaimed",
@@ -569,9 +634,9 @@ async function fetchClientSignupRowsForRange(startMs = 0, endMs = 0) {
 
   if (lastDoc) {
     const moreSnap = await db.collection(CLIENTS_COLLECTION)
-      .where("createdAtMs", ">=", startMs)
-      .where("createdAtMs", "<=", endMs)
-      .orderBy("createdAtMs", "asc")
+      .where("createdAt", ">=", startAt)
+      .where("createdAt", "<=", endAt)
+      .orderBy("createdAt", "asc")
       .startAfter(lastDoc)
       .limit(1)
       .get();
@@ -585,6 +650,7 @@ async function computeClientAcquisitionSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = normalizeAcquisitionRange(options, nowMs);
   const activeCutoffMs = Math.max(0, range.endMs - ACQUISITION_ACTIVE_LOOKBACK_MS);
+  const rangeStartAt = new Date(range.startMs);
   const clientsCollection = db.collection(CLIENTS_COLLECTION);
 
   const [
@@ -596,7 +662,7 @@ async function computeClientAcquisitionSnapshot(options = {}) {
     signupRowsResult,
   ] = await Promise.all([
     getAggregationCount(clientsCollection),
-    getAggregationCount(clientsCollection.where("createdAtMs", "<", range.startMs)),
+    getAggregationCount(clientsCollection.where("createdAt", "<", rangeStartAt)),
     getAggregationCount(
       clientsCollection
         .where("lastSeenAtMs", ">=", activeCutoffMs)
@@ -1394,17 +1460,17 @@ function normalizeDuelAnalyticsWindow(value = "") {
 
 function getDuelAnalyticsDayKey(ms = 0) {
   if (!ms) return "";
-  const date = new Date(ms);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  const parts = getGamesAnalyticsLocalParts(ms);
+  const year = String(parts.year || 0);
+  const month = String(parts.month || 0).padStart(2, "0");
+  const day = String(parts.day || 0).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 function getDuelAnalyticsHourKey(ms = 0) {
   if (!ms) return "";
-  const date = new Date(ms);
-  const hour = String(date.getHours()).padStart(2, "0");
+  const parts = getGamesAnalyticsLocalParts(ms);
+  const hour = String(parts.hour || 0).padStart(2, "0");
   return `${getDuelAnalyticsDayKey(ms)} ${hour}:00`;
 }
 
@@ -1414,16 +1480,17 @@ function getDuelAnalyticsBucketKey(granularity = "day", ms = 0) {
 
 function getDuelAnalyticsBucketLabel(granularity = "day", ms = 0) {
   if (!ms) return "-";
-  const date = new Date(ms);
   if (granularity === "hour") {
-    return date.toLocaleString("fr-FR", {
+    return new Date(ms).toLocaleString("fr-FR", {
+      timeZone: PRESENCE_ANALYTICS_TIMEZONE,
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  return date.toLocaleDateString("fr-FR", {
+  return new Date(ms).toLocaleDateString("fr-FR", {
+    timeZone: PRESENCE_ANALYTICS_TIMEZONE,
     day: "2-digit",
     month: "short",
   });
@@ -1444,18 +1511,32 @@ function getDuelAnalyticsRange(options = {}, nowMs = Date.now()) {
   }
 
   const windowKey = normalizeDuelAnalyticsWindow(options.window || "30d");
-  const now = new Date(nowMs);
-  const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayParts = getGamesAnalyticsShiftedDayParts(nowMs, 0);
+  const todayStartMs = getGamesAnalyticsZonedTimestamp(todayParts, 0, 0, 0, 0);
   if (windowKey === "today") {
-    return { windowKey, startMs: todayStartMs, endMs: nowMs, granularity: "hour", isGlobal: false };
+    return { windowKey, startMs: todayStartMs, endMs: nowMs, granularity: "hour", isGlobal: false, timezone: PRESENCE_ANALYTICS_TIMEZONE };
   }
   if (windowKey === "7d") {
-    return { windowKey, startMs: todayStartMs - (6 * 24 * 60 * 60 * 1000), endMs: nowMs, granularity: "day", isGlobal: false };
+    return {
+      windowKey,
+      startMs: getGamesAnalyticsZonedTimestamp(getGamesAnalyticsShiftedDayParts(nowMs, -6), 0, 0, 0, 0),
+      endMs: nowMs,
+      granularity: "day",
+      isGlobal: false,
+      timezone: PRESENCE_ANALYTICS_TIMEZONE,
+    };
   }
   if (windowKey === "30d") {
-    return { windowKey, startMs: todayStartMs - (29 * 24 * 60 * 60 * 1000), endMs: nowMs, granularity: "day", isGlobal: false };
+    return {
+      windowKey,
+      startMs: getGamesAnalyticsZonedTimestamp(getGamesAnalyticsShiftedDayParts(nowMs, -29), 0, 0, 0, 0),
+      endMs: nowMs,
+      granularity: "day",
+      isGlobal: false,
+      timezone: PRESENCE_ANALYTICS_TIMEZONE,
+    };
   }
-  return { windowKey: "global", startMs: 0, endMs: nowMs, granularity: "day", isGlobal: true };
+  return { windowKey: "global", startMs: 0, endMs: nowMs, granularity: "day", isGlobal: true, timezone: PRESENCE_ANALYTICS_TIMEZONE };
 }
 
 function normalizeGlobalAnalyticsWindow(value = "") {
@@ -1480,32 +1561,47 @@ function getTimelineAnalyticsRange(options = {}, nowMs = Date.now()) {
   }
 
   const windowKey = normalizeGlobalAnalyticsWindow(options.window || "today");
-  const now = new Date(nowMs);
-  const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const todayParts = getGamesAnalyticsShiftedDayParts(nowMs, 0);
+  const todayStartMs = getGamesAnalyticsZonedTimestamp(todayParts, 0, 0, 0, 0);
   if (windowKey === "today") {
-    return { windowKey, startMs: todayStartMs, endMs: nowMs, granularity: "hour", isGlobal: false };
+    return { windowKey, startMs: todayStartMs, endMs: nowMs, granularity: "hour", isGlobal: false, timezone: PRESENCE_ANALYTICS_TIMEZONE };
   }
   if (windowKey === "7d") {
-    return { windowKey, startMs: todayStartMs - (6 * 24 * 60 * 60 * 1000), endMs: nowMs, granularity: "day", isGlobal: false };
+    return {
+      windowKey,
+      startMs: getGamesAnalyticsZonedTimestamp(getGamesAnalyticsShiftedDayParts(nowMs, -6), 0, 0, 0, 0),
+      endMs: nowMs,
+      granularity: "day",
+      isGlobal: false,
+      timezone: PRESENCE_ANALYTICS_TIMEZONE,
+    };
   }
   if (windowKey === "30d") {
-    return { windowKey, startMs: todayStartMs - (29 * 24 * 60 * 60 * 1000), endMs: nowMs, granularity: "day", isGlobal: false };
+    return {
+      windowKey,
+      startMs: getGamesAnalyticsZonedTimestamp(getGamesAnalyticsShiftedDayParts(nowMs, -29), 0, 0, 0, 0),
+      endMs: nowMs,
+      granularity: "day",
+      isGlobal: false,
+      timezone: PRESENCE_ANALYTICS_TIMEZONE,
+    };
   }
-  return { windowKey: "global", startMs: 0, endMs: nowMs, granularity: "day", isGlobal: true };
+  return { windowKey: "global", startMs: 0, endMs: nowMs, granularity: "day", isGlobal: true, timezone: PRESENCE_ANALYTICS_TIMEZONE };
 }
 
 function formatTimelineBucketLabel(granularity = "day", ms = 0) {
   if (!ms) return "-";
-  const date = new Date(ms);
   if (granularity === "hour") {
-    return date.toLocaleString("fr-FR", {
+    return new Date(ms).toLocaleString("fr-FR", {
+      timeZone: PRESENCE_ANALYTICS_TIMEZONE,
       day: "2-digit",
       month: "short",
       hour: "2-digit",
       minute: "2-digit",
     });
   }
-  return date.toLocaleDateString("fr-FR", {
+  return new Date(ms).toLocaleDateString("fr-FR", {
+    timeZone: PRESENCE_ANALYTICS_TIMEZONE,
     day: "2-digit",
     month: "short",
   });
@@ -1549,7 +1645,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = getTimelineAnalyticsRange(options, nowMs);
 
-  let classicQuery = db.collection(ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
+  let classicQuery = db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let duelQuery = db.collection(DUEL_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let morpionQuery = db.collection(MORPION_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let dameQuery = db.collection(DAME_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
@@ -1571,7 +1667,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
   }
 
   const [classicSnap, duelSnap, morpionSnap, dameSnap, pongSnap] = await Promise.all([
-    safeAnalyticsQueryGet(classicQuery, db.collection(ROOM_RESULTS_COLLECTION), "classicRoomResults"),
+    safeAnalyticsQueryGet(classicQuery, db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION), "dominoClassicMatchResults"),
     safeAnalyticsQueryGet(duelQuery, db.collection(DUEL_ROOM_RESULTS_COLLECTION), "duelRoomResults"),
     safeAnalyticsQueryGet(morpionQuery, db.collection(MORPION_ROOM_RESULTS_COLLECTION), "morpionRoomResults"),
     safeAnalyticsQueryGet(dameQuery, db.collection(DAME_ROOM_RESULTS_COLLECTION), "dameRoomResults"),

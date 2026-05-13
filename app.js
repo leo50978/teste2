@@ -207,9 +207,9 @@ function ensureDominoModeModal() {
           </div>
           <div class="mt-5 flex items-center justify-between gap-4 rounded-[22px] border border-[#dbeedf] bg-[#eef8f0] px-4 py-5">
             <div class="min-w-0">
-              <p class="text-sm text-[#1e2a23]">Ou chwazi mòd</p>
+            <p class="text-sm text-[#1e2a23]">Ou chwazi mòd</p>
             </div>
-            <p class="shrink-0 text-xl font-black text-[#20b15a]" data-domino-mode-current-label>Domino 4 player</p>
+            <p class="shrink-0 text-xl font-black text-[#20b15a]" data-domino-mode-current-label>Domino 2 player</p>
           </div>
           <button type="button" class="mt-8 h-14 w-full rounded-[20px] bg-[#2cc460] text-lg font-black text-white shadow-[0_18px_30px_rgba(44,196,96,0.26)] transition hover:brightness-[1.03]" data-domino-mode-continue>Kontinye</button>
         </div>
@@ -228,7 +228,7 @@ function ensureDominoModeModal() {
     classic: "./domino-classique.html",
     duel: "./jeu-duel-v2.html",
   };
-  let selectedMode = "classic";
+  let selectedMode = "duel";
 
   const optionButtons = Array.from(overlay.querySelectorAll("[data-domino-mode-option]"));
   const currentLabel = overlay.querySelector("[data-domino-mode-current-label]");
@@ -236,7 +236,8 @@ function ensureDominoModeModal() {
 
   const renderSelectedMode = () => {
     optionButtons.forEach((button) => {
-      const isActive = button.getAttribute("data-domino-mode-option") === selectedMode;
+      const optionMode = button.getAttribute("data-domino-mode-option") === "classic" ? "classic" : "duel";
+      const isActive = optionMode === selectedMode;
       button.className = isActive
         ? "rounded-full border border-[#9ce2b3] bg-[#e7f7eb] px-5 py-4 text-center text-base font-black text-[#1fb35a] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition"
         : "rounded-full border border-[#d9eadf] bg-white px-5 py-4 text-center text-base font-black text-[#1fb35a] transition hover:bg-[#f7fcf8]";
@@ -257,7 +258,13 @@ function ensureDominoModeModal() {
   overlay.querySelector("[data-close-domino-mode]")?.addEventListener("click", close);
   optionButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      selectedMode = button.getAttribute("data-domino-mode-option") === "duel" ? "duel" : "classic";
+      const optionMode = button.getAttribute("data-domino-mode-option") === "classic" ? "classic" : "duel";
+      if (optionMode === "classic") {
+        close();
+        ensureDominoClassicUnavailableModal().open();
+        return;
+      }
+      selectedMode = "duel";
       renderSelectedMode();
     });
   });
@@ -268,7 +275,7 @@ function ensureDominoModeModal() {
       return;
     }
     close();
-    window.location.href = `${modeTargets.classic}?autostart=1`;
+    ensureDominoClassicUnavailableModal().open();
   });
   renderSelectedMode();
   dominoModeModal = {
@@ -295,9 +302,9 @@ function ensureDominoClassicUnavailableModal() {
         <div class="flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#6f7f76]">Domino 4 player</p>
-            <h2 class="mt-2 text-[28px] font-black leading-tight text-[#18212b]">Jwèt la pa disponib</h2>
+            <h2 class="mt-2 text-[28px] font-black leading-tight text-[#18212b]">Jwèt la indisponib pou kounye a</h2>
             <p class="mt-3 text-sm leading-6 text-[#61706a]">
-              Branch sa a gen kèk erè pou kounye a. Nou dezaktive li tanporèman pou evite move eksperyans pandan n ap fini ranje li.
+              Domino classique gen kèk erè pou kounye a. Nou dezaktive li tanporèman pou evite move eksperyans pandan n ap fini ranje li.
             </p>
           </div>
           <button type="button" class="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-[#dbe4dc] bg-white/90 text-slate-700 transition hover:bg-[#f6faf7]" data-close-domino-classic-unavailable aria-label="Femen">
