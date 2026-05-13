@@ -7,10 +7,7 @@ const {
   sendJson,
   sendMethodNotAllowed,
 } = require("../../../lib/http");
-const {
-  APP_PUBLIC_SETTINGS_DOC,
-  normalizePublicAppSettings,
-} = require("../../../lib/payment-options");
+const { readPublicAppSettings } = require("../../../lib/public-config");
 const {
   assertAllowedDominoClassicStake,
   assertAllowedGameVariant,
@@ -48,10 +45,17 @@ module.exports = async function handler(req, res) {
     }
 
     const gameVariant = assertAllowedGameVariant(payload.gameVariant);
-    const settingsSnap = await db.collection("settings").doc(APP_PUBLIC_SETTINGS_DOC).get();
-    const settings = settingsSnap.exists
-      ? normalizePublicAppSettings(settingsSnap.data() || {})
-      : normalizePublicAppSettings();
+    const settings = await readPublicAppSettings();
+    if (settings.dominoClassicEnabled === false) {
+      throw normalizeError({
+        httpStatus: 503,
+        code: "domino-classic-disabled",
+        message: "Jwet Domino 4 player la pa disponib pou kounye a.",
+        details: {
+          gameKey: "dominoClassic",
+        },
+      });
+    }
     const { rewardDoes, stakeHtg, rewardHtg } = assertAllowedDominoClassicStake(stakeDoes, settings.gameStakeOptions);
     const configuredBotDifficulty = await getConfiguredDominoClassicBotDifficulty();
 

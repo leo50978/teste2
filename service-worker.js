@@ -3,7 +3,7 @@ const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js?v=20260513-domino-classic-reopen1",
+  "/app.js?v=20260513-game-availability1",
   "/site.webmanifest",
   "/apple-touch-icon.png",
   "/favicon-96x96.png",

@@ -23,7 +23,11 @@ import {
 } from "./home-hero-config.js";
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
-import { getDepositFundingStatusSecure, getMyGameHistorySecure } from "./secure-functions.js";
+import {
+  getDepositFundingStatusSecure,
+  getMyGameHistorySecure,
+  getPublicRuntimeConfigSecure,
+} from "./secure-functions.js";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -175,6 +179,155 @@ const UPCOMING_GAME_LABELS = {
   ludo: "Ludo",
   chess: "Echec",
 };
+const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
+const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
+  pongEnabled: true,
+  dominoClassicEnabled: true,
+});
+
+let publicGameAvailabilityCache = { ...DEFAULT_PUBLIC_GAME_AVAILABILITY };
+let publicGameAvailabilityUpdatedAtMs = 0;
+let publicGameAvailabilityPromise = null;
+let gameUnavailableModal = null;
+
+function normalizePublicGameAvailability(raw = {}) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  return {
+    pongEnabled: source.pongEnabled !== false,
+    dominoClassicEnabled: source.dominoClassicEnabled !== false,
+  };
+}
+
+async function readPublicGameAvailability(force = false) {
+  const nowMs = Date.now();
+  const shouldUseCache =
+    !force
+    && publicGameAvailabilityUpdatedAtMs > 0
+    && (nowMs - publicGameAvailabilityUpdatedAtMs) < PUBLIC_GAME_AVAILABILITY_TTL_MS;
+  if (shouldUseCache) {
+    return { ...publicGameAvailabilityCache };
+  }
+  if (publicGameAvailabilityPromise) {
+    return publicGameAvailabilityPromise;
+  }
+
+  publicGameAvailabilityPromise = (async () => {
+    try {
+      const payload = await getPublicRuntimeConfigSecure();
+      publicGameAvailabilityCache = normalizePublicGameAvailability(payload);
+      publicGameAvailabilityUpdatedAtMs = Date.now();
+    } catch (error) {
+      console.warn("[KOBPOSH_V2] public game availability refresh failed", error);
+      if (!publicGameAvailabilityCache || typeof publicGameAvailabilityCache !== "object") {
+        publicGameAvailabilityCache = { ...DEFAULT_PUBLIC_GAME_AVAILABILITY };
+      }
+    } finally {
+      publicGameAvailabilityPromise = null;
+    }
+    return { ...publicGameAvailabilityCache };
+  })();
+
+  return publicGameAvailabilityPromise;
+}
+
+function getGameAvailabilityLabel(gameKey = "") {
+  const normalizedKey = String(gameKey || "").trim().toLowerCase();
+  if (normalizedKey === "pong") return "Pong";
+  if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
+  return "Jwet sa a";
+}
+
+function ensureGameUnavailableModal() {
+  if (gameUnavailableModal) return gameUnavailableModal;
+
+  gameUnavailableModal = document.createElement("section");
+  gameUnavailableModal.className = "kobposh-forgot-modal";
+  gameUnavailableModal.setAttribute("aria-hidden", "true");
+  gameUnavailableModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhGameUnavailableTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-game-unavailable-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">JWET PA DISPONIB</p>
+      <h2 id="kobposhGameUnavailableTitle" class="kobposh-forgot-modal__title" data-kobposh-game-unavailable-title>Jwet sa a pa disponib pou kounye a</h2>
+      <p class="kobposh-forgot-modal__text" data-kobposh-game-unavailable-text>
+        Tanpri tounen pita. Nou femen jwet sa a tanporèman pandan nap travay sou li.
+      </p>
+      <button class="kobposh-forgot-modal__action" type="button" data-kobposh-game-unavailable-close>
+        Mwen konprann
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(gameUnavailableModal);
+  renderIconsSafely();
+
+  gameUnavailableModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target === gameUnavailableModal || target?.closest("[data-kobposh-game-unavailable-close]")) {
+      closeGameUnavailableModal();
+    }
+  });
+
+  return gameUnavailableModal;
+}
+
+function openGameUnavailableModal(gameKey = "") {
+  const modal = ensureGameUnavailableModal();
+  const label = getGameAvailabilityLabel(gameKey);
+  const titleEl = modal.querySelector("[data-kobposh-game-unavailable-title]");
+  const textEl = modal.querySelector("[data-kobposh-game-unavailable-text]");
+
+  if (titleEl) {
+    titleEl.textContent = `${label} pa disponib pou kounye a`;
+  }
+  if (textEl) {
+    textEl.textContent = `Nou femen ${label} tanporèman. Tanpri tounen pita pou eseye anko.`;
+  }
+
+  closeGamesModal();
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.remove("modal-open");
+  document.body.classList.add("is-modal-open");
+}
+
+function closeGameUnavailableModal() {
+  if (!gameUnavailableModal) return;
+  gameUnavailableModal.classList.remove("is-open");
+  gameUnavailableModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-modal-open");
+}
+
+async function canLaunchPublicGame(gameKey = "") {
+  const availability = await readPublicGameAvailability(true);
+  const normalizedKey = String(gameKey || "").trim().toLowerCase();
+  const isEnabled = normalizedKey === "pong"
+    ? availability.pongEnabled !== false
+    : availability.dominoClassicEnabled !== false;
+
+  if (!isEnabled) {
+    openGameUnavailableModal(normalizedKey);
+    return false;
+  }
+  return true;
+}
+
+async function launchPongEntry() {
+  if (!auth.currentUser) {
+    openAuthScreen("login");
+    return;
+  }
+  const canLaunch = await canLaunchPublicGame("pong");
+  if (!canLaunch) return;
+  window.location.href = "./pong.html?fundingCurrency=htg";
+}
+
+async function launchDominoClassicEntry() {
+  const canLaunch = await canLaunchPublicGame("dominoClassic");
+  if (!canLaunch) return;
+  window.location.href = "./domino-classique.html?autostart=1";
+}
 
 function ensureDominoModeModal() {
   if (dominoModeModal) return dominoModeModal;
@@ -223,10 +376,6 @@ function ensureDominoModeModal() {
     classic: "Domino 4 player",
     duel: "Domino 2 player",
   };
-  const modeTargets = {
-    classic: "./domino-classique.html",
-    duel: "./jeu-duel-v2.html",
-  };
   let selectedMode = "classic";
 
   const optionButtons = Array.from(overlay.querySelectorAll("[data-domino-mode-option]"));
@@ -261,14 +410,14 @@ function ensureDominoModeModal() {
       renderSelectedMode();
     });
   });
-  continueBtn?.addEventListener("click", () => {
+  continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
       ensureDominoDuelStakeModal().open();
       return;
     }
     close();
-    window.location.href = `${modeTargets.classic}?autostart=1`;
+    await launchDominoClassicEntry();
   });
   renderSelectedMode();
   dominoModeModal = {
@@ -1690,8 +1839,8 @@ function getSupportTopicActionConfig(topicKey = "") {
     case "pong":
       return {
         label: "Ouvri Pong",
-        type: "navigate",
-        href: "./pong.html?fundingCurrency=htg",
+        type: "callback",
+        run: () => launchPongEntry(),
       };
     case "transfer":
       return {
@@ -3676,7 +3825,7 @@ if (transferFriendBtn && transferFriendBtn.dataset.bound !== "1") {
 }
 
 document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const game = String(button.dataset.kobposhLaunchGame || "").trim();
     if (game === "domino") {
       const modal = ensureDominoModeModal();
@@ -3692,11 +3841,7 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       return;
     }
     if (game === "pong") {
-      if (!auth.currentUser) {
-        openAuthScreen("login");
-        return;
-      }
-      window.location.href = "./pong.html?fundingCurrency=htg";
+      await launchPongEntry();
       return;
     }
     if (game === "dame") {

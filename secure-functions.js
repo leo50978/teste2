@@ -260,6 +260,54 @@ export async function getPublicHomeHeroConfigSecure(payload = {}) {
   return invokeCallable("getPublicHomeHeroConfigSecure", payload, fallbackError);
 }
 
+export async function getPublicRuntimeConfigSecure(payload = {}) {
+  const fallbackError = "Impossible de charger la configuration publique.";
+  let backendData = null;
+
+  if (getConfiguredApiBaseUrl()) {
+    try {
+      backendData = await invokeBackendHttp("/api/public/runtime-config", {
+        payload,
+        fallbackError,
+        method: "GET",
+      });
+    } catch (_) {
+      backendData = null;
+    }
+  }
+
+  if (!backendData) {
+    try {
+      const settingsSnap = await getDoc(doc(db, "settings", "public_app_settings"));
+      const settings = settingsSnap.exists() ? (settingsSnap.data() || {}) : {};
+      backendData = {
+        ok: true,
+        appCheckSiteKey: String(settings.appCheckSiteKey || ""),
+        appCheckConfigured: !!String(settings.appCheckSiteKey || "").trim(),
+        provisionalDepositsEnabled: settings.provisionalDepositsEnabled === true,
+        pongEnabled: settings.pongEnabled !== false,
+        dominoClassicEnabled: settings.dominoClassicEnabled !== false,
+      };
+    } catch (_) {
+      backendData = {
+        ok: false,
+        appCheckSiteKey: "",
+        appCheckConfigured: false,
+        provisionalDepositsEnabled: false,
+        pongEnabled: true,
+        dominoClassicEnabled: true,
+      };
+    }
+  }
+
+  return {
+    ...backendData,
+    provisionalDepositsEnabled: backendData?.provisionalDepositsEnabled === true,
+    pongEnabled: backendData?.pongEnabled !== false,
+    dominoClassicEnabled: backendData?.dominoClassicEnabled !== false,
+  };
+}
+
 export async function claimWelcomeBonusSecure(payload = {}) {
   const fallbackError = "Impossible de reclamer le bonus de bienvenue.";
   if (getConfiguredApiBaseUrl()) {

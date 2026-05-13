@@ -56,6 +56,8 @@ function normalizePublicAppSettings(rawData = {}) {
     gameStakeOptions: normalizeGameStakeOptions(rawData.gameStakeOptions),
     appCheckSiteKey: sanitizeText(rawData.appCheckSiteKey || "", 256),
     provisionalDepositsEnabled: rawData.provisionalDepositsEnabled === true,
+    pongEnabled: rawData.pongEnabled !== false,
+    dominoClassicEnabled: rawData.dominoClassicEnabled !== false,
   };
 }
 

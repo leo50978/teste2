@@ -20,6 +20,7 @@ const {
   getConfiguredPongAiProfile,
   readActivePongWagerStatus,
 } = require("../../../lib/pong");
+const { readPublicAppSettings } = require("../../../lib/public-config");
 const { safeInt, sanitizeText } = require("../../../lib/safe");
 const { applyHtgStakeDebit, readApprovedHtg, readProvisionalHtg } = require("../../../lib/wallet-htg");
 
@@ -37,6 +38,13 @@ module.exports = async function handler(req, res) {
     const payload = await parseJsonBody(req);
     const stakeDoes = safeInt(payload.stakeDoes);
     const fundingRequest = resolveGameEntryFundingRequest(payload, stakeDoes, "htg");
+    const publicSettings = await readPublicAppSettings();
+
+    if (publicSettings.pongEnabled === false) {
+      throw makeHttpError(503, "pong-disabled", "Jwet Pong la pa disponib pou kounye a.", {
+        gameKey: "pong",
+      });
+    }
 
     if (!PONG_ALLOWED_STAKES.has(stakeDoes)) {
       throw makeHttpError(400, "pong-stake-not-allowed", "Mise Pong non autorisee.");
