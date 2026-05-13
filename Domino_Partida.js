@@ -43,6 +43,8 @@ var Domino_Partida = function() {
     this.RetrasoRepartoAnimacionInicio = 46;
     this.ViajeRepartoAnimacionInicio = 310;
     this.DuracionTurnoHumanoLocalMs = 30000;
+    this.Dominov1SolverRuntimeContext = null;
+    this.Dominov1SolverLastProof = null;
 
     this.Opciones = new Domino_Opciones;
 
@@ -240,6 +242,482 @@ var Domino_Partida = function() {
         return Total;
     };
 
+    this.EnumerarPosibilidadesHipoteticasSeatBotLocal = function(Seat, ValorIzquierda, ValorDerecha, PosicionesUsadas) {
+        var Lista = [];
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (!this.Ficha[idx] || this.Ficha[idx].Colocada === true) continue;
+            if (PosicionesUsadas && PosicionesUsadas[idx] === true) continue;
+            var Valores = this.Ficha[idx].Valores;
+            var V0 = Valores[0];
+            var V1 = Valores[1];
+            if (V0 === ValorIzquierda || V1 === ValorIzquierda) {
+                Lista.push({
+                    Pos: idx,
+                    Rama: "izquierda",
+                    ValorIzquierda: (V0 === ValorIzquierda) ? V1 : V0,
+                    ValorDerecha: ValorDerecha
+                });
+            }
+            if (ValorDerecha !== ValorIzquierda && (V0 === ValorDerecha || V1 === ValorDerecha)) {
+                Lista.push({
+                    Pos: idx,
+                    Rama: "derecha",
+                    ValorIzquierda: ValorIzquierda,
+                    ValorDerecha: (V0 === ValorDerecha) ? V1 : V0
+                });
+            }
+        }
+        return Lista;
+    };
+
+    this.ObtenerCadenaCoalicionAntesHumanoDominov1Local = function(SeatActual) {
+        var Cadena = [];
+        var Seat = ((typeof(SeatActual) === "number" ? SeatActual : this.JugadorActual) + 1) % 4;
+        while (Seat !== this.LocalSeat) {
+            Cadena.push(Seat);
+            Seat = (Seat + 1) % 4;
+        }
+        return Cadena;
+    };
+
+    this.MedirAmenazaHumanaDominov1Local = function(ValorIzquierda, ValorDerecha, PosicionesUsadas) {
+        var HumanoSeat = this.LocalSeat;
+        var HumanTiles = this.ContarFichasRestantesSeatBotLocal(HumanoSeat, -1);
+        var HumanPips = this.ContarPipsRestantesSeatBotLocal(HumanoSeat, -1);
+        var HumanSupport = this.ContarSoporteValoresSeatBotLocal(HumanoSeat, -1, ValorIzquierda, ValorDerecha);
+        var HumanMoves = this.EnumerarPosibilidadesHipoteticasSeatBotLocal(HumanoSeat, ValorIzquierda, ValorDerecha, PosicionesUsadas);
+        var HumanWinningMoves = 0;
+        for (var i = 0; i < HumanMoves.length; i++) {
+            if (this.ContarFichasRestantesSeatBotLocal(HumanoSeat, HumanMoves[i].Pos) <= 0) {
+                HumanWinningMoves++;
+            }
+        }
+        return {
+            botWin: 0,
+            winningMoves: HumanWinningMoves,
+            options: HumanMoves.length,
+            support: HumanSupport,
+            tiles: HumanTiles,
+            pips: HumanPips,
+            threatSoon: (HumanTiles <= 2 && HumanMoves.length > 0) ? 1 : 0
+        };
+    };
+
+    this.CompararAmenazaHumanaDominov1Local = function(A, B) {
+        var AmenazaA = A || { };
+        var AmenazaB = B || { };
+        if ((AmenazaA.botWin || 0) !== (AmenazaB.botWin || 0)) {
+            return (AmenazaB.botWin || 0) - (AmenazaA.botWin || 0);
+        }
+        if ((AmenazaA.winningMoves || 0) !== (AmenazaB.winningMoves || 0)) {
+            return (AmenazaA.winningMoves || 0) - (AmenazaB.winningMoves || 0);
+        }
+        if ((AmenazaA.threatSoon || 0) !== (AmenazaB.threatSoon || 0)) {
+            return (AmenazaA.threatSoon || 0) - (AmenazaB.threatSoon || 0);
+        }
+        if ((AmenazaA.options || 0) !== (AmenazaB.options || 0)) {
+            return (AmenazaA.options || 0) - (AmenazaB.options || 0);
+        }
+        if ((AmenazaA.support || 0) !== (AmenazaB.support || 0)) {
+            return (AmenazaA.support || 0) - (AmenazaB.support || 0);
+        }
+        if ((AmenazaA.tiles || 0) !== (AmenazaB.tiles || 0)) {
+            return (AmenazaB.tiles || 0) - (AmenazaA.tiles || 0);
+        }
+        if ((AmenazaA.pips || 0) !== (AmenazaB.pips || 0)) {
+            return (AmenazaB.pips || 0) - (AmenazaA.pips || 0);
+        }
+        return 0;
+    };
+
+    this.SimularVentanaCoalicionAntesHumanoDominov1Local = function(SeatActual, ValorIzquierda, ValorDerecha, PosicionesUsadas) {
+        var CadenaSeats = this.ObtenerCadenaCoalicionAntesHumanoDominov1Local(SeatActual);
+        var Explorar = function(Indice, Izq, Der, Usadas) {
+            if (Indice >= CadenaSeats.length) {
+                return this.MedirAmenazaHumanaDominov1Local(Izq, Der, Usadas);
+            }
+            var Seat = CadenaSeats[Indice];
+            var Movimientos = this.EnumerarPosibilidadesHipoteticasSeatBotLocal(Seat, Izq, Der, Usadas);
+            if (Movimientos.length <= 0) {
+                return this.MedirAmenazaHumanaDominov1Local(Izq, Der, Usadas);
+            }
+            var Mejor = null;
+            for (var m = 0; m < Movimientos.length; m++) {
+                var Movimiento = Movimientos[m];
+                if (this.ContarFichasRestantesSeatBotLocal(Seat, Movimiento.Pos) <= 0) {
+                    return {
+                        botWin: 1,
+                        winningMoves: 0,
+                        options: 0,
+                        support: 0,
+                        tiles: 7,
+                        pips: 999,
+                        threatSoon: 0
+                    };
+                }
+                var NuevasUsadas = Object.assign({ }, Usadas || { });
+                NuevasUsadas[Movimiento.Pos] = true;
+                var Candidata = Explorar(Indice + 1, Movimiento.ValorIzquierda, Movimiento.ValorDerecha, NuevasUsadas);
+                if (Mejor === null || this.CompararAmenazaHumanaDominov1Local(Candidata, Mejor) < 0) {
+                    Mejor = Candidata;
+                }
+            }
+            return Mejor || this.MedirAmenazaHumanaDominov1Local(Izq, Der, Usadas);
+        }.bind(this);
+        return Explorar(0, ValorIzquierda, ValorDerecha, PosicionesUsadas || { });
+    };
+
+    this.ContarSoporteCoalicionDominov1Local = function(SeatActual, PosFichaExcluida, ValorIzquierda, ValorDerecha) {
+        var SeatsBots = [1, 2, 3];
+        var Total = 0;
+        for (var i = 0; i < SeatsBots.length; i++) {
+            var Seat = SeatsBots[i];
+            Total += this.ContarSoporteValoresSeatBotLocal(Seat, (Seat === SeatActual) ? PosFichaExcluida : -1, ValorIzquierda, ValorDerecha);
+        }
+        return Total;
+    };
+
+    this.ContarOpcionesCoalicionDominov1Local = function(SeatActual, PosFichaExcluida, ValorIzquierda, ValorDerecha) {
+        var SeatsBots = [1, 2, 3];
+        var Total = 0;
+        for (var i = 0; i < SeatsBots.length; i++) {
+            var Seat = SeatsBots[i];
+            Total += this.ContarOpcionesRestantesBotLocal(Seat, (Seat === SeatActual) ? PosFichaExcluida : -1, ValorIzquierda, ValorDerecha);
+        }
+        return Total;
+    };
+
+    this.ContarPipsCoalicionDominov1Local = function(SeatActual, PosFichaExcluida) {
+        var SeatsBots = [1, 2, 3];
+        var Total = 0;
+        for (var i = 0; i < SeatsBots.length; i++) {
+            var Seat = SeatsBots[i];
+            Total += this.ContarPipsRestantesSeatBotLocal(Seat, (Seat === SeatActual) ? PosFichaExcluida : -1);
+        }
+        return Total;
+    };
+
+    this.CrearContextoSolverDominov1Local = function(FichasFuente) {
+        var Valores = [];
+        var Fuente = Array.isArray(FichasFuente) ? FichasFuente : this.Ficha;
+        for (var i = 0; i < 28; i++) {
+            var FichaLocal = Fuente[i];
+            var Vals = (FichaLocal && Array.isArray(FichaLocal.Valores)) ? FichaLocal.Valores : [0, 0];
+            Valores.push([
+                Number(Vals[0] || 0),
+                Number(Vals[1] || 0)
+            ]);
+        }
+        return {
+            values: Valores,
+            memo: { },
+            calls: 0
+        };
+    };
+
+    this.MascaraFichaDominov1Local = function(Pos) {
+        return (1 << Pos) >>> 0;
+    };
+
+    this.EsFichaJugadaDominov1Local = function(Mascara, Pos) {
+        return ((((Mascara >>> 0) >>> Pos) & 1) === 1);
+    };
+
+    this.ObtenerJugadorInicioSolverDominov1Local = function(Contexto) {
+        var Ctx = Contexto || this.Dominov1SolverRuntimeContext || this.CrearContextoSolverDominov1Local(this.Ficha);
+        for (var seat = 0; seat < 4; seat++) {
+            var Ini = this.SeatInicio(seat);
+            for (var j = 0; j < 7; j++) {
+                var Valores = Ctx.values[Ini + j] || [0, 0];
+                if (Valores[0] === 6 && Valores[1] === 6) return seat;
+            }
+        }
+        return 0;
+    };
+
+    this.CrearEstadoInicialSolverDominov1Local = function(Contexto) {
+        return {
+            mask: 0,
+            currentPlayer: this.ObtenerJugadorInicioSolverDominov1Local(Contexto),
+            passStreak: 0,
+            started: false,
+            left: -1,
+            right: -1
+        };
+    };
+
+    this.CrearEstadoActualSolverDominov1Local = function() {
+        var Mascara = 0;
+        for (var i = 0; i < this.Ficha.length; i++) {
+            if (this.Ficha[i] && this.Ficha[i].Colocada === true) {
+                Mascara = (Mascara | this.MascaraFichaDominov1Local(i)) >>> 0;
+            }
+        }
+        var Iniciado = (this.TurnoActual > 0 && this.TableroListo() === true);
+        return {
+            mask: Mascara >>> 0,
+            currentPlayer: this.JugadorActual,
+            passStreak: Math.max(0, Number(this.Pasado || 0)),
+            started: Iniciado,
+            left: Iniciado ? Number(this.FichaIzquierda.ValorLibre()) : -1,
+            right: Iniciado ? Number(this.FichaDerecha.ValorLibre()) : -1
+        };
+    };
+
+    this.SerializarEstadoSolverDominov1Local = function(Estado) {
+        var Iniciado = Estado && Estado.started === true;
+        var Left = Iniciado ? Math.min(Number(Estado.left), Number(Estado.right)) : -1;
+        var Right = Iniciado ? Math.max(Number(Estado.left), Number(Estado.right)) : -1;
+        return [
+            String((Estado && Estado.mask) >>> 0),
+            String((Estado && Estado.currentPlayer) || 0),
+            String((Estado && Estado.passStreak) || 0),
+            Iniciado ? "1" : "0",
+            String(Left),
+            String(Right)
+        ].join("|");
+    };
+
+    this.ContarFichasRestantesSeatSolverDominov1Local = function(Contexto, Mascara, Seat) {
+        var Total = 0;
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (this.EsFichaJugadaDominov1Local(Mascara, idx) === false) Total++;
+        }
+        return Total;
+    };
+
+    this.ContarPipsRestantesSeatSolverDominov1Local = function(Contexto, Mascara, Seat) {
+        var Total = 0;
+        var Ini = this.SeatInicio(Seat);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (this.EsFichaJugadaDominov1Local(Mascara, idx) === true) continue;
+            var Valores = Contexto.values[idx] || [0, 0];
+            Total += (Number(Valores[0] || 0) + Number(Valores[1] || 0));
+        }
+        return Total;
+    };
+
+    this.GenerarMovimientosSolverDominov1Local = function(Contexto, Estado) {
+        var Movimientos = [];
+        var Ctx = Contexto || this.Dominov1SolverRuntimeContext;
+        var State = Estado || this.CrearEstadoActualSolverDominov1Local();
+        if (!Ctx || !State) return Movimientos;
+
+        var Player = State.currentPlayer;
+        var Ini = this.SeatInicio(Player);
+
+        if (State.started !== true) {
+            for (var j = 0; j < 7; j++) {
+                var idx66 = Ini + j;
+                if (this.EsFichaJugadaDominov1Local(State.mask, idx66) === true) continue;
+                var Valores66 = Ctx.values[idx66] || [0, 0];
+                if (Valores66[0] === 6 && Valores66[1] === 6) {
+                    Movimientos.push({
+                        Pos: idx66,
+                        Rama: "centro",
+                        nextLeft: 6,
+                        nextRight: 6
+                    });
+                    break;
+                }
+            }
+            return Movimientos;
+        }
+
+        var Left = Number(State.left);
+        var Right = Number(State.right);
+        for (var i = 0; i < 7; i++) {
+            var idx = Ini + i;
+            if (this.EsFichaJugadaDominov1Local(State.mask, idx) === true) continue;
+            var Valores = Ctx.values[idx] || [0, 0];
+            var V0 = Number(Valores[0] || 0);
+            var V1 = Number(Valores[1] || 0);
+            if (V0 === Left || V1 === Left) {
+                Movimientos.push({
+                    Pos: idx,
+                    Rama: "izquierda",
+                    nextLeft: (V0 === Left) ? V1 : V0,
+                    nextRight: Right
+                });
+            }
+            if (Right !== Left && (V0 === Right || V1 === Right)) {
+                Movimientos.push({
+                    Pos: idx,
+                    Rama: "derecha",
+                    nextLeft: Left,
+                    nextRight: (V0 === Right) ? V1 : V0
+                });
+            }
+        }
+        return Movimientos;
+    };
+
+    this.AplicarMovimientoSolverDominov1Local = function(Estado, Movimiento) {
+        var Next = {
+            mask: (((Estado && Estado.mask) >>> 0) | this.MascaraFichaDominov1Local(Movimiento.Pos)) >>> 0,
+            currentPlayer: (((Estado && Estado.currentPlayer) + 1) % 4),
+            passStreak: 0,
+            started: true,
+            left: (Movimiento && typeof(Movimiento.nextLeft) === "number") ? Movimiento.nextLeft : 6,
+            right: (Movimiento && typeof(Movimiento.nextRight) === "number") ? Movimiento.nextRight : 6
+        };
+        return Next;
+    };
+
+    this.AplicarPassSolverDominov1Local = function(Estado) {
+        return {
+            mask: ((Estado && Estado.mask) >>> 0),
+            currentPlayer: (((Estado && Estado.currentPlayer) + 1) % 4),
+            passStreak: ((Estado && Estado.passStreak) || 0) + 1,
+            started: Estado && Estado.started === true,
+            left: (Estado && typeof(Estado.left) === "number") ? Estado.left : -1,
+            right: (Estado && typeof(Estado.right) === "number") ? Estado.right : -1
+        };
+    };
+
+    this.CalcularOrdenSolverDominov1Local = function(Contexto, Estado, Movimientos, EsHumano) {
+        var Ctx = Contexto;
+        var State = Estado;
+        var Lista = Array.isArray(Movimientos) ? Movimientos.slice() : [];
+        Lista.sort(function(A, B) {
+            var ValoresA = Ctx.values[A.Pos] || [0, 0];
+            var ValoresB = Ctx.values[B.Pos] || [0, 0];
+            var PipsA = Number(ValoresA[0] || 0) + Number(ValoresA[1] || 0);
+            var PipsB = Number(ValoresB[0] || 0) + Number(ValoresB[1] || 0);
+            var NextA = this.AplicarMovimientoSolverDominov1Local(State, A);
+            var NextB = this.AplicarMovimientoSolverDominov1Local(State, B);
+            var HumanOptsA = (NextA.started === true) ? this.GenerarMovimientosSolverDominov1Local(Ctx, Object.assign({ }, NextA, { currentPlayer: this.LocalSeat })).length : 0;
+            var HumanOptsB = (NextB.started === true) ? this.GenerarMovimientosSolverDominov1Local(Ctx, Object.assign({ }, NextB, { currentPlayer: this.LocalSeat })).length : 0;
+            var BotPipsA = this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextA.mask, 1)
+                + this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextA.mask, 2)
+                + this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextA.mask, 3);
+            var BotPipsB = this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextB.mask, 1)
+                + this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextB.mask, 2)
+                + this.ContarPipsRestantesSeatSolverDominov1Local(Ctx, NextB.mask, 3);
+            if (EsHumano === true) {
+                if (HumanOptsA !== HumanOptsB) return HumanOptsB - HumanOptsA;
+                if (PipsA !== PipsB) return PipsB - PipsA;
+                return BotPipsA - BotPipsB;
+            }
+            if (HumanOptsA !== HumanOptsB) return HumanOptsA - HumanOptsB;
+            if (PipsA !== PipsB) return PipsB - PipsA;
+            return BotPipsA - BotPipsB;
+        }.bind(this));
+        return Lista;
+    };
+
+    this.ResolverEstadoExactoDominov1Local = function(Contexto, Estado) {
+        var Ctx = Contexto || this.Dominov1SolverRuntimeContext;
+        var State = Estado || this.CrearEstadoActualSolverDominov1Local();
+        if (!Ctx || !State) return false;
+
+        Ctx.calls = (Ctx.calls || 0) + 1;
+
+        if (State.passStreak >= 4) return true;
+        if (this.ContarFichasRestantesSeatSolverDominov1Local(Ctx, State.mask, this.LocalSeat) <= 0) return false;
+        if (this.ContarFichasRestantesSeatSolverDominov1Local(Ctx, State.mask, 1) <= 0) return true;
+        if (this.ContarFichasRestantesSeatSolverDominov1Local(Ctx, State.mask, 2) <= 0) return true;
+        if (this.ContarFichasRestantesSeatSolverDominov1Local(Ctx, State.mask, 3) <= 0) return true;
+
+        var Key = this.SerializarEstadoSolverDominov1Local(State);
+        if (Object.prototype.hasOwnProperty.call(Ctx.memo, Key)) {
+            return Ctx.memo[Key] === true;
+        }
+
+        var Legal = this.GenerarMovimientosSolverDominov1Local(Ctx, State);
+        var Player = State.currentPlayer;
+
+        if (Legal.length <= 0) {
+            var PassState = this.AplicarPassSolverDominov1Local(State);
+            var PassResult = this.ResolverEstadoExactoDominov1Local(Ctx, PassState);
+            Ctx.memo[Key] = PassResult === true;
+            return PassResult === true;
+        }
+
+        var Ordered = this.CalcularOrdenSolverDominov1Local(Ctx, State, Legal, Player === this.LocalSeat);
+        if (Player === this.LocalSeat) {
+            for (var i = 0; i < Ordered.length; i++) {
+                if (this.ResolverEstadoExactoDominov1Local(Ctx, this.AplicarMovimientoSolverDominov1Local(State, Ordered[i])) !== true) {
+                    Ctx.memo[Key] = false;
+                    return false;
+                }
+            }
+            Ctx.memo[Key] = true;
+            return true;
+        }
+
+        for (var j = 0; j < Ordered.length; j++) {
+            if (this.ResolverEstadoExactoDominov1Local(Ctx, this.AplicarMovimientoSolverDominov1Local(State, Ordered[j])) === true) {
+                Ctx.memo[Key] = true;
+                return true;
+            }
+        }
+        Ctx.memo[Key] = false;
+        return false;
+    };
+
+    this.EvaluarDistribucionExactaDominov1Local = function(OrdenFichas) {
+        var Contexto = this.CrearContextoSolverDominov1Local(OrdenFichas);
+        var EstadoInicial = this.CrearEstadoInicialSolverDominov1Local(Contexto);
+        var BotsForcent = this.ResolverEstadoExactoDominov1Local(Contexto, EstadoInicial) === true;
+        return {
+            context: Contexto,
+            state: EstadoInicial,
+            botsForceWin: BotsForcent === true
+        };
+    };
+
+    this.ObtenerContextoRuntimeDominov1Local = function() {
+        if (!this.Dominov1SolverRuntimeContext || !Array.isArray(this.Dominov1SolverRuntimeContext.values) || this.Dominov1SolverRuntimeContext.values.length !== 28) {
+            this.Dominov1SolverRuntimeContext = this.CrearContextoSolverDominov1Local(this.Ficha);
+        }
+        return this.Dominov1SolverRuntimeContext;
+    };
+
+    this.ElegirMovimientoExactoDominov1Local = function(Seat, PosibilidadesBot, ForzarPeorHumano) {
+        if (Array.isArray(PosibilidadesBot) === false || PosibilidadesBot.length <= 0) return null;
+        var Contexto = this.ObtenerContextoRuntimeDominov1Local();
+        var EstadoActual = this.CrearEstadoActualSolverDominov1Local();
+        if (!Contexto || EstadoActual.currentPlayer !== Seat) return null;
+
+        var Ordered = this.CalcularOrdenSolverDominov1Local(Contexto, EstadoActual, PosibilidadesBot, Seat === this.LocalSeat);
+        var Candidatos = Ordered.map(function(Mov) {
+            var NextState = this.AplicarMovimientoSolverDominov1Local(EstadoActual, {
+                Pos: Mov.Pos,
+                Rama: Mov.Rama,
+                nextLeft: (Mov.Rama === "izquierda")
+                    ? ((this.Ficha[Mov.Pos].Valores[0] === EstadoActual.left) ? this.Ficha[Mov.Pos].Valores[1] : this.Ficha[Mov.Pos].Valores[0])
+                    : EstadoActual.left,
+                nextRight: (Mov.Rama === "derecha")
+                    ? ((this.Ficha[Mov.Pos].Valores[0] === EstadoActual.right) ? this.Ficha[Mov.Pos].Valores[1] : this.Ficha[Mov.Pos].Valores[0])
+                    : EstadoActual.right
+            });
+            return {
+                move: Mov,
+                botsForceWin: this.ResolverEstadoExactoDominov1Local(Contexto, NextState) === true
+            };
+        }.bind(this));
+
+        if (Seat === this.LocalSeat) {
+            if (ForzarPeorHumano === true) {
+                for (var h = 0; h < Candidatos.length; h++) {
+                    if (Candidatos[h].botsForceWin === true) return Candidatos[h].move;
+                }
+            }
+            return Candidatos[0].move || Ordered[0];
+        }
+
+        for (var i = 0; i < Candidatos.length; i++) {
+            if (Candidatos[i].botsForceWin === true) return Candidatos[i].move;
+        }
+        return Candidatos[0].move || Ordered[0];
+    };
+
     this.EvaluarMovimientoBotLocal = function(Seat, Movimiento) {
         if (!Movimiento || typeof(Movimiento.Pos) !== "number") return Number.NEGATIVE_INFINITY;
         var FichaBot = this.Ficha[Movimiento.Pos];
@@ -342,9 +820,6 @@ var Domino_Partida = function() {
 
         var Rol = this.ObtenerPerfilBotLocal(Seat);
         var HumanoSeat = this.LocalSeat;
-        var TraidorSeat = (HumanoSeat + 2) % 4;
-        var HunterASeat = (HumanoSeat + 1) % 4;
-        var HunterBSeat = (HumanoSeat + 3) % 4;
 
         var IzquierdaActual = this.FichaIzquierda.ValorLibre();
         var DerechaActual = this.FichaDerecha.ValorLibre();
@@ -364,78 +839,72 @@ var Domino_Partida = function() {
         var PosExcluida = Movimiento.Pos;
         var PipsJouee = V0 + V1;
         var RestantesSeat = this.ContarFichasRestantesSeatBotLocal(Seat, PosExcluida);
-        var HumanOptions = this.ContarOpcionesRestantesBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-        var TraitorOptions = this.ContarOpcionesRestantesBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-        var HunterAOptions = this.ContarOpcionesRestantesBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-        var HunterBOptions = this.ContarOpcionesRestantesBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
+        if (Rol !== "dominov1_human" && RestantesSeat <= 0) return 3000000;
+        if (Rol === "dominov1_human" && RestantesSeat <= 0) return -3000000;
 
-        var HumanPips = this.ContarPipsRestantesSeatBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1);
-        var TraitorPips = this.ContarPipsRestantesSeatBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1);
-        var HunterAPips = this.ContarPipsRestantesSeatBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1);
-        var HunterBPips = this.ContarPipsRestantesSeatBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1);
-
-        var HumanSupport = this.ContarSoporteValoresSeatBotLocal(HumanoSeat, (Seat === HumanoSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-        var TraitorSupport = this.ContarSoporteValoresSeatBotLocal(TraidorSeat, (Seat === TraidorSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-        var HunterSupport = this.ContarSoporteValoresSeatBotLocal(HunterASeat, (Seat === HunterASeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha)
-            + this.ContarSoporteValoresSeatBotLocal(HunterBSeat, (Seat === HunterBSeat) ? PosExcluida : -1, ValorIzquierda, ValorDerecha);
-
-        var HunterOptions = HunterAOptions + HunterBOptions;
-        var HunterPips = HunterAPips + HunterBPips;
-        var UserCampPips = HumanPips + TraitorPips;
-        var UserBlocked = (HumanOptions === 0) ? 1 : 0;
-        var CoalitionOptions = TraitorOptions + HunterOptions;
-        var TwoOpenEnds = (ValorIzquierda !== ValorDerecha) ? 1 : 0;
         var Base = this.EvaluarMovimientoBotLocal(Seat, Movimiento);
+        var HumanPips = this.ContarPipsRestantesSeatBotLocal(HumanoSeat, -1);
+        var HumanThreat = this.MedirAmenazaHumanaDominov1Local(ValorIzquierda, ValorDerecha, null);
+        var CadenaAntesHumano = this.ObtenerCadenaCoalicionAntesHumanoDominov1Local(Seat);
+        var VentanaCoalicion = this.SimularVentanaCoalicionAntesHumanoDominov1Local(Seat, ValorIzquierda, ValorDerecha, { [PosExcluida]: true });
+        var CoalitionSupport = this.ContarSoporteCoalicionDominov1Local(Seat, PosExcluida, ValorIzquierda, ValorDerecha);
+        var CoalitionOptions = this.ContarOpcionesCoalicionDominov1Local(Seat, PosExcluida, ValorIzquierda, ValorDerecha);
+        var CoalitionPips = this.ContarPipsCoalicionDominov1Local(Seat, PosExcluida);
+        var UserBlockedNow = (HumanThreat.options === 0) ? 1 : 0;
+        var UserImmediateWinNow = (HumanThreat.winningMoves > 0) ? 1 : 0;
+        var FutureUserBlocked = (VentanaCoalicion.options === 0) ? 1 : 0;
+        var FutureUserImmediateWin = (VentanaCoalicion.winningMoves > 0) ? 1 : 0;
+        var CoalitionCanWinBeforeHuman = (VentanaCoalicion.botWin === 1) ? 1 : 0;
+        var HumanCriticalSoon = (HumanThreat.tiles <= 2) ? 1 : 0;
+        var TwoOpenEnds = (ValorIzquierda !== ValorDerecha) ? 1 : 0;
+        var SelfPipsLeft = this.ContarPipsRestantesSeatBotLocal(Seat, PosExcluida);
 
-        if (Rol === "dominov1_hunter") {
-            if (RestantesSeat <= 0) return 2000000;
-            return Base
-                + (UserCampPips * 18)
-                - (HunterPips * 16)
-                - (HumanOptions * 165)
-                + (HunterOptions * 24)
-                + (HunterSupport * 22)
-                + (TraitorSupport * 12)
-                + (UserBlocked * 420)
-                + ((UserBlocked === 1 && CoalitionOptions > 0) ? 260 : 0)
-                + ((HumanPips <= 10 && UserBlocked === 1) ? 160 : 0)
-                + (PipsJouee * 14)
-                + (TwoOpenEnds * 18);
-        }
+        var Puntaje = Base
+            + (CoalitionCanWinBeforeHuman * 4200)
+            + (UserBlockedNow * 620)
+            + (FutureUserBlocked * 1240)
+            - (UserImmediateWinNow * (CadenaAntesHumano.length === 0 ? 3200 : 980))
+            - (FutureUserImmediateWin * 2450)
+            - ((VentanaCoalicion.winningMoves || 0) * 1800)
+            - ((VentanaCoalicion.options || 0) * 220)
+            - ((VentanaCoalicion.support || 0) * 92)
+            + ((VentanaCoalicion.pips || 0) * 20)
+            + (CoalitionOptions * 34)
+            + (CoalitionSupport * 27)
+            + (HumanPips * 24)
+            - (CoalitionPips * 6)
+            + (PipsJouee * 17)
+            + (TwoOpenEnds * 14)
+            + ((HumanCriticalSoon === 1 && UserBlockedNow === 1) ? 520 : 0)
+            - ((HumanCriticalSoon === 1 && UserImmediateWinNow === 1) ? 820 : 0);
 
         if (Rol === "dominov1_traitor") {
-            if (RestantesSeat <= 0) return -2000000;
-            return Base
-                + (UserCampPips * 24)
-                - (HunterPips * 10)
-                - (HumanOptions * 170)
-                + (HunterOptions * 26)
-                + (HunterSupport * 26)
-                + (UserBlocked * 440)
-                + ((UserBlocked === 1 && CoalitionOptions > 0) ? 300 : 0)
-                - (PipsJouee * 18)
-                - ((RestantesSeat <= 2) ? 260 : 0)
-                + ((TraitorPips >= 18) ? 120 : 0)
-                + ((TraitorOptions === 0) ? 80 : 0)
-                + (TwoOpenEnds * 10);
+            Puntaje += (FutureUserBlocked * 220)
+                + (CoalitionSupport * 12)
+                + (CoalitionCanWinBeforeHuman * 160)
+                + ((SelfPipsLeft <= 10) ? 110 : 0);
+        }
+        else if (Rol === "dominov1_hunter") {
+            Puntaje += ((SelfPipsLeft <= 10) ? 180 : 0)
+                + (PipsJouee * 4)
+                + (CoalitionCanWinBeforeHuman * 120);
+        }
+        else {
+            Puntaje += (FutureUserBlocked * 180)
+                - (PipsJouee * 10)
+                - ((SelfPipsLeft <= 6) ? 160 : 0);
         }
 
-        if (RestantesSeat <= 0) return -2000000;
-        return Base
-            + (UserCampPips * 14)
-            - (HunterPips * 10)
-            - (HumanOptions * 170)
-            + (HunterOptions * 18)
-            + (HunterSupport * 14)
-            + (UserBlocked * 360)
-            - (PipsJouee * 8)
-            - (HumanSupport * 20)
-            + (TwoOpenEnds * 8);
+        return Puntaje;
     };
 
     this.ElegirMovimientoBotLocal = function(Seat, PosibilidadesBot) {
         if (!Array.isArray(PosibilidadesBot) || PosibilidadesBot.length <= 0) return null;
         var Dificultad = this.ObtenerPerfilBotLocal(Seat);
+        if (Dificultad === "dominov1_hunter" || Dificultad === "dominov1_traitor") {
+            var MovimientoExactoDominov1 = this.ElegirMovimientoExactoDominov1Local(Seat, PosibilidadesBot, false);
+            if (MovimientoExactoDominov1) return MovimientoExactoDominov1;
+        }
         if (Dificultad === "dominov1_hunter" || Dificultad === "dominov1_traitor") {
             var EvaluadasDominov1 = PosibilidadesBot.map(function(Mov) {
                 return {
@@ -585,6 +1054,10 @@ var Domino_Partida = function() {
             }
         }
         else if (this.ObtenerDificultadBotLocal() === "dominov1") {
+            var ExactMoveDominov1 = this.ElegirMovimientoExactoDominov1Local(this.LocalSeat, Posibilidades, true);
+            if (ExactMoveDominov1) {
+                AutoMove = ExactMoveDominov1;
+            }
             var EvaluadasHumanoDominov1 = Posibilidades.map(function(Mov) {
                 return {
                     move: Mov,
@@ -593,7 +1066,7 @@ var Domino_Partida = function() {
             }.bind(this)).sort(function(A, B) {
                 return B.score - A.score;
             });
-            if (EvaluadasHumanoDominov1.length > 0 && EvaluadasHumanoDominov1[0].move) {
+            if (!ExactMoveDominov1 && EvaluadasHumanoDominov1.length > 0 && EvaluadasHumanoDominov1[0].move) {
                 AutoMove = EvaluadasHumanoDominov1[0].move;
             }
         }
@@ -825,33 +1298,90 @@ var Domino_Partida = function() {
         return ManoJugador.concat(ManoOponente1, ManoAliado, ManoOponente2);
     };
 
-    this.ConstruirOrdenFichasDominov1Local = function() {
+    this.ConstruirOrdenFichasDominov1LocalCandidato = function() {
         var Pool = [];
         for (var i = 0; i < this.Ficha.length; i++) {
             Pool.push(this.Ficha[i]);
+        }
+
+        var SacarIndice = function(Lista, Predicado) {
+            for (var p = 0; p < Lista.length; p++) {
+                if (Predicado(Lista[p]) === true) return p;
+            }
+            return -1;
+        };
+
+        var idx66 = SacarIndice(Pool, function(FichaDomino) {
+            return FichaDomino && FichaDomino.Valores && FichaDomino.Valores[0] === 6 && FichaDomino.Valores[1] === 6;
+        });
+
+        var ManoBot1 = [];
+        var ManoBot2 = [];
+        var ManoBot3 = [];
+        if (idx66 >= 0) {
+            ManoBot1.push(Pool.splice(idx66, 1)[0]);
         }
 
         Pool.sort(function(A, B) {
             return this.CalcularFuerzaFichaUltraLocal(B) - this.CalcularFuerzaFichaUltraLocal(A);
         }.bind(this));
 
-        var ManoOponente1 = Pool.slice(0, 7);
-        var ManoOponente2 = Pool.slice(7, 14);
-        var Resto = Pool.slice(14);
-
-        Resto.sort(function(A, B) {
+        var BotsGarantis = Pool.splice(0, Math.min(18, Pool.length));
+        var Reste = Pool.slice();
+        Reste.sort(function(A, B) {
             return this.CalcularCargaFichaUltraLocal(B) - this.CalcularCargaFichaUltraLocal(A);
         }.bind(this));
 
-        var ManoJugador = Resto.slice(0, 7);
-        var ManoAliado = Resto.slice(7, 14);
+        var ManoJugador = Reste.slice(0, Math.min(5, Reste.length));
+        var ZoneVariableJoueur = this.BarajarListaUltraLocal(Reste.slice(5));
+        while (ManoJugador.length < 7 && ZoneVariableJoueur.length > 0) {
+            ManoJugador.push(ZoneVariableJoueur.shift());
+        }
+        var ComplementsBots = ZoneVariableJoueur.slice();
+        var PoolBots = BotsGarantis.concat(ComplementsBots);
+        PoolBots = this.BarajarListaUltraLocal(PoolBots);
+
+        while (ManoBot1.length < 7 && PoolBots.length > 0) {
+            ManoBot1.push(PoolBots.shift());
+        }
+        while (ManoBot3.length < 7 && PoolBots.length > 0) {
+            ManoBot3.push(PoolBots.shift());
+        }
+        while (ManoBot2.length < 7 && PoolBots.length > 0) {
+            ManoBot2.push(PoolBots.shift());
+        }
 
         ManoJugador = this.BarajarListaUltraLocal(ManoJugador);
-        ManoAliado = this.BarajarListaUltraLocal(ManoAliado);
-        ManoOponente1 = this.BarajarListaUltraLocal(ManoOponente1);
-        ManoOponente2 = this.BarajarListaUltraLocal(ManoOponente2);
+        ManoBot1 = this.BarajarListaUltraLocal(ManoBot1);
+        ManoBot2 = this.BarajarListaUltraLocal(ManoBot2);
+        ManoBot3 = this.BarajarListaUltraLocal(ManoBot3);
 
-        return ManoJugador.concat(ManoOponente1, ManoAliado, ManoOponente2);
+        return ManoJugador.concat(ManoBot1, ManoBot2, ManoBot3);
+    };
+
+    this.ConstruirOrdenFichasDominov1Local = function() {
+        var Intento = 0;
+        while (true) {
+            Intento++;
+            var Candidato = this.ConstruirOrdenFichasDominov1LocalCandidato();
+            var Prueba = this.EvaluarDistribucionExactaDominov1Local(Candidato);
+            if (Prueba && Prueba.botsForceWin === true) {
+                this.Dominov1SolverRuntimeContext = Prueba.context;
+                this.Dominov1SolverLastProof = {
+                    attempts: Intento,
+                    calls: Number(Prueba.context && Prueba.context.calls) || 0,
+                    exactForcedWin: true
+                };
+                this.DebugLog("Dominov1:exactSolvedDeal", this.Dominov1SolverLastProof);
+                return Candidato;
+            }
+            if ((Intento % 20) === 0) {
+                this.DebugLog("Dominov1:searchingExactSolvedDeal", {
+                    attempts: Intento,
+                    lastCalls: Number(Prueba && Prueba.context && Prueba.context.calls) || 0
+                });
+            }
+        }
     };
 
     this.TableroListo = function() {
@@ -1109,6 +1639,8 @@ var Domino_Partida = function() {
     this.AplicarOrdenFichas = function() {
         var S = (typeof(window.GameSession) !== "undefined") ? window.GameSession : null;
         var DificultadLocal = this.ObtenerDificultadBotLocal();
+        this.Dominov1SolverRuntimeContext = null;
+        this.Dominov1SolverLastProof = null;
         this.DebugLog("AplicarOrdenFichas:begin", {
             multijugador: this.Multijugador,
             hasSession: !!S,
@@ -1428,6 +1960,8 @@ var Domino_Partida = function() {
         this.ReintentosTurno = {};
         this.CancelarEsperaFinMano();
         this.ServerWinnerShown = false;
+        this.Dominov1SolverRuntimeContext = null;
+        this.Dominov1SolverLastProof = null;
 
         document.getElementById("Historial").innerHTML = "";
 

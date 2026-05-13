@@ -18,6 +18,7 @@ const ROUTES = Object.freeze({
   "client-review/repair-resolved-residues": require("../../../routes/dashboard/client-review/repair-resolved-residues"),
   "client-admin/reset-financial-account": require("../../../routes/dashboard/client-admin/reset-financial-account"),
   "client-admin/set-password": require("../../../routes/dashboard/client-admin/set-password"),
+  "client-admin/set-withdrawal-temporary-hold": require("../../../routes/dashboard/client-admin/set-withdrawal-temporary-hold"),
   "client-admin/unfreeze-account": require("../../../routes/dashboard/client-admin/unfreeze-account"),
   "morpion/snapshot": require("../../../routes/dashboard/morpion/snapshot"),
   "site-visits/snapshot": require("../../../routes/dashboard/site-visits/snapshot"),

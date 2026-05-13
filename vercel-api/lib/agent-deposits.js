@@ -90,6 +90,9 @@ function buildAgentDepositSearchRecord(clientId = "", raw = {}) {
     withdrawableHtg: readWithdrawableHtg(raw, approvedHtgAvailable),
     approvedDepositsHtg: safeInt(raw.approvedDepositsHtg),
     accountFrozen: raw.accountFrozen === true,
+    withdrawalHold: raw.withdrawalHold === true,
+    withdrawalTemporaryHold: raw.withdrawalTemporaryHold === true,
+    withdrawalTemporaryHoldMessage: sanitizeText(raw.withdrawalTemporaryHoldMessage || "", 240),
     hasApprovedDeposit: raw.hasApprovedDeposit === true || safeInt(raw.approvedDepositsHtg) > 0,
   };
 }

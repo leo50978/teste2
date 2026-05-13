@@ -23,6 +23,7 @@ import {
 const MIN_WITHDRAWAL_HTG = 50;
 const MAX_WITHDRAWAL_HTG = 500000;
 const ASSISTANCE_PHONE = SUPPORT_WHATSAPP_PHONE;
+const TEMPORARY_WITHDRAWAL_HOLD_MESSAGE = "Le retrait est temporairement indisponible, veuillez attendre quelques minutes.";
 
 let activeRetraitTheme = "default";
 
@@ -150,7 +151,10 @@ export async function getWithdrawalRuleStatus(uid) {
   );
   const accountFrozen = fundingStatus?.accountFrozen === true || clientData.accountFrozen === true;
   const withdrawalHold = fundingStatus?.withdrawalHold === true || clientData.withdrawalHold === true;
-  const withdrawalBlocked = accountFrozen || withdrawalHold;
+  const withdrawalTemporaryHold =
+    fundingStatus?.withdrawalTemporaryHold === true
+    || clientData.withdrawalTemporaryHold === true;
+  const withdrawalBlocked = accountFrozen || withdrawalHold || withdrawalTemporaryHold;
   const withdrawableHtg = withdrawalBlocked
     ? 0
     : safeInt(
@@ -175,8 +179,23 @@ export async function getWithdrawalRuleStatus(uid) {
     withdrawableHtg,
     accountFrozen,
     withdrawalHold,
+    withdrawalTemporaryHold,
     withdrawalHoldReason: String(fundingStatus?.withdrawalHoldReason || clientData.withdrawalHoldReason || ""),
     withdrawalHoldAtMs: safeInt(fundingStatus?.withdrawalHoldAtMs ?? clientData.withdrawalHoldAtMs),
+    withdrawalTemporaryHoldReason: String(
+      fundingStatus?.withdrawalTemporaryHoldReason
+      || clientData.withdrawalTemporaryHoldReason
+      || ""
+    ),
+    withdrawalTemporaryHoldMessage: String(
+      fundingStatus?.withdrawalTemporaryHoldMessage
+      || clientData.withdrawalTemporaryHoldMessage
+      || TEMPORARY_WITHDRAWAL_HOLD_MESSAGE
+    ).trim() || TEMPORARY_WITHDRAWAL_HOLD_MESSAGE,
+    withdrawalTemporaryHoldAtMs: safeInt(
+      fundingStatus?.withdrawalTemporaryHoldAtMs
+      ?? clientData.withdrawalTemporaryHoldAtMs
+    ),
     rejectedDepositStrikeCount: safeInt(fundingStatus?.rejectedDepositStrikeCount ?? clientData.rejectedDepositStrikeCount),
     freezeReason: String(fundingStatus?.freezeReason || clientData.freezeReason || ""),
     provisionalHtgAvailable,
@@ -214,7 +233,15 @@ function buildWithdrawalDepositRequiredMessage(ruleStatus = {}) {
   return `Depi ${startLabel}, ou dwe fe yon nouvo depo apwouve epi jwe pou 50 HTG avan retrait la ka louvri sou kont ou.`;
 }
 
+function buildTemporaryWithdrawalHoldMessage(ruleStatus = {}) {
+  return String(ruleStatus?.withdrawalTemporaryHoldMessage || TEMPORARY_WITHDRAWAL_HOLD_MESSAGE).trim()
+    || TEMPORARY_WITHDRAWAL_HOLD_MESSAGE;
+}
+
 function buildWithdrawableReasonMessage(ruleStatus = {}, withdrawable = 0) {
+  if (ruleStatus.withdrawalTemporaryHold) {
+    return buildTemporaryWithdrawalHoldMessage(ruleStatus);
+  }
   if (hasPendingExamWithdrawalLock(ruleStatus)) {
     return buildPendingWithdrawalExamMessage(ruleStatus.provisionalHtgAvailable);
   }
@@ -237,6 +264,21 @@ function buildWithdrawableReasonMessage(ruleStatus = {}, withdrawable = 0) {
     return "Pou kounya, sistem nan pa jwenn okenn HTG retirable sou kont ou. Se sa ki fe retrait la rete a 0 HTG.";
   }
   return "";
+}
+
+function isTemporaryWithdrawalHold(ruleStatus = {}) {
+  return ruleStatus?.withdrawalTemporaryHold === true;
+}
+
+function showTemporaryWithdrawalHoldModal(ruleStatus = {}) {
+  showRetraitRuleModal({
+    title: "Retrait temporairement indisponible",
+    message: buildTemporaryWithdrawalHoldMessage(ruleStatus),
+    lines: [],
+    hideContact: true,
+    hideDetails: true,
+    closeLabel: "Dako",
+  });
 }
 
 function openRetraitPendingOperationsProfile() {
@@ -292,17 +334,35 @@ function showRetraitRuleModal(payload = {}) {
   const titleEl = overlay.querySelector("#retraitRuleModalTitle");
   const messageEl = overlay.querySelector("#retraitRuleModalMessage");
   const detailsEl = overlay.querySelector("#retraitRuleModalDetails");
+  const contactBtn = overlay.querySelector("#retraitRuleModalContact");
+  const closeBtn = overlay.querySelector("#retraitRuleModalClose");
   const lines = Array.isArray(payload.lines) ? payload.lines.filter(Boolean) : [];
+  const hideDetails = payload.hideDetails === true;
+  const hideContact = payload.hideContact === true;
 
   if (titleEl) titleEl.textContent = payload.title || "Retrait bloke";
   if (messageEl) messageEl.textContent = payload.message || "Aksyon sa a pa disponib pou kounya.";
+  if (closeBtn) {
+    closeBtn.textContent = payload.closeLabel || "Mwen konprann";
+  }
+  if (contactBtn) {
+    contactBtn.hidden = hideContact;
+    contactBtn.classList.toggle("hidden", hideContact);
+  }
   if (detailsEl) {
     detailsEl.textContent = "";
-    (lines.length ? lines : ["Tcheke reg yo epi eseye anko."]).forEach((line) => {
-      const p = document.createElement("p");
-      p.textContent = String(line || "");
-      detailsEl.appendChild(p);
-    });
+    if (hideDetails) {
+      detailsEl.hidden = true;
+      detailsEl.classList.add("hidden");
+    } else {
+      detailsEl.hidden = false;
+      detailsEl.classList.remove("hidden");
+      (lines.length ? lines : ["Tcheke reg yo epi eseye anko."]).forEach((line) => {
+        const p = document.createElement("p");
+        p.textContent = String(line || "");
+        detailsEl.appendChild(p);
+      });
+    }
   }
 
   overlay.classList.remove("hidden");
@@ -578,6 +638,8 @@ function ensureRetraitModal() {
     hintEl.textContent = `Balans vizib: ${formatAmount(visibleBalance)} | Ou ka retire: ${formatAmount(withdrawable)}`;
     if (hasPendingExamWithdrawalLock(ruleStatus)) {
       showRuleAlert(buildPendingWithdrawalExamMessage(ruleStatus.provisionalHtgAvailable));
+    } else if (isTemporaryWithdrawalHold(ruleStatus)) {
+      showRuleAlert(buildTemporaryWithdrawalHoldMessage(ruleStatus));
     } else if (hasPendingWithdrawalPlayRule(ruleStatus)) {
       showRuleAlert(buildPendingWithdrawalPlayMessage(ruleStatus.pendingWithdrawalPlayHtg));
     } else if (isWithdrawalDepositRequired(ruleStatus)) {
@@ -598,6 +660,14 @@ function ensureRetraitModal() {
       }
       return;
     }
+    let initialRuleStatus = null;
+    try {
+      initialRuleStatus = await getWithdrawalRuleStatus(user.uid);
+      if (isTemporaryWithdrawalHold(initialRuleStatus)) {
+        showTemporaryWithdrawalHoldModal(initialRuleStatus);
+        return;
+      }
+    } catch (_) {}
     selectedMethod = null;
     methods = [];
     activeRequestId = "";
@@ -612,6 +682,11 @@ function ensureRetraitModal() {
     overlay.classList.remove("hidden");
     overlay.classList.add("flex");
     document.body.classList.add("is-modal-open");
+    if (initialRuleStatus) {
+      const visibleBalance = getLiveWalletVisibleHtg(initialRuleStatus._fundingStatus) ?? getLiveWalletVisibleHtg(initialRuleStatus._clientData) ?? getBestFundingBalance(initialRuleStatus._fundingStatus) ?? 0;
+      availableEl.textContent = formatAmount(safeInt(initialRuleStatus.withdrawableHtg));
+      hintEl.textContent = `Balans vizib: ${formatAmount(visibleBalance)} | Ou ka retire: ${formatAmount(safeInt(initialRuleStatus.withdrawableHtg))}`;
+    }
     await refreshAvailability().catch(() => {});
     try {
       methods = await loadActiveMethods();
@@ -671,6 +746,11 @@ function ensureRetraitModal() {
           message: "Kont ou bloke pou retrait pou kounya.",
           lines: ["Kontakte asistans pou plis detay."],
         });
+        setSubmitting(false);
+        return;
+      }
+      if (isTemporaryWithdrawalHold(ruleStatus)) {
+        showTemporaryWithdrawalHoldModal(ruleStatus);
         setSubmitting(false);
         return;
       }
@@ -796,6 +876,8 @@ function ensureRetraitModal() {
               "Apre sa, jwe 50 HTG pou retrait la vin louvri.",
             ],
           });
+        } else if (String(error?.details?.code || "") === "withdrawal-temporary-hold" || String(error?.code || "") === "withdrawal-temporary-hold") {
+          showTemporaryWithdrawalHoldModal(error?.details || {});
         } else {
         if (errorEl) errorEl.textContent = error?.message || "Nou pa rive soumet demann retrait la.";
       }

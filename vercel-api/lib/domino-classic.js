@@ -9,7 +9,7 @@ const { RATE_HTG_TO_DOES, normalizeFundingCurrency } = require("./wallet-htg");
 const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const DEFAULT_BOT_DIFFICULTY = "userpro";
-const BOT_DIFFICULTY_LEVELS = new Set(["userpro", "dominov1", "ultra"]);
+const BOT_DIFFICULTY_LEVELS = new Set(["userpro", "dominov1"]);
 const BOT_PILOT_MODES = new Set(["manual", "auto"]);
 const BOT_PILOT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const BOT_PILOT_SNAPSHOT_LIMIT = 5000;
@@ -32,7 +32,7 @@ function safeFloat(value, fallback = 0) {
 function normalizeBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
   if (level === "dominov1" || level === "v1") return "dominov1";
-  if (level === "ultra" || level === "expert") return "ultra";
+  if (level === "ultra" || level === "expert") return "dominov1";
   if (level === "userpro" || level === "amateur") return "userpro";
   return DEFAULT_BOT_DIFFICULTY;
 }
@@ -102,19 +102,19 @@ function chooseAutoBotDifficulty(snapshot = {}) {
     };
   }
   if (drawdownPct >= 0.03 || drawdownDoes >= 120) {
-    return { level: "ultra", band: "danger", reason: "drawdown_critical", marginPct, drawdownPct };
+    return { level: "dominov1", band: "danger", reason: "drawdown_critical", marginPct, drawdownPct };
   }
   if (netDoes < 0 || marginPct < 0.14) {
-    return { level: "ultra", band: "danger", reason: "margin_too_low", marginPct, drawdownPct };
+    return { level: "dominov1", band: "danger", reason: "margin_too_low", marginPct, drawdownPct };
   }
   if (drawdownPct > 0 || !isNearPeak) {
-    return { level: "ultra", band: "defense", reason: "drawdown_high", marginPct, drawdownPct };
+    return { level: "dominov1", band: "defense", reason: "drawdown_high", marginPct, drawdownPct };
   }
   if (marginPct < 0.22) {
-    return { level: "ultra", band: "defense", reason: "margin_low", marginPct, drawdownPct };
+    return { level: "dominov1", band: "defense", reason: "margin_low", marginPct, drawdownPct };
   }
   if (!isNearPeak || marginPct < 0.3) {
-    return { level: "ultra", band: "equilibrium", reason: "recovery_guard", marginPct, drawdownPct };
+    return { level: "dominov1", band: "equilibrium", reason: "recovery_guard", marginPct, drawdownPct };
   }
   return { level: "userpro", band: "comfort", reason: "new_high_comfort", marginPct, drawdownPct };
 }

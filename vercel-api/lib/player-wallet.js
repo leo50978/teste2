@@ -139,6 +139,25 @@ function buildWithdrawalHoldError(walletData = {}) {
   );
 }
 
+function buildWithdrawalTemporaryHoldError(walletData = {}) {
+  const message = String(
+    walletData.withdrawalTemporaryHoldMessage
+    || "Le retrait est temporairement indisponible, veuillez attendre quelques minutes."
+  ).trim();
+
+  return makeHttpError(
+    403,
+    "withdrawal-temporary-hold",
+    message || "Le retrait est temporairement indisponible, veuillez attendre quelques minutes.",
+    {
+      withdrawalTemporaryHold: true,
+      withdrawalTemporaryHoldReason: String(walletData.withdrawalTemporaryHoldReason || "temporary_admin_hold"),
+      withdrawalTemporaryHoldMessage: message || "Le retrait est temporairement indisponible, veuillez attendre quelques minutes.",
+      withdrawalTemporaryHoldAtMs: safeInt(walletData.withdrawalTemporaryHoldAtMs),
+    }
+  );
+}
+
 function assertWalletNotFrozen(walletData = {}) {
   if (walletData?.accountFrozen === true || walletData?.withdrawalHold === true) {
     throw buildFrozenAccountError(walletData);
@@ -151,6 +170,9 @@ function assertWithdrawalAllowed(walletData = {}) {
   }
   if (walletData?.withdrawalHold === true) {
     throw buildWithdrawalHoldError(walletData);
+  }
+  if (walletData?.withdrawalTemporaryHold === true) {
+    throw buildWithdrawalTemporaryHoldError(walletData);
   }
 }
 
@@ -468,8 +490,13 @@ function buildWithdrawalFundingStatus({
   const pendingWithdrawalPlayHtg = hasQualifyingWithdrawalDeposit
     ? Math.max(0, WITHDRAWAL_PLAY_REQUIREMENT_HTG - approvedWithdrawalPlayHtg)
     : 0;
+  const withdrawalTemporaryHold = walletData?.withdrawalTemporaryHold === true;
+  const withdrawalTemporaryHoldMessage = String(
+    walletData?.withdrawalTemporaryHoldMessage
+    || "Le retrait est temporairement indisponible, veuillez attendre quelques minutes."
+  ).trim();
 
-  const withdrawableHtg = hasQualifyingWithdrawalDeposit && pendingWithdrawalPlayHtg <= 0
+  const withdrawableHtg = !withdrawalTemporaryHold && hasQualifyingWithdrawalDeposit && pendingWithdrawalPlayHtg <= 0
     ? Math.max(0, Math.min(approvedHtgAvailable, currentWithdrawableHtg || approvedHtgAvailable))
     : 0;
 
@@ -483,6 +510,10 @@ function buildWithdrawalFundingStatus({
     totalRequiredWithdrawalPlayHtg: hasQualifyingWithdrawalDeposit ? WITHDRAWAL_PLAY_REQUIREMENT_HTG : 0,
     approvedWithdrawalPlayHtg,
     pendingWithdrawalPlayHtg,
+    withdrawalTemporaryHold,
+    withdrawalTemporaryHoldReason: String(walletData?.withdrawalTemporaryHoldReason || ""),
+    withdrawalTemporaryHoldMessage,
+    withdrawalTemporaryHoldAtMs: safeInt(walletData?.withdrawalTemporaryHoldAtMs),
     withdrawalPlayRuleVersion: WITHDRAWAL_PLAY_RULE_VERSION,
     withdrawalPlayPolicyStartAtMs: WITHDRAWAL_PLAY_POLICY_START_AT_MS,
     withdrawalPlayPolicyStartLabel: WITHDRAWAL_PLAY_POLICY_START_LABEL,
@@ -582,6 +613,7 @@ module.exports = {
   buildTransferHistoryRecord,
   buildTransferRecipientRecord,
   buildWithdrawalHoldError,
+  buildWithdrawalTemporaryHoldError,
   computeRealApprovedDepositsHtg,
     buildWithdrawalFundingStatus,
     computeReservedWithdrawalAmount,
