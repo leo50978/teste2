@@ -83,10 +83,7 @@ function postClassicShellMessage(type, payload = {}) {
 
 function isLocalTeamWinner(winnerSeat) {
   const safeWinnerSeat = Math.max(0, Math.trunc(Number(winnerSeat)));
-  if (normalizeClassicBotDifficulty(requestedBotDifficulty || "userpro") === "dominov1") {
-    return safeWinnerSeat === 0;
-  }
-  return safeWinnerSeat % 2 === 0;
+  return safeWinnerSeat === 0;
 }
 
 function shuffleClassicUsernames(sourceList) {

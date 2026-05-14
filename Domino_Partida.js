@@ -178,10 +178,7 @@ var Domino_Partida = function() {
 
     this.EsSeatGanadorHumanoLocal = function(SeatGanador) {
         var Seat = (typeof(SeatGanador) === "number") ? SeatGanador : 0;
-        if (this.EsModoDominov1TresContraUno() === true) {
-            return Seat === this.LocalSeat;
-        }
-        return (Seat === this.LocalSeat || (this.Multijugador === false && (Seat % 2) === (this.LocalSeat % 2)));
+        return Seat === this.LocalSeat;
     };
 
     this.ContarOpcionesRestantesBotLocal = function(Seat, PosFicha, ValorIzquierda, ValorDerecha) {
@@ -2583,23 +2580,16 @@ var Domino_Partida = function() {
     };
 
     this.ResolverGanadorBloqueo = function() {
-        var PuntosEquipoPar = this.ContarPuntosEquipo(0);
-        var PuntosEquipoImpar = this.ContarPuntosEquipo(1);
-        var Dificultad = this.ObtenerDificultadBotLocal();
-        var EquipoGanador = 0;
-        if (this.Multijugador === false && Dificultad === "dominov1") {
-            return this.ObtenerSeatBotGanadorDominov1();
+        var MejorJugador = 0;
+        var MenorPuntuacion = this.ContarPuntos(0);
+        for (var j = 1; j < 4; j++) {
+            var Puntos = this.ContarPuntos(j);
+            if (Puntos < MenorPuntuacion) {
+                MenorPuntuacion = Puntos;
+                MejorJugador = j;
+            }
         }
-        else if (PuntosEquipoImpar < PuntosEquipoPar) {
-            EquipoGanador = 1;
-        }
-        else if (PuntosEquipoImpar === PuntosEquipoPar && this.Multijugador === false && Dificultad === "ultra") {
-            EquipoGanador = 1;
-        }
-
-        var SeatA = EquipoGanador;
-        var SeatB = EquipoGanador + 2;
-        return (this.ContarPuntos(SeatA) <= this.ContarPuntos(SeatB)) ? SeatA : SeatB;
+        return MejorJugador;
     };
 
     this.MostrarMensaje = function(Jugador, Texto, ColFondo) {
