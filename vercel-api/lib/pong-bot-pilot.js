@@ -1,5 +1,6 @@
 const { admin, db } = require("./firebase-admin");
 const { safeInt, safeSignedInt, sanitizeText } = require("./safe");
+const { doesToHtg } = require("./wallet-htg");
 
 const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
@@ -31,6 +32,18 @@ function normalizeBotPilotMode(value = "") {
 function normalizeBotPilotWindow(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
   return normalized === "today" || normalized === "24h" || normalized === "7d" ? normalized : "today";
+}
+
+function readResultStakeHtg(result = {}) {
+  const explicit = safeInt(result.stakeHtg);
+  if (explicit > 0) return explicit;
+  return Math.max(0, doesToHtg(safeInt(result.stakeDoes || result.entryCostDoes)));
+}
+
+function readResultRewardHtg(result = {}) {
+  const explicit = safeInt(result.rewardAmountHtg || result.rewardExpectedHtg);
+  if (explicit > 0) return explicit;
+  return Math.max(0, doesToHtg(safeInt(result.rewardAmountDoes)));
 }
 
 function getBotPilotDayKey(ms = Date.now()) {
@@ -132,15 +145,21 @@ async function computePongBotPilotSnapshot(options = {}) {
   let collectedDoes = 0;
   let payoutDoes = 0;
   let netDoes = 0;
+  let collectedHtg = 0;
+  let payoutHtg = 0;
+  let netHtg = 0;
   let humanWins = 0;
   let botWins = 0;
   let currentEquityDoes = 0;
   let highWaterMarkDoes = 0;
   let drawdownDoes = 0;
+  let currentEquityHtg = 0;
+  let highWaterMarkHtg = 0;
+  let drawdownHtg = 0;
   let lastPeakAtMs = 0;
   const trendMap = new Map();
   const fullTrend = [];
-  const fullEquityCurve = [{ key: "start", label: "Start", periodMs: range.startMs, equityDoes: 0 }];
+  const fullEquityCurve = [{ key: "start", label: "Start", periodMs: range.startMs, equityDoes: 0, equityHtg: 0 }];
   const profileMixMap = new Map();
   const difficultyMixMap = new Map();
   const stakeMixMap = new Map();
@@ -153,8 +172,10 @@ async function computePongBotPilotSnapshot(options = {}) {
 
     roomsCount += 1;
     const stakeDoes = safeInt(data.stakeDoes || data.entryCostDoes);
+    const stakeHtg = readResultStakeHtg(data);
     const rewardAmountDoes = safeInt(data.rewardAmountDoes);
-    const rewardGranted = data.rewardGranted === true && rewardAmountDoes > 0;
+    const rewardAmountHtg = readResultRewardHtg(data);
+    const rewardGranted = data.rewardGranted === true && (rewardAmountDoes > 0 || rewardAmountHtg > 0);
     const winnerTypeRaw = String(data.winnerType || data.winner || "").trim().toLowerCase();
     const winnerType = winnerTypeRaw === "user" ? "human" : (winnerTypeRaw === "ai" ? "bot" : winnerTypeRaw);
     if (winnerType === "human") humanWins += 1;
@@ -163,21 +184,29 @@ async function computePongBotPilotSnapshot(options = {}) {
     const roomCollected = stakeDoes;
     const roomPayout = rewardGranted ? rewardAmountDoes : 0;
     const roomNet = roomCollected - roomPayout;
+    const roomCollectedHtg = stakeHtg;
+    const roomPayoutHtg = rewardGranted ? rewardAmountHtg : 0;
+    const roomNetHtg = roomCollectedHtg - roomPayoutHtg;
 
     collectedDoes += roomCollected;
     payoutDoes += roomPayout;
     netDoes += roomNet;
+    collectedHtg += roomCollectedHtg;
+    payoutHtg += roomPayoutHtg;
+    netHtg += roomNetHtg;
 
     const aiProfile = sanitizeText(data.aiProfile || "", 24).toLowerCase() || "normal";
     const profileEntry = profileMixMap.get(aiProfile) || {
       aiProfile,
       rooms: 0,
       netDoes: 0,
+      netHtg: 0,
       botWins: 0,
       humanWins: 0,
     };
     profileEntry.rooms += 1;
     profileEntry.netDoes += roomNet;
+    profileEntry.netHtg += roomNetHtg;
     if (winnerType === "bot") profileEntry.botWins += 1;
     if (winnerType === "human") profileEntry.humanWins += 1;
     profileMixMap.set(aiProfile, profileEntry);
@@ -187,26 +216,32 @@ async function computePongBotPilotSnapshot(options = {}) {
       level: inferredDifficulty,
       rooms: 0,
       netDoes: 0,
+      netHtg: 0,
       botWins: 0,
       humanWins: 0,
     };
     diffEntry.rooms += 1;
     diffEntry.netDoes += roomNet;
+    diffEntry.netHtg += roomNetHtg;
     if (winnerType === "bot") diffEntry.botWins += 1;
     if (winnerType === "human") diffEntry.humanWins += 1;
     difficultyMixMap.set(inferredDifficulty, diffEntry);
 
-    const stakeKey = String(stakeDoes || 0);
+    const stakeKey = String(stakeHtg || stakeDoes || 0);
     const stakeEntry = stakeMixMap.get(stakeKey) || {
       stakeDoes,
+      stakeHtg,
       label: `${safeInt(stakeDoes)} Does`,
+      labelHtg: `${safeInt(stakeHtg)} HTG`,
       rooms: 0,
       netDoes: 0,
+      netHtg: 0,
       botWins: 0,
       humanWins: 0,
     };
     stakeEntry.rooms += 1;
     stakeEntry.netDoes += roomNet;
+    stakeEntry.netHtg += roomNetHtg;
     if (winnerType === "bot") stakeEntry.botWins += 1;
     if (winnerType === "human") stakeEntry.humanWins += 1;
     stakeMixMap.set(stakeKey, stakeEntry);
@@ -220,6 +255,9 @@ async function computePongBotPilotSnapshot(options = {}) {
       collectedDoes: 0,
       payoutDoes: 0,
       netDoes: 0,
+      collectedHtg: 0,
+      payoutHtg: 0,
+      netHtg: 0,
       botWins: 0,
       humanWins: 0,
     };
@@ -227,6 +265,9 @@ async function computePongBotPilotSnapshot(options = {}) {
     trendItem.collectedDoes += roomCollected;
     trendItem.payoutDoes += roomPayout;
     trendItem.netDoes += roomNet;
+    trendItem.collectedHtg += roomCollectedHtg;
+    trendItem.payoutHtg += roomPayoutHtg;
+    trendItem.netHtg += roomNetHtg;
     if (winnerType === "bot") trendItem.botWins += 1;
     if (winnerType === "human") trendItem.humanWins += 1;
     if (endedAtMs > safeSignedInt(trendItem.periodMs)) {
@@ -238,14 +279,20 @@ async function computePongBotPilotSnapshot(options = {}) {
     currentEquityDoes += roomNet;
     if (currentEquityDoes >= highWaterMarkDoes) {
       highWaterMarkDoes = currentEquityDoes;
-      lastPeakAtMs = endedAtMs;
     }
     drawdownDoes = Math.max(0, highWaterMarkDoes - currentEquityDoes);
+    currentEquityHtg += roomNetHtg;
+    if (currentEquityHtg >= highWaterMarkHtg) {
+      highWaterMarkHtg = currentEquityHtg;
+      lastPeakAtMs = endedAtMs;
+    }
+    drawdownHtg = Math.max(0, highWaterMarkHtg - currentEquityHtg);
     fullEquityCurve.push({
       key: `${trendKey}_${roomsCount}`,
       label: getBotPilotTrendLabel(range.windowKey, endedAtMs),
       periodMs: endedAtMs,
       equityDoes: currentEquityDoes,
+      equityHtg: currentEquityHtg,
     });
   });
 
@@ -258,6 +305,9 @@ async function computePongBotPilotSnapshot(options = {}) {
       collectedDoes: safeInt(item.collectedDoes),
       payoutDoes: safeInt(item.payoutDoes),
       netDoes: safeSignedInt(item.netDoes),
+      collectedHtg: safeInt(item.collectedHtg),
+      payoutHtg: safeInt(item.payoutHtg),
+      netHtg: safeSignedInt(item.netHtg),
       botWins: safeInt(item.botWins),
       humanWins: safeInt(item.humanWins),
     });
@@ -283,11 +333,17 @@ async function computePongBotPilotSnapshot(options = {}) {
     collectedDoes,
     payoutDoes,
     netDoes,
+    collectedHtg,
+    payoutHtg,
+    netHtg,
     marginPct: collectedDoes > 0 ? netDoes / collectedDoes : 0,
     currentEquityDoes,
     highWaterMarkDoes,
     drawdownDoes,
     drawdownPct: highWaterMarkDoes > 0 ? drawdownDoes / highWaterMarkDoes : 0,
+    currentEquityHtg,
+    highWaterMarkHtg,
+    drawdownHtg,
     lastPeakAtMs,
     botWins,
     humanWins,
@@ -304,16 +360,20 @@ async function computePongBotPilotSnapshot(options = {}) {
         level: normalizeBotDifficulty(item.level),
         rooms: safeInt(item.rooms),
         netDoes: safeSignedInt(item.netDoes),
+        netHtg: safeSignedInt(item.netHtg),
         botWins: safeInt(item.botWins),
         humanWins: safeInt(item.humanWins),
       })),
     stakeMix: Array.from(stakeMixMap.values())
-      .sort((left, right) => safeInt(left.stakeDoes) - safeInt(right.stakeDoes))
+      .sort((left, right) => safeInt(left.stakeHtg || left.stakeDoes) - safeInt(right.stakeHtg || right.stakeDoes))
       .map((item) => ({
         stakeDoes: safeInt(item.stakeDoes),
+        stakeHtg: safeInt(item.stakeHtg),
         label: String(item.label || `${safeInt(item.stakeDoes)} Does`),
+        labelHtg: String(item.labelHtg || `${safeInt(item.stakeHtg)} HTG`),
         rooms: safeInt(item.rooms),
         netDoes: safeSignedInt(item.netDoes),
+        netHtg: safeSignedInt(item.netHtg),
         botWins: safeInt(item.botWins),
         humanWins: safeInt(item.humanWins),
       })),
@@ -323,6 +383,7 @@ async function computePongBotPilotSnapshot(options = {}) {
         aiProfile: String(item.aiProfile || "normal"),
         rooms: safeInt(item.rooms),
         netDoes: safeSignedInt(item.netDoes),
+        netHtg: safeSignedInt(item.netHtg),
         botWins: safeInt(item.botWins),
         humanWins: safeInt(item.humanWins),
       })),
@@ -416,10 +477,16 @@ async function setPongBotPilotControl(payload = {}) {
       collectedDoes: safeInt(snapshot.collectedDoes),
       payoutDoes: safeInt(snapshot.payoutDoes),
       netDoes: safeSignedInt(snapshot.netDoes),
+      collectedHtg: safeInt(snapshot.collectedHtg),
+      payoutHtg: safeInt(snapshot.payoutHtg),
+      netHtg: safeSignedInt(snapshot.netHtg),
       marginPct: safeFloat(snapshot.marginPct),
       currentEquityDoes: safeSignedInt(snapshot.currentEquityDoes),
       highWaterMarkDoes: safeSignedInt(snapshot.highWaterMarkDoes),
       drawdownDoes: safeInt(snapshot.drawdownDoes),
+      currentEquityHtg: safeSignedInt(snapshot.currentEquityHtg),
+      highWaterMarkHtg: safeSignedInt(snapshot.highWaterMarkHtg),
+      drawdownHtg: safeInt(snapshot.drawdownHtg),
       drawdownPct: safeFloat(snapshot.drawdownPct),
       lastPeakAtMs: safeSignedInt(snapshot.lastPeakAtMs),
       botWins: safeInt(snapshot.botWins),

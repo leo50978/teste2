@@ -1,12 +1,25 @@
 const { admin, auth } = require("./firebase-admin");
 const { db } = require("./firebase-admin");
 const { sanitizeEmail } = require("./deposits");
+const { buildBalancesPatch, doesToHtg, readApprovedHtg, readProvisionalHtg, readWithdrawableHtg } = require("./wallet-htg");
 const { walletRef, transferHistoryRef, sanitizeUsername } = require("./player-wallet");
-const { buildBalancesPatch, readApprovedHtg, readProvisionalHtg, readWithdrawableHtg } = require("./wallet-htg");
 const { safeInt, sanitizePhone, sanitizeText } = require("./safe");
+
+const DELETED_CLIENTS_ARCHIVE_COLLECTION = "deletedClientsArchive";
+const CLIENT_DELETION_REVIEW_ARCHIVED_STATUS = "archived";
+const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 
 function walletHistoryRef(uid) {
   return walletRef(uid).collection("xchanges");
+}
+
+async function readBootstrapAdminEmail() {
+  try {
+    const snap = await db.collection("settings").doc(BOOTSTRAP_DOC_ID).get();
+    return snap.exists ? sanitizeEmail(snap.data()?.email || "", 160) : "";
+  } catch (_) {
+    return "";
+  }
 }
 
 async function deleteCollectionInChunks(collectionRef, batchSize = 400) {
@@ -33,6 +46,79 @@ function buildFundingPreview(walletData = {}) {
       ?? walletData?.approvedDoesBalance
       ?? walletData?.approvedDoes
     ),
+  };
+}
+
+function getClientDeletionReviewStatus(client = {}) {
+  const status = sanitizeText(client.deletionReviewStatus || "", 40).toLowerCase();
+  return status === CLIENT_DELETION_REVIEW_ARCHIVED_STATUS ? status : "";
+}
+
+function getClientDeletionReviewBalanceSnapshot(client = {}) {
+  const approvedHtgAvailable = readApprovedHtg(client);
+  const provisionalHtgAvailable = readProvisionalHtg(client);
+  const htgBalance = approvedHtgAvailable + provisionalHtgAvailable;
+  const doesBalance = safeInt(
+    client?.doesBalance
+    || (safeInt(client?.doesApprovedBalance) + safeInt(client?.doesProvisionalBalance))
+  );
+  return {
+    approvedHtgAvailable,
+    provisionalHtgAvailable,
+    htgBalance,
+    doesBalance,
+    hasBalance: htgBalance > 0 || doesBalance > 0,
+  };
+}
+
+async function isClientProtectedFromDeletionReview(clientId = "", client = {}) {
+  const bootstrapEmail = await readBootstrapAdminEmail();
+  const email = sanitizeEmail(client.email || "", 160);
+  const agentStatus = sanitizeText(client.agentStatus || "", 40).toLowerCase();
+  return (
+    client.accountArchived === true
+    || getClientDeletionReviewStatus(client) === CLIENT_DELETION_REVIEW_ARCHIVED_STATUS
+    || (!!bootstrapEmail && email === bootstrapEmail)
+    || clientId === BOOTSTRAP_DOC_ID
+    || client.isAgent === true
+    || agentStatus === "active"
+  );
+}
+
+async function getClientDeletionBlockers(clientId = "", clientData = {}) {
+  const balance = getClientDeletionReviewBalanceSnapshot(clientData);
+  const [ordersSnap, withdrawalsSnap, xchangesSnap, transfersSnap, pongWagersSnap, pongResultsSnap, morpionResultsSnap, dameResultsSnap, duelResultsSnap, dominoResultsSnap] = await Promise.all([
+    walletRef(clientId).collection("orders").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("withdrawals").limit(1).get().catch(() => ({ empty: true })),
+    walletHistoryRef(clientId).limit(1).get().catch(() => ({ empty: true })),
+    transferHistoryRef(clientId).limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("pongWagers").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("pongMatchResults").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("morpionRoomResults").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("dameRoomResults").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("duelRoomResults").limit(1).get().catch(() => ({ empty: true })),
+    walletRef(clientId).collection("roomResults").limit(1).get().catch(() => ({ empty: true })),
+  ]);
+
+  const htgFromDoes = doesToHtg(balance.doesBalance);
+  return {
+    hasBalance: balance.hasBalance,
+    approvedHtgAvailable: balance.approvedHtgAvailable,
+    provisionalHtgAvailable: balance.provisionalHtgAvailable,
+    htgBalance: balance.htgBalance,
+    doesBalance: balance.doesBalance,
+    equivalentLegacyHtgBalance: htgFromDoes,
+    hasOrders: ordersSnap?.empty === false,
+    hasWithdrawals: withdrawalsSnap?.empty === false,
+    hasHistory: xchangesSnap?.empty === false
+      || transfersSnap?.empty === false
+      || pongWagersSnap?.empty === false
+      || pongResultsSnap?.empty === false
+      || morpionResultsSnap?.empty === false
+      || dameResultsSnap?.empty === false
+      || duelResultsSnap?.empty === false
+      || dominoResultsSnap?.empty === false,
+    isProtected: await isClientProtectedFromDeletionReview(clientId, clientData),
   };
 }
 
@@ -305,7 +391,106 @@ async function resetClientFinancialAccount({
   };
 }
 
+async function deleteClientAccount({
+  adminUid = "",
+  adminEmail = "",
+  payload = {},
+} = {}) {
+  const clientId = sanitizeText(payload.clientId || payload.uid || "", 160);
+  const note = sanitizeText(payload.note || payload.reason || "", 240);
+
+  if (!clientId) {
+    const error = new Error("Client introuvable.");
+    error.httpStatus = 400;
+    error.code = "invalid-argument";
+    throw error;
+  }
+
+  const clientRef = walletRef(clientId);
+  const clientSnap = await clientRef.get();
+  if (!clientSnap.exists) {
+    const error = new Error("Compte client introuvable.");
+    error.httpStatus = 404;
+    error.code = "not-found";
+    throw error;
+  }
+
+  const clientData = clientSnap.data() || {};
+  const blockers = await getClientDeletionBlockers(clientId, clientData);
+  if (blockers.isProtected) {
+    const error = new Error("Ce compte est protege et ne peut pas etre supprime.");
+    error.httpStatus = 412;
+    error.code = "protected-account";
+    error.details = { blockers };
+    throw error;
+  }
+  if (blockers.hasBalance || blockers.hasOrders || blockers.hasWithdrawals || blockers.hasHistory) {
+    const error = new Error("Ce compte doit etre archive et non supprime, car il possede encore un solde ou un historique financier.");
+    error.httpStatus = 412;
+    error.code = "archive-required";
+    error.details = { blockers };
+    throw error;
+  }
+
+  const nowMs = Date.now();
+  await db.collection(DELETED_CLIENTS_ARCHIVE_COLLECTION).doc(clientId).set({
+    clientId,
+    mode: "deleted_hard",
+    note,
+    deletedAtMs: nowMs,
+    deletedByUid: sanitizeText(adminUid || "", 160),
+    deletedByEmail: sanitizeEmail(adminEmail || "", 160),
+    client: {
+      ...clientData,
+      email: sanitizeEmail(clientData.email || "", 160),
+      phone: sanitizePhone(clientData.phone || "", 40),
+      username: sanitizeUsername(clientData.username || "", 24),
+    },
+    blockers,
+  }, { merge: true });
+
+  try {
+    await auth.deleteUser(clientId);
+  } catch (deleteError) {
+    const code = String(deleteError?.code || "");
+    if (!code.includes("user-not-found")) {
+      console.error("[DASHBOARD_CLIENT_DELETE] auth.deleteUser failed", {
+        clientId,
+        adminUid,
+        adminEmail,
+        code,
+        message: String(deleteError?.message || deleteError),
+      });
+      const error = new Error("Impossible de supprimer ce compte Firebase Auth.");
+      error.httpStatus = 500;
+      error.code = "auth-delete-failed";
+      throw error;
+    }
+  }
+
+  await Promise.allSettled([
+    clientRef.delete(),
+    db.collection("adminAuditLogs").add({
+      type: "client_account_deleted",
+      clientId,
+      adminUid: sanitizeText(adminUid || "", 160),
+      adminEmail: sanitizeEmail(adminEmail || "", 160),
+      note,
+      createdAtMs: nowMs,
+    }),
+  ]);
+
+  return {
+    ok: true,
+    clientId,
+    deleted: true,
+    deletedAtMs: nowMs,
+    note,
+  };
+}
+
 module.exports = {
   adminSetClientPassword,
+  deleteClientAccount,
   resetClientFinancialAccount,
 };

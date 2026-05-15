@@ -16,6 +16,7 @@ const ROUTES = Object.freeze({
   "client-review/fraud-analysis": require("../../../routes/dashboard/client-review/fraud-analysis"),
   "client-review/approve-pending": require("../../../routes/dashboard/client-review/approve-pending"),
   "client-review/repair-resolved-residues": require("../../../routes/dashboard/client-review/repair-resolved-residues"),
+  "client-admin/delete-account": require("../../../routes/dashboard/client-admin/delete-account"),
   "client-admin/reset-financial-account": require("../../../routes/dashboard/client-admin/reset-financial-account"),
   "client-admin/set-password": require("../../../routes/dashboard/client-admin/set-password"),
   "client-admin/set-withdrawal-temporary-hold": require("../../../routes/dashboard/client-admin/set-withdrawal-temporary-hold"),
