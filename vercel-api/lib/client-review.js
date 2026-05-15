@@ -23,10 +23,11 @@ const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
 const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
+const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
 
 function normalizeDashboardGameFilter(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["duel", "morpion", "dame", "pong", "domino"].includes(normalized)) {
+  if (["duel", "morpion", "dame", "pong", "domino", "ludo"].includes(normalized)) {
     return normalized;
   }
   return "all";
@@ -45,6 +46,7 @@ function inferGameKeyFromHistoryDoc(sourceKey = "", data = {}) {
   if (source === "morpionroomresults") return "morpion";
   if (source === "dameroomresults") return "dame";
   if (source === "pongmatchresults") return "pong";
+  if (source === "ludomatchresults") return "ludo";
   if (source === "dominoclassicmatchresults") return "domino";
   if (source === "roomresults") {
     const roomMode = String(data.roomMode || data.gameMode || data.mode || "").trim().toLowerCase();
@@ -52,6 +54,7 @@ function inferGameKeyFromHistoryDoc(sourceKey = "", data = {}) {
     if (roomMode.includes("morpion")) return "morpion";
     if (roomMode.includes("dame")) return "dame";
     if (roomMode.includes("pong")) return "pong";
+    if (roomMode.includes("ludo")) return "ludo";
     return "domino";
   }
   return "domino";
@@ -63,6 +66,7 @@ function getGameLabelFromKey(gameKey = "") {
   if (normalized === "morpion") return "Morpion";
   if (normalized === "dame") return "Dame";
   if (normalized === "pong") return "Pong";
+  if (normalized === "ludo") return "Ludo";
   if (normalized === "domino") return "Domino";
   return "Jeu";
 }
@@ -90,6 +94,7 @@ function recordMatchesClientHistory(data = {}, clientId = "") {
 function inferClientHistoryOpponentType(gameKey = "", data = {}) {
   const normalizedGameKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedGameKey === "pong") return "bot";
+  if (normalizedGameKey === "ludo") return "bot";
   const botCount = safeInt(data.botCount);
   if (botCount > 0) return "bot";
   const roomMode = String(data.roomMode || data.gameMode || data.mode || "").trim().toLowerCase();
@@ -255,11 +260,12 @@ async function collectClientGameHistoryRows(clientId = "", {
     { key: "dameRoomResults", collection: db.collection(DAME_ROOM_RESULTS_COLLECTION), gameKey: "dame" },
     { key: "dominoClassicMatchResults", collection: db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION), gameKey: "domino" },
     { key: "pongMatchResults", collection: db.collection(PONG_MATCH_RESULTS_COLLECTION), gameKey: "pong" },
+    { key: "ludoMatchResults", collection: db.collection(LUDO_MATCH_RESULTS_COLLECTION), gameKey: "ludo" },
   ];
 
   const activeSources = sourceDefs.filter((item) => gameFilter === "all" || item.gameKey === gameFilter);
   const snapshots = await Promise.all(activeSources.map(async (source) => {
-    const useUidQuery = source.key === "pongMatchResults" || source.key === "dominoClassicMatchResults";
+    const useUidQuery = source.key === "pongMatchResults" || source.key === "dominoClassicMatchResults" || source.key === "ludoMatchResults";
     const fallbackQuery = useUidQuery
       ? source.collection.where("uid", "==", normalizedClientId)
       : source.collection.where("playerUids", "array-contains", normalizedClientId);

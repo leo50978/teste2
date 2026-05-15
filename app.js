@@ -24,6 +24,7 @@ import {
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
+  createFriendDuelRoomV2Secure,
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
@@ -169,12 +170,16 @@ let dominoModeModal = null;
 let dominoDuelStakeModal = null;
 let dameStakeModal = null;
 let dameBlockedModal = null;
+let ludoStakeModal = null;
+let ludoBlockedModal = null;
 let upcomingGameModal = null;
 let deferredPwaInstallPrompt = null;
 let pwaInstallModalRefs = null;
 let pwaInstallModalTimer = null;
 
 const DAME_PUBLIC_ENTRY_HTG = 25;
+const LUDO_PUBLIC_ENTRY_HTG = 25;
+const LUDO_PUBLIC_ENTRY_DOES = 500;
 const UPCOMING_GAME_LABELS = {
   ludo: "Ludo",
   chess: "Echec",
@@ -327,6 +332,154 @@ async function launchDominoClassicEntry() {
   const canLaunch = await canLaunchPublicGame("dominoClassic");
   if (!canLaunch) return;
   window.location.href = "./domino-classique.html?autostart=1";
+}
+
+function buildLudoEntryUrl() {
+  const params = new URLSearchParams({
+    autostart: "1",
+    stakeDoes: String(LUDO_PUBLIC_ENTRY_DOES),
+    fundingCurrency: "htg",
+    stakeHtg: String(LUDO_PUBLIC_ENTRY_HTG),
+  });
+  return `./ludo-js-master/index.html?${params.toString()}`;
+}
+
+function closeLudoStakeModal() {
+  if (!ludoStakeModal) return;
+  ludoStakeModal.classList.remove("is-open");
+  ludoStakeModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-modal-open");
+}
+
+function ensureLudoStakeModal() {
+  if (ludoStakeModal) return ludoStakeModal;
+
+  ludoStakeModal = document.createElement("section");
+  ludoStakeModal.className = "kobposh-forgot-modal";
+  ludoStakeModal.setAttribute("aria-hidden", "true");
+  ludoStakeModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhLudoStakeTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-ludo-stake-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">LUDO</p>
+      <h2 id="kobposhLudoStakeTitle" class="kobposh-forgot-modal__title">Konbyen HTG ou vle jwe?</h2>
+      <div class="mt-5 flex items-center justify-center">
+        <div class="rounded-full border border-[#d6ebe0] bg-[#eef8f1] px-5 py-3 text-base font-black text-[#156437]">
+          25 HTG
+        </div>
+      </div>
+      <div class="mt-6 flex flex-col gap-3">
+        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-ludo-stake-launch>
+          Jwe pou 25 HTG
+        </button>
+        <button class="rounded-full border border-[#dbe4dc] bg-white px-5 py-3 text-sm font-semibold text-[#43524c] transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-stake-close>
+          Retounen
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(ludoStakeModal);
+  renderIconsSafely();
+
+  ludoStakeModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target === ludoStakeModal || target?.closest("[data-kobposh-ludo-stake-close]")) {
+      closeLudoStakeModal();
+      return;
+    }
+    if (target?.closest("[data-kobposh-ludo-stake-launch]")) {
+      closeLudoStakeModal();
+      window.location.href = buildLudoEntryUrl();
+    }
+  });
+
+  return ludoStakeModal;
+}
+
+function openLudoStakeModal() {
+  const modal = ensureLudoStakeModal();
+  closeGamesModal();
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.remove("modal-open");
+  document.body.classList.add("is-modal-open");
+}
+
+function closeLudoBlockedModal() {
+  if (!ludoBlockedModal) return;
+  ludoBlockedModal.classList.remove("is-open");
+  ludoBlockedModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-modal-open");
+}
+
+function ensureLudoBlockedModal() {
+  if (ludoBlockedModal) return ludoBlockedModal;
+
+  ludoBlockedModal = document.createElement("section");
+  ludoBlockedModal.className = "kobposh-forgot-modal";
+  ludoBlockedModal.setAttribute("aria-hidden", "true");
+  ludoBlockedModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhLudoBlockedTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-ludo-blocked-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">HTG PA SIFI</p>
+      <h2 id="kobposhLudoBlockedTitle" class="kobposh-forgot-modal__title">Ou poko pare pou antre nan Ludo</h2>
+      <p class="kobposh-forgot-modal__text" data-kobposh-ludo-blocked-text>
+        Ou bezwen plis HTG disponib sou kont ou avan ou ka antre nan jwèt la.
+      </p>
+      <div class="mt-6 flex flex-col gap-3">
+        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-ludo-blocked-deposit>
+          Fè yon depo
+        </button>
+        <button class="rounded-full border border-[#dbe4dc] bg-white px-5 py-3 text-sm font-semibold text-[#43524c] transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-blocked-close>
+          Retounen
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(ludoBlockedModal);
+  renderIconsSafely();
+
+  ludoBlockedModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target === ludoBlockedModal || target?.closest("[data-kobposh-ludo-blocked-close]")) {
+      closeLudoBlockedModal();
+      return;
+    }
+    if (target?.closest("[data-kobposh-ludo-blocked-deposit]")) {
+      closeLudoBlockedModal();
+      openDepositModal();
+    }
+  });
+
+  return ludoBlockedModal;
+}
+
+function openLudoBlockedModal(requiredHtg = LUDO_PUBLIC_ENTRY_HTG, currentHtg = 0) {
+  const modal = ensureLudoBlockedModal();
+  const textEl = modal.querySelector("[data-kobposh-ludo-blocked-text]");
+  const safeRequired = Math.max(0, Math.trunc(Number(requiredHtg) || 0));
+  const safeCurrent = Math.max(0, Math.trunc(Number(currentHtg) || 0));
+  const missingHtg = Math.max(0, safeRequired - safeCurrent);
+
+  if (textEl) {
+    if (safeCurrent > 0) {
+      textEl.textContent = `Ou bezwen omwen ${formatHtg(safeRequired)} disponib pou antre nan jeu Ludo a. Kounye a ou gen ${formatHtg(safeCurrent)}. Sa vle di ou manke ${formatHtg(missingHtg)} toujou.`;
+    } else {
+      textEl.textContent = `Ou bezwen omwen ${formatHtg(safeRequired)} disponib pou antre nan jeu Ludo a. Kounye a ou pa gen HTG disponib sou kont ou.`;
+    }
+  }
+
+  closeGamesModal();
+  closeLudoStakeModal();
+  modal.classList.add("is-open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.remove("modal-open");
+  document.body.classList.add("is-modal-open");
 }
 
 function ensureDominoModeModal() {
@@ -559,6 +712,28 @@ function ensureDominoDuelStakeModal() {
           </div>
         </div>
 
+        <div data-domino-duel-step-panel="private-share" class="hidden space-y-5">
+          <div class="rounded-[30px] border border-[#dcebe1] bg-[linear-gradient(180deg,#f5fcf7_0%,#eef8f1_100%)] px-5 py-5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full border border-[#d6ebe0] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#156437]">Salon pare</span>
+              <span class="rounded-full border border-[#dce5df] bg-white px-3 py-1 text-[11px] font-semibold text-[#41514b]" data-domino-duel-created-stake>25 HTG</span>
+            </div>
+            <h3 class="mt-4 text-[28px] font-black text-[#18212b]">Kod la deja pare</h3>
+            <p class="mt-3 text-sm leading-6 text-[#5f6f67]">Pataje kod sa a ak zanmi ou avan ou antre nan paj duel la. Konsa li ka prepare kod la tou san nou pa pedi tan sou paj la.</p>
+          </div>
+          <div class="rounded-[30px] border border-[#dfe7e1] bg-white px-5 py-5 shadow-[0_12px_28px_rgba(15,23,42,0.05)]">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod salon prive a</p>
+            <div class="mt-3 flex items-center gap-3 rounded-[24px] border border-[#dce5df] bg-[#f7fbf8] px-4 py-4">
+              <p class="min-w-0 flex-1 text-[30px] font-black uppercase tracking-[0.24em] text-[#18212b]" data-domino-duel-created-code>------</p>
+              <button type="button" class="rounded-full border border-[#dce5df] bg-white px-4 py-2 text-xs font-semibold text-[#42524c] transition hover:bg-[#f7fbf8]" data-domino-duel-copy-code>
+                Kopye
+              </button>
+            </div>
+            <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Le ou peze kontinye, paj duel la ap louvri dirak sou salon sa a san li pa bezwen rekreye li.</p>
+            <p class="mt-3 min-h-[20px] text-sm font-medium text-[#156437]" data-domino-duel-share-status></p>
+          </div>
+        </div>
+
         <div data-domino-duel-step-panel="private-join" class="hidden space-y-5">
           <div>
             <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod prive</p>
@@ -602,6 +777,10 @@ function ensureDominoDuelStakeModal() {
   const privateStakeInput = overlay.querySelector("#dominoDuelPrivateStakeInput");
   const privateStakeStatusEl = overlay.querySelector("[data-domino-duel-private-stake-status]");
   const privateStakeQuickButtons = Array.from(overlay.querySelectorAll("[data-domino-duel-stake-quick]"));
+  const createdCodeEl = overlay.querySelector("[data-domino-duel-created-code]");
+  const createdStakeEl = overlay.querySelector("[data-domino-duel-created-stake]");
+  const shareStatusEl = overlay.querySelector("[data-domino-duel-share-status]");
+  const copyCodeBtn = overlay.querySelector("[data-domino-duel-copy-code]");
   const normalizeInviteCode = (value = "") => String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
   const normalizeStakeHtg = (value, fallback = MIN_PRIVATE_DUEL_STAKE_HTG) => {
     const parsed = Number.parseInt(String(value || ""), 10);
@@ -612,14 +791,17 @@ function ensureDominoDuelStakeModal() {
     public: { progress: "Etap 2/2", copy: "", nextLabel: "Antre nan gran chanm nan", showBack: true },
     private: { progress: "Etap 2/3", copy: "Koulye a chwazi ki jan ou vle antre nan salon prive a.", nextLabel: "Suivant", showBack: true },
     privateCreate: { progress: "Etap 3/3", copy: "Denye etap la se konfime kreyasyon salon prive a.", nextLabel: "Kreye salon prive a", showBack: true },
+    privateShare: { progress: "Etap 3/3", copy: "Kod la pare deja. Pataje li epi antre nan salon an le ou pare.", nextLabel: "Kontinye nan salon an", showBack: false },
     privateJoin: { progress: "Etap 3/3", copy: "Denye etap la se antre kod salon an.", nextLabel: "Antre nan salon an", showBack: true },
   };
   let currentStep = "mode";
   let selectedMode = "";
   let selectedFriendAction = "";
   let privateStakeHtg = MIN_PRIVATE_DUEL_STAKE_HTG;
+  let createdFriendRoomState = null;
+  let creatingFriendRoom = false;
 
-  const buildDuelUrl = ({ roomMode = "", friendAction = "", inviteCode = "", stakeHtg = PUBLIC_DUEL_STAKE_HTG } = {}) => {
+  const buildDuelUrl = ({ roomMode = "", friendAction = "", inviteCode = "", roomId = "", stakeHtg = PUBLIC_DUEL_STAKE_HTG } = {}) => {
     const safeStakeHtg = Math.max(0, normalizeStakeHtg(stakeHtg, PUBLIC_DUEL_STAKE_HTG));
     const params = new URLSearchParams({
       stake: String(safeStakeHtg * HTG_TO_DOES_RATE),
@@ -629,6 +811,7 @@ function ensureDominoDuelStakeModal() {
     if (roomMode) params.set("roomMode", roomMode);
     if (friendAction) params.set("friendAction", friendAction);
     if (inviteCode) params.set("inviteCode", inviteCode);
+    if (roomId) params.set("friendDuelRoomId", String(roomId || "").trim());
     return `./jeu-duel-v2.html?${params.toString()}`;
   };
   const close = () => {
@@ -648,6 +831,12 @@ function ensureDominoDuelStakeModal() {
   };
   const setPrivateStakeStatus = (message = "") => {
     if (privateStakeStatusEl) privateStakeStatusEl.textContent = String(message || "");
+  };
+  const setShareStatus = (message = "", tone = "success") => {
+    if (!shareStatusEl) return;
+    shareStatusEl.textContent = String(message || "");
+    shareStatusEl.classList.toggle("text-[#156437]", tone !== "error");
+    shareStatusEl.classList.toggle("text-[#c05b5b]", tone === "error");
   };
   const validatePublicEntry = () => {
     const balance = getCurrentHomeWalletTotalHtg();
@@ -697,6 +886,25 @@ function ensureDominoDuelStakeModal() {
       privateState: validatePrivateStake(),
     };
   };
+  const populateCreatedFriendRoom = () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    const roomStakeHtg = normalizeStakeHtg(createdFriendRoomState?.stakeHtg, privateStakeHtg || MIN_PRIVATE_DUEL_STAKE_HTG);
+    if (createdCodeEl) createdCodeEl.textContent = inviteCode || "------";
+    if (createdStakeEl) createdStakeEl.textContent = `${roomStakeHtg} HTG`;
+  };
+  const copyCreatedFriendCode = async () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    if (!inviteCode) {
+      setShareStatus("Kod la poko pare pou kopye.", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setShareStatus("Kod la kopye. Ou ka voye li bay zanmi ou kounye a.");
+    } catch (_) {
+      setShareStatus(`Kopye kod sa a manyelman: ${inviteCode}`, "error");
+    }
+  };
   const setSelectableState = (buttons, selectedValue, attributeName, indicatorName) => {
     buttons.forEach((button) => {
       const isActive = button.getAttribute(attributeName) === selectedValue;
@@ -727,12 +935,14 @@ function ensureDominoDuelStakeModal() {
     if (stepProgressEl) stepProgressEl.textContent = meta.progress;
     const publicEntryState = validatePublicEntry();
     const privateStakeState = validatePrivateStake();
+    populateCreatedFriendRoom();
     if (nextBtn) {
       nextBtn.textContent = meta.nextLabel;
       const disabled = (currentStep === "mode" && !selectedMode)
         || (currentStep === "public" && !publicEntryState.canAfford)
         || (currentStep === "private" && !selectedFriendAction)
-        || (currentStep === "privateCreate" && (!privateStakeState.meetsMinimum || !privateStakeState.canAfford))
+        || (currentStep === "privateShare" && (!createdFriendRoomState?.roomId || creatingFriendRoom))
+        || (currentStep === "privateCreate" && (creatingFriendRoom || !privateStakeState.meetsMinimum || !privateStakeState.canAfford))
         || (currentStep === "privateJoin" && !normalizeInviteCode(joinCodeInput?.value || ""));
       nextBtn.disabled = disabled;
     }
@@ -764,6 +974,49 @@ function ensureDominoDuelStakeModal() {
       inviteCode,
       stakeHtg: PUBLIC_DUEL_STAKE_HTG,
     });
+  };
+  const handleCreateFriendRoom = async () => {
+    const stakeState = validatePrivateStake();
+    if (!stakeState.meetsMinimum) {
+      privateStakeInput?.reportValidity();
+      privateStakeInput?.focus();
+      renderStep();
+      return;
+    }
+    if (!stakeState.canAfford || creatingFriendRoom) {
+      renderStep();
+      return;
+    }
+
+    creatingFriendRoom = true;
+    createdFriendRoomState = null;
+    setPrivateStakeStatus("M ap kreye salon prive a...");
+    setShareStatus("M ap kreye salon prive a...");
+    renderStep();
+    try {
+      const result = await createFriendDuelRoomV2Secure({ stakeHtg: privateStakeHtg });
+      createdFriendRoomState = {
+        roomId: String(result?.roomId || "").trim(),
+        inviteCode: normalizeInviteCode(result?.inviteCode || ""),
+        stakeHtg: normalizeStakeHtg(result?.stakeHtg, privateStakeHtg),
+        resumed: result?.resumed === true,
+      };
+      currentStep = "privateShare";
+      setShareStatus(
+        createdFriendRoomState.resumed
+          ? "Nou jwenn salon prive ou te deja genyen an. Ou ka pataje kod la oswa kontinye."
+          : "Salon prive a pare. Pataje kod la ak zanmi ou avan ou antre nan paj la."
+      );
+      renderStep();
+    } catch (error) {
+      createdFriendRoomState = null;
+      setShareStatus("");
+      setPrivateStakeStatus(error?.message || "Nou pa rive kreye salon prive a.");
+      renderStep();
+    } finally {
+      creatingFriendRoom = false;
+      renderStep();
+    }
   };
   const handleBack = () => {
     if (currentStep === "public" || currentStep === "private") {
@@ -799,23 +1052,21 @@ function ensureDominoDuelStakeModal() {
       return;
     }
     if (currentStep === "privateCreate") {
-      const stakeState = validatePrivateStake();
-      if (!stakeState.meetsMinimum) {
-        privateStakeInput?.reportValidity();
-        privateStakeInput?.focus();
-        renderStep();
-        return;
-      }
-      if (!stakeState.canAfford) {
-        renderStep();
-        return;
-      }
       setJoinStatus("");
-      setPrivateStakeStatus("");
+      void handleCreateFriendRoom();
+      return;
+    }
+    if (currentStep === "privateShare") {
+      if (!createdFriendRoomState?.roomId) {
+        renderStep();
+        return;
+      }
       launch({
         roomMode: "duel_v2_friends",
         friendAction: "create",
-        stakeHtg: privateStakeHtg,
+        inviteCode: normalizeInviteCode(createdFriendRoomState.inviteCode || ""),
+        roomId: String(createdFriendRoomState.roomId || "").trim(),
+        stakeHtg: normalizeStakeHtg(createdFriendRoomState.stakeHtg, privateStakeHtg),
       });
       return;
     }
@@ -876,6 +1127,9 @@ function ensureDominoDuelStakeModal() {
       renderStep();
     });
   });
+  copyCodeBtn?.addEventListener("click", () => {
+    void copyCreatedFriendCode();
+  });
 
   dominoDuelStakeModal = {
     open() {
@@ -886,9 +1140,12 @@ function ensureDominoDuelStakeModal() {
       selectedMode = "";
       selectedFriendAction = "";
       privateStakeHtg = MIN_PRIVATE_DUEL_STAKE_HTG;
+      createdFriendRoomState = null;
+      creatingFriendRoom = false;
       setPublicStatus("");
       setJoinStatus("");
       setPrivateStakeStatus("");
+      setShareStatus("");
       if (joinCodeInput) joinCodeInput.value = "";
       if (privateStakeInput) privateStakeInput.value = String(MIN_PRIVATE_DUEL_STAKE_HTG);
       renderStep();
@@ -3858,7 +4115,20 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       modal.open();
       return;
     }
-    if (game === "ludo" || game === "chess") {
+    if (game === "ludo") {
+      if (!auth.currentUser) {
+        openAuthScreen("login");
+        return;
+      }
+      const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+      if (currentBalanceHtg < LUDO_PUBLIC_ENTRY_HTG) {
+        openLudoBlockedModal(LUDO_PUBLIC_ENTRY_HTG, currentBalanceHtg);
+        return;
+      }
+      openLudoStakeModal();
+      return;
+    }
+    if (game === "chess") {
       openUpcomingGameModal(game);
       return;
     }

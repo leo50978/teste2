@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f7f0e4">
+    <title>Ludo | Kobposh</title>
+    <link rel="icon" type="image/png" href="../favicon-96x96.png" sizes="96x96">
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="shortcut icon" href="../favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+    <link rel="manifest" href="../site.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Sora:wght@600;700;800&display=swap"
+        rel="stylesheet"
+    >
+    <link rel="stylesheet" href="./ludo/style.css?v=20260515-ludo-searchpage1">
+</head>
+<body>
+    <main class="app">
+        <section class="arena glass">
+            <header class="arena__top">
+                <article class="player-card" data-player-card="P2">
+                    <div class="player-card__top">
+                        <div class="player-card__identity">
+                            <div class="player-card__label" id="ludoPlayerLabelP2">Bot</div>
+                            <div class="player-card__name" id="ludoPlayerNameP2">Bot la</div>
+                        </div>
+                        <button id="ludoDiceButtonP2" class="player-die player-die--bot" type="button" aria-label="De bot la" disabled>
+                            <span class="player-die__face" id="ludoDiceValueP2">--</span>
+                        </button>
+                    </div>
+                    <div class="timer">
+                        <div class="timer__label">
+                            <span>Tan</span>
+                            <strong class="timer__value" id="ludoTimerLabelP2">30s</strong>
+                        </div>
+                        <div class="timer__track">
+                            <div class="timer__fill" id="ludoTimerFillP2"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <div class="quit-wrap">
+                    <div class="center-stack">
+                        <div class="wallet-pill" aria-live="polite">
+                            <div class="wallet-pill__label">Mes HTG</div>
+                            <div class="wallet-pill__value" id="ludoWalletValue">-- HTG</div>
+                        </div>
+                    </div>
+                </div>
+
+                <article class="player-card player-card--self" data-player-card="P1">
+                    <div class="player-card__top">
+                        <div class="player-card__identity">
+                            <div class="player-card__label" id="ludoPlayerLabelP1">Ou</div>
+                            <div class="player-card__name" id="ludoPlayerNameP1">Ou</div>
+                        </div>
+                    </div>
+                    <div class="timer">
+                        <div class="timer__label">
+                            <span>Tan</span>
+                            <strong class="timer__value" id="ludoTimerLabelP1">30s</strong>
+                        </div>
+                        <div class="timer__track">
+                            <div class="timer__fill" id="ludoTimerFillP1"></div>
+                        </div>
+                    </div>
+                </article>
+            </header>
+
+            <div class="board-wrap">
+                <section class="board-shell glass">
+                    <div class="ludo-container">
+                        <div class="ludo">
+                                <div class="player-pieces">
+                                    <div class="player-piece" player-id="P1" piece="0"></div>
+                                    <div class="player-piece" player-id="P1" piece="1"></div>
+                                    <div class="player-piece" player-id="P1" piece="2"></div>
+                                    <div class="player-piece" player-id="P1" piece="3"></div>
+                                    
+                                    <div class="player-piece" player-id="P2" piece="0"></div>
+                                    <div class="player-piece" player-id="P2" piece="1"></div>
+                                    <div class="player-piece" player-id="P2" piece="2"></div>
+                                    <div class="player-piece" player-id="P2" piece="3"></div>
+                                </div>
+
+                                <div class="player-bases">
+                                    <div class="player-base" player-id="P1"></div>
+                                    <div class="player-base" player-id="P2"></div>
+                                </div>
+                            </div>
+                        </div>
+                </section>
+
+            </div>
+
+            <footer class="arena__bottom">
+                <button id="ludoDiceButtonP1" class="player-die player-die--self player-die--bottom" type="button" aria-label="Lanse de ou a">
+                    <span class="player-die__face" id="ludoDiceValueP1">--</span>
+                </button>
+            </footer>
+        </section>
+    </main>
+
+    <section class="result-modal hidden" id="ludoResultModal" aria-hidden="true">
+        <div class="result-modal__backdrop"></div>
+        <div class="result-modal__card" role="dialog" aria-modal="true" aria-labelledby="ludoResultTitle">
+            <p class="result-modal__eyebrow">Ludo</p>
+            <h2 class="result-modal__title" id="ludoResultTitle">Ronn nan fini</h2>
+            <p class="result-modal__copy" id="ludoResultCopy">Youn nan jwet yo rive lakay yo ak tout pyon yo.</p>
+            <div class="result-modal__actions">
+                <button type="button" class="btn btn-dice" id="ludoReplayBtn">Rejwe</button>
+                <a class="btn btn-reset btn-link" href="../index.html?view=public" id="ludoHomeBtn">Akey</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="result-modal hidden" id="ludoGuideModal" aria-hidden="true">
+        <div class="result-modal__backdrop"></div>
+        <div class="result-modal__card result-modal__card--guide" role="dialog" aria-modal="true" aria-labelledby="ludoGuideTitle">
+            <p class="result-modal__eyebrow">Reg enpotan</p>
+            <h2 class="result-modal__title" id="ludoGuideTitle">Anvan ou jwe Ludo</h2>
+            <div class="result-modal__list">
+                <p class="result-modal__copy">
+                    Chak tour gen <strong>30 segonn</strong>. Si tan an fini anvan ou jwe kou ou, ou ap <strong>pedi pati a</strong>.
+                </p>
+                <p class="result-modal__copy">
+                    Jwet la <strong>pa otomatik</strong>. Ou dwe <strong>klike sou de a</strong> pou jwenn yon nimewo.
+                </p>
+                <p class="result-modal__copy">
+                    Apre sa, ou dwe <strong>klike sou pyon an</strong> pou li avanse sou tablo a.
+                </p>
+            </div>
+            <div class="result-modal__actions result-modal__actions--single">
+                <button type="button" class="btn btn-dice" id="ludoGuideConfirmBtn">Mwen konprann, ann jwe</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="result-modal hidden" id="ludoSearchModal" aria-hidden="true">
+        <div class="result-modal__backdrop"></div>
+        <div class="result-modal__card result-modal__card--search" role="dialog" aria-modal="true" aria-labelledby="ludoSearchTitle">
+            <p class="result-modal__eyebrow">Ludo</p>
+            <h2 class="result-modal__title" id="ludoSearchTitle">N ap chache yon jw pou ou</h2>
+            <p class="result-modal__copy">Tanpri tann pandan nou ap prepare pati a.</p>
+            <div class="result-modal__search-pill">
+                <span class="result-modal__search-value" id="ludoSearchCountdown">15s</span>
+            </div>
+        </div>
+    </section>
+
+    <script src="./main.js?v=20260515-ludo-searchpage1" type="module"></script>
+</body>
+</html>

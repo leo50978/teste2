@@ -26,6 +26,8 @@ const ROUTES = Object.freeze({
   "transfers/analytics": require("../../../routes/dashboard/transfers/analytics"),
   "domino-classic-bot-pilot/snapshot": require("../../../routes/dashboard/domino-classic-bot-pilot/snapshot"),
   "domino-classic-bot-pilot/control": require("../../../routes/dashboard/domino-classic-bot-pilot/control"),
+  "ludo-bot-pilot/snapshot": require("../../../routes/dashboard/ludo-bot-pilot/snapshot"),
+  "ludo-bot-pilot/control": require("../../../routes/dashboard/ludo-bot-pilot/control"),
   "pong-bot-pilot/snapshot": require("../../../routes/dashboard/pong-bot-pilot/snapshot"),
   "pong-bot-pilot/control": require("../../../routes/dashboard/pong-bot-pilot/control"),
   "push/register": require("../../../routes/dashboard/push/register"),

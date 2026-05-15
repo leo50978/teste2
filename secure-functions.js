@@ -464,6 +464,57 @@ export async function recordDominoClassicMatchResultSecure(payload = {}) {
   return invokeCallable("recordDominoClassicMatchResultSecure", payload, fallbackError);
 }
 
+export async function startLudoWagerSecure(payload = {}) {
+  const fallbackError = "Impossible de demarrer la partie Ludo.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/start-wager", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("startLudoWagerSecure", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("startLudoWagerSecure", payload, fallbackError);
+}
+
+export async function touchLudoWagerHeartbeatSecure(payload = {}) {
+  const fallbackError = "Impossible de mettre a jour la session Ludo.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/heartbeat", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("touchLudoWagerHeartbeatSecure", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("touchLudoWagerHeartbeatSecure", payload, fallbackError);
+}
+
+export async function recordLudoMatchResultSecure(payload = {}) {
+  const fallbackError = "Impossible d'enregistrer le resultat Ludo.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/record-result", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("recordLudoMatchResultSecure", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("recordLudoMatchResultSecure", payload, fallbackError);
+}
+
 export async function joinMatchmakingDameSecure(payload = {}) {
   const fallbackError = "Impossible de rejoindre une partie de dame.";
   if (getConfiguredApiBaseUrl()) {

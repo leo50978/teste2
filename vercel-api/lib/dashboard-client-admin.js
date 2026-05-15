@@ -424,8 +424,8 @@ async function deleteClientAccount({
     error.details = { blockers };
     throw error;
   }
-  if (blockers.hasBalance || blockers.hasOrders || blockers.hasWithdrawals || blockers.hasHistory) {
-    const error = new Error("Ce compte doit etre archive et non supprime, car il possede encore un solde ou un historique financier.");
+  if (blockers.hasOrders || blockers.hasWithdrawals || blockers.hasHistory) {
+    const error = new Error("Ce compte doit etre archive et non supprime, car il possede encore des operations ou un historique financier.");
     error.httpStatus = 412;
     error.code = "archive-required";
     error.details = { blockers };
@@ -486,6 +486,13 @@ async function deleteClientAccount({
     deleted: true,
     deletedAtMs: nowMs,
     note,
+    archivedBalanceSnapshot: {
+      approvedHtgAvailable: blockers.approvedHtgAvailable,
+      provisionalHtgAvailable: blockers.provisionalHtgAvailable,
+      htgBalance: blockers.htgBalance,
+      doesBalance: blockers.doesBalance,
+      equivalentLegacyHtgBalance: blockers.equivalentLegacyHtgBalance,
+    },
   };
 }
 
