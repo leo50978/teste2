@@ -188,6 +188,7 @@ const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
+  ludoEnabled: true,
 });
 
 let publicGameAvailabilityCache = { ...DEFAULT_PUBLIC_GAME_AVAILABILITY };
@@ -200,6 +201,7 @@ function normalizePublicGameAvailability(raw = {}) {
   return {
     pongEnabled: source.pongEnabled !== false,
     dominoClassicEnabled: source.dominoClassicEnabled !== false,
+    ludoEnabled: source.ludoEnabled !== false,
   };
 }
 
@@ -239,6 +241,7 @@ function getGameAvailabilityLabel(gameKey = "") {
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedKey === "pong") return "Pong";
   if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
+  if (normalizedKey === "ludo") return "Ludo";
   return "Jwet sa a";
 }
 
@@ -307,9 +310,14 @@ function closeGameUnavailableModal() {
 async function canLaunchPublicGame(gameKey = "") {
   const availability = await readPublicGameAvailability(true);
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
-  const isEnabled = normalizedKey === "pong"
-    ? availability.pongEnabled !== false
-    : availability.dominoClassicEnabled !== false;
+  let isEnabled = true;
+  if (normalizedKey === "pong") {
+    isEnabled = availability.pongEnabled !== false;
+  } else if (normalizedKey === "ludo") {
+    isEnabled = availability.ludoEnabled !== false;
+  } else {
+    isEnabled = availability.dominoClassicEnabled !== false;
+  }
 
   if (!isEnabled) {
     openGameUnavailableModal(normalizedKey);
@@ -4120,6 +4128,8 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
         openAuthScreen("login");
         return;
       }
+      const canLaunch = await canLaunchPublicGame("ludo");
+      if (!canLaunch) return;
       const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
       if (currentBalanceHtg < LUDO_PUBLIC_ENTRY_HTG) {
         openLudoBlockedModal(LUDO_PUBLIC_ENTRY_HTG, currentBalanceHtg);

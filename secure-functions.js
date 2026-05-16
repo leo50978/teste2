@@ -287,6 +287,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
         provisionalDepositsEnabled: settings.provisionalDepositsEnabled === true,
         pongEnabled: settings.pongEnabled !== false,
         dominoClassicEnabled: settings.dominoClassicEnabled !== false,
+        ludoEnabled: settings.ludoEnabled !== false,
       };
     } catch (_) {
       backendData = {
@@ -296,6 +297,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
         provisionalDepositsEnabled: false,
         pongEnabled: true,
         dominoClassicEnabled: true,
+        ludoEnabled: true,
       };
     }
   }
@@ -305,6 +307,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
     provisionalDepositsEnabled: backendData?.provisionalDepositsEnabled === true,
     pongEnabled: backendData?.pongEnabled !== false,
     dominoClassicEnabled: backendData?.dominoClassicEnabled !== false,
+    ludoEnabled: backendData?.ludoEnabled !== false,
   };
 }
 

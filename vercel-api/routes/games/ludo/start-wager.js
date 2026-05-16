@@ -20,6 +20,7 @@ const {
   getConfiguredLudoBotDifficulty,
   readActiveLudoWagerStatus,
 } = require("../../../lib/ludo");
+const { readPublicAppSettings } = require("../../../lib/public-config");
 const { safeInt, sanitizeText } = require("../../../lib/safe");
 const { applyHtgStakeDebit, readApprovedHtg, readProvisionalHtg } = require("../../../lib/wallet-htg");
 
@@ -55,6 +56,10 @@ module.exports = async function handler(req, res) {
     const rewardHtg = buildRewardAmountHtg(stakeDoes, rewardDoes);
     const botUsername = sanitizeText(payload.botUsername || "", 64);
     const botDifficulty = await getConfiguredLudoBotDifficulty();
+    const publicSettings = await readPublicAppSettings();
+    if (publicSettings.ludoEnabled === false) {
+      throw makeHttpError(403, "ludo-disabled", "Ludo pa disponib pou kounye a.");
+    }
     const clientRef = db.collection("clients").doc(uid);
 
     const result = await db.runTransaction(async (tx) => {
