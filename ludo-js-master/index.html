@@ -145,14 +145,30 @@
         <div class="result-modal__backdrop"></div>
         <div class="result-modal__card result-modal__card--search" role="dialog" aria-modal="true" aria-labelledby="ludoSearchTitle">
             <p class="result-modal__eyebrow">Ludo</p>
-            <h2 class="result-modal__title" id="ludoSearchTitle">N ap chache yon jw pou ou</h2>
-            <p class="result-modal__copy">Tanpri tann pandan nou ap prepare pati a.</p>
-            <div class="result-modal__search-pill">
+            <h2 class="result-modal__title" id="ludoSearchTitle">N ap chache yon advese pou ou</h2>
+            <p class="result-modal__copy" id="ludoSearchCopy">Tanpri tann pandan n ap eseye jwenn yon advese pou pati a.</p>
+            <div class="result-modal__search-pill" id="ludoSearchPill">
                 <span class="result-modal__search-value" id="ludoSearchCountdown">15s</span>
+            </div>
+            <div class="result-modal__actions hidden" id="ludoSearchActions">
+                <button type="button" class="btn btn-dice" id="ludoSearchRetryBtn">Reeseye</button>
+                <a class="btn btn-reset btn-link" href="../index.html?view=public" id="ludoSearchHomeBtn">Akey</a>
             </div>
         </div>
     </section>
 
-    <script src="./main.js?v=20260516-ludo-botbase1" type="module"></script>
+    <section class="result-modal hidden" id="ludoWaitTurnModal" aria-hidden="true">
+        <div class="result-modal__backdrop"></div>
+        <div class="result-modal__card result-modal__card--guide" role="dialog" aria-modal="true" aria-labelledby="ludoWaitTurnTitle">
+            <p class="result-modal__eyebrow">Ludo</p>
+            <h2 class="result-modal__title" id="ludoWaitTurnTitle">Tann tou pa w</h2>
+            <p class="result-modal__copy" id="ludoWaitTurnCopy">Fok ou tann advesew la finn jwe avan w jwe. Gade anle a, wap we le li vire de pa l la.</p>
+            <div class="result-modal__actions result-modal__actions--single">
+                <button type="button" class="btn btn-dice" id="ludoWaitTurnConfirmBtn">Dako</button>
+            </div>
+        </div>
+    </section>
+
+    <script src="./main.js?v=20260516-ludo-matchflow1" type="module"></script>
 </body>
 </html>

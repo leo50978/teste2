@@ -5,9 +5,9 @@ import {
     startLudoWagerSecure,
     touchLudoWagerHeartbeatSecure,
 } from '../secure-functions.js?v=20260515-ludo-searchpage1';
-import { PLAYERS, STATE } from './ludo/constants.js?v=20260516-ludo-botbase1';
-import { Ludo } from './ludo/Ludo.js?v=20260516-ludo-botbase1';
-import { UI } from './ludo/UI.js?v=20260516-ludo-botbase1';
+import { PLAYERS, STATE } from './ludo/constants.js?v=20260516-ludo-matchflow1';
+import { Ludo } from './ludo/Ludo.js?v=20260516-ludo-matchflow1';
+import { UI } from './ludo/UI.js?v=20260516-ludo-matchflow1';
 
 const TURN_DURATION_SECONDS = 30;
 const LUDO_PUBLIC_STAKE_HTG = 25;
@@ -17,7 +17,9 @@ const LUDO_PENDING_RESULTS_KEY = 'ludo_v2_pending_results';
 const LUDO_ACTIVE_WAGER_KEY = 'ludo_v2_active_wager';
 const LUDO_HEARTBEAT_INTERVAL_MS = 12000;
 const LUDO_MAX_HEARTBEAT_FAILURES = 2;
-const LUDO_MATCHMAKING_WAIT_MS = 15000;
+const LUDO_MATCHMAKING_MIN_WAIT_MS = 5000;
+const LUDO_MATCHMAKING_MAX_WAIT_MS = 10000;
+const LUDO_MATCHMAKING_SUCCESS_RATE = 0.65;
 const pageParams = new URLSearchParams(window.location.search);
 const MONETIZED_MODE = pageParams.get('autostart') === '1';
 const REQUESTED_STAKE_DOES = Math.max(0, Number.parseInt(pageParams.get('stakeDoes') || pageParams.get('stake') || String(LUDO_PUBLIC_STAKE_DOES), 10)) || LUDO_PUBLIC_STAKE_DOES;
@@ -51,7 +53,13 @@ const dom = {
     guideModal: document.getElementById('ludoGuideModal'),
     guideConfirmBtn: document.getElementById('ludoGuideConfirmBtn'),
     searchModal: document.getElementById('ludoSearchModal'),
+    searchTitle: document.getElementById('ludoSearchTitle'),
+    searchCopy: document.getElementById('ludoSearchCopy'),
     searchCountdown: document.getElementById('ludoSearchCountdown'),
+    searchPill: document.getElementById('ludoSearchPill'),
+    searchActions: document.getElementById('ludoSearchActions'),
+    searchRetryBtn: document.getElementById('ludoSearchRetryBtn'),
+    searchHomeBtn: document.getElementById('ludoSearchHomeBtn'),
     playerNames: {
         P1: document.getElementById('ludoPlayerNameP1'),
         P2: document.getElementById('ludoPlayerNameP2'),
@@ -148,6 +156,25 @@ function clearMatchmakingWait() {
     }
 }
 
+function pickMatchmakingWaitMs() {
+    return LUDO_MATCHMAKING_MIN_WAIT_MS + Math.floor(Math.random() * (LUDO_MATCHMAKING_MAX_WAIT_MS - LUDO_MATCHMAKING_MIN_WAIT_MS + 1));
+}
+
+function showMatchmakingSearchingState(durationMs) {
+    if (dom.searchTitle) dom.searchTitle.textContent = 'N ap chache yon advese pou ou';
+    if (dom.searchCopy) dom.searchCopy.textContent = 'Tanpri tann pandan n ap eseye jwenn yon advese pou pati a.';
+    dom.searchPill?.classList.remove('hidden');
+    dom.searchActions?.classList.add('hidden');
+    setMatchmakingCountdown(Math.ceil(durationMs / 1000));
+}
+
+function showMatchmakingFailureState() {
+    if (dom.searchTitle) dom.searchTitle.textContent = 'Nou pa rive jwenn okenn advese';
+    if (dom.searchCopy) dom.searchCopy.textContent = 'Ou ka reeseye oswa tounen nan akey la.';
+    dom.searchPill?.classList.add('hidden');
+    dom.searchActions?.classList.remove('hidden');
+}
+
 function setMatchmakingCountdown(remainingSeconds = 15) {
     if (!dom.searchCountdown) return;
     dom.searchCountdown.textContent = `${Math.max(0, Number(remainingSeconds) || 0)}s`;
@@ -160,28 +187,45 @@ function hideMatchmakingModal() {
 }
 
 function waitForMatchmakingGate() {
-    if (!MONETIZED_MODE) return Promise.resolve();
+    if (!MONETIZED_MODE) return Promise.resolve(true);
     const modal = dom.searchModal;
-    if (!modal) return Promise.resolve();
+    if (!modal) return Promise.resolve(true);
 
     hideMatchmakingModal();
+    const waitMs = pickMatchmakingWaitMs();
+    const willFindOpponent = Math.random() < LUDO_MATCHMAKING_SUCCESS_RATE;
     const startedAtMs = Date.now();
-    setMatchmakingCountdown(Math.ceil(LUDO_MATCHMAKING_WAIT_MS / 1000));
+    showMatchmakingSearchingState(waitMs);
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
 
     return new Promise((resolve) => {
         matchmakingIntervalHandle = window.setInterval(() => {
             const elapsedMs = Date.now() - startedAtMs;
-            const remainingMs = Math.max(0, LUDO_MATCHMAKING_WAIT_MS - elapsedMs);
+            const remainingMs = Math.max(0, waitMs - elapsedMs);
             setMatchmakingCountdown(Math.ceil(remainingMs / 1000));
         }, 250);
 
         matchmakingTimerHandle = window.setTimeout(() => {
-            hideMatchmakingModal();
-            resolve();
-        }, LUDO_MATCHMAKING_WAIT_MS);
+            clearMatchmakingWait();
+            if (willFindOpponent) {
+                hideMatchmakingModal();
+                resolve(true);
+                return;
+            }
+            showMatchmakingFailureState();
+            resolve(false);
+        }, waitMs);
     });
+}
+
+async function runMatchmakingAndMaybeStartRound() {
+    const foundOpponent = await waitForMatchmakingGate();
+    if (!foundOpponent) {
+        return false;
+    }
+    await startMonetizedRound();
+    return true;
 }
 
 function readStorageJson(key, fallback) {
@@ -733,6 +777,9 @@ function installUiBridges() {
     document.addEventListener('kobposh:ludo-turn', (event) => {
         const player = String(event?.detail?.player || 'P1');
         activeTurnPlayer = player;
+        if (player === 'P1') {
+            UI.hideWaitTurnModal();
+        }
     });
 
     document.addEventListener('kobposh:ludo-state', handleStateEvent);
@@ -751,8 +798,7 @@ function installUiBridges() {
     UI.listenReplayClick(() => {
         if (MONETIZED_MODE) {
             void (async () => {
-                await waitForMatchmakingGate();
-                await startMonetizedRound();
+                await runMatchmakingAndMaybeStartRound();
             })();
             return;
         }
@@ -761,6 +807,14 @@ function installUiBridges() {
         assignRandomBotIdentity();
         applyPlayerIdentity();
         ludo.resetGame();
+    });
+
+    UI.listenWaitTurnConfirmClick(() => {
+        UI.hideWaitTurnModal();
+    });
+
+    dom.searchRetryBtn?.addEventListener('click', () => {
+        void runMatchmakingAndMaybeStartRound();
     });
 }
 
@@ -840,8 +894,7 @@ onAuthStateChanged(auth, async () => {
         showReloadForfeitModal();
         return;
     }
-    await waitForMatchmakingGate();
-    await startMonetizedRound();
+    await runMatchmakingAndMaybeStartRound();
 });
 
 void refreshWalletValue();

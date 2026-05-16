@@ -45,6 +45,9 @@ const resultTitleElement = document.querySelector('#ludoResultTitle');
 const resultCopyElement = document.querySelector('#ludoResultCopy');
 const replayButtonElement = document.querySelector('#ludoReplayBtn');
 const homeButtonElement = document.querySelector('#ludoHomeBtn');
+const waitTurnModalElement = document.querySelector('#ludoWaitTurnModal');
+const waitTurnCopyElement = document.querySelector('#ludoWaitTurnCopy');
+const waitTurnConfirmButtonElement = document.querySelector('#ludoWaitTurnConfirmBtn');
 const diceRollAnimationHandles = {
     P1: 0,
     P2: 0,
@@ -158,6 +161,10 @@ export class UI {
         replayButtonElement?.addEventListener('click', callback);
     }
 
+    static listenWaitTurnConfirmClick(callback) {
+        waitTurnConfirmButtonElement?.addEventListener('click', callback);
+    }
+
     static setPiecePosition(player, piece, newPosition) {
         if (!playerPiecesElements[player] || !playerPiecesElements[player][piece]) {
             console.error(`Player element of given player: ${player} and piece: ${piece} not found`);
@@ -210,7 +217,12 @@ export class UI {
             const button = diceButtonElements[playerId];
             if (!button) return;
             const canUse = playerId === player && playerId === 'P1';
-            button.toggleAttribute('disabled', !canUse);
+            if (playerId === 'P1') {
+                button.removeAttribute('disabled');
+                button.setAttribute('aria-disabled', canUse ? 'false' : 'true');
+            } else {
+                button.setAttribute('disabled', '');
+            }
             button.classList.toggle('is-ready', canUse);
             button.classList.toggle('is-bot-turn', playerId === player && playerId === 'P2');
         });
@@ -220,7 +232,12 @@ export class UI {
         PLAYERS.forEach((playerId) => {
             const button = diceButtonElements[playerId];
             if (!button) return;
-            button.setAttribute('disabled', '');
+            if (playerId === 'P1') {
+                button.removeAttribute('disabled');
+                button.setAttribute('aria-disabled', 'true');
+            } else {
+                button.setAttribute('disabled', '');
+            }
             button.classList.remove('is-ready', 'is-bot-turn');
         });
     }
@@ -298,6 +315,7 @@ export class UI {
             diceButtonElements[player]?.classList.remove('is-rolling', 'is-ready', 'is-bot-turn');
             if (player === 'P1') {
                 diceButtonElements[player]?.removeAttribute('disabled');
+                diceButtonElements[player]?.setAttribute('aria-disabled', 'false');
             } else {
                 diceButtonElements[player]?.setAttribute('disabled', '');
             }
@@ -342,5 +360,16 @@ export class UI {
     static hideWinnerModal() {
         resultModalElement?.classList.add('hidden');
         resultModalElement?.setAttribute('aria-hidden', 'true');
+    }
+
+    static showWaitTurnModal(copy = 'Fok ou tann advesew la finn jwe avan w jwe. Gade anle a, wap we le li vire de pa l la.') {
+        setText(waitTurnCopyElement, String(copy || 'Fok ou tann advesew la finn jwe avan w jwe. Gade anle a, wap we le li vire de pa l la.'));
+        waitTurnModalElement?.classList.remove('hidden');
+        waitTurnModalElement?.setAttribute('aria-hidden', 'false');
+    }
+
+    static hideWaitTurnModal() {
+        waitTurnModalElement?.classList.add('hidden');
+        waitTurnModalElement?.setAttribute('aria-hidden', 'true');
     }
 }

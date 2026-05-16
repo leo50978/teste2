@@ -17,6 +17,8 @@ export class Ludo {
         P2: []
     }
     botActionHandle = 0;
+    botTurnPlannedTotalMs = 0;
+    botTurnRollDelayMs = 0;
     interactionLocked = false;
     botDifficulty = 'weak';
     botLastDiceValue = 0;
@@ -106,6 +108,11 @@ export class Ludo {
         }
     }
 
+    clearBotTurnPlan() {
+        this.botTurnPlannedTotalMs = 0;
+        this.botTurnRollDelayMs = 0;
+    }
+
     wait(ms = 0) {
         return new Promise((resolve) => {
             window.setTimeout(resolve, ms);
@@ -120,6 +127,41 @@ export class Ludo {
         }, delay);
     }
 
+    getRandomIntInclusive(min, max) {
+        const safeMin = Math.ceil(Number(min) || 0);
+        const safeMax = Math.floor(Number(max) || 0);
+        return Math.floor(Math.random() * (safeMax - safeMin + 1)) + safeMin;
+    }
+
+    getRandomStartingTurn() {
+        return this.getRandomIntInclusive(0, PLAYERS.length - 1);
+    }
+
+    prepareBotTurnPlan() {
+        const totalMs = this.getRandomIntInclusive(5000, 10000);
+        const rollDelayMs = Math.min(
+            totalMs - 1800,
+            Math.max(2200, Math.floor(totalMs * (0.38 + Math.random() * 0.2)))
+        );
+        this.botTurnPlannedTotalMs = totalMs;
+        this.botTurnRollDelayMs = rollDelayMs;
+    }
+
+    getBotRollDelayMs() {
+        if (!this.botTurnRollDelayMs) {
+            this.prepareBotTurnPlan();
+        }
+        return this.botTurnRollDelayMs;
+    }
+
+    getBotPieceDelayMs() {
+        if (!this.botTurnPlannedTotalMs || !this.botTurnRollDelayMs) {
+            this.prepareBotTurnPlan();
+        }
+        const remainingMs = this.botTurnPlannedTotalMs - this.botTurnRollDelayMs;
+        return Math.max(1600, remainingMs);
+    }
+
     isBotPlayer(player) {
         return player === 'P2';
     }
@@ -131,11 +173,13 @@ export class Ludo {
     syncBotTurn() {
         this.clearBotAction();
         if (this.state === STATE.GAME_OVER || !this.isBotTurn()) {
+            this.clearBotTurnPlan();
             return;
         }
 
         if (this.state === STATE.DICE_NOT_ROLLED) {
-            this.scheduleBotAction(() => this.onDiceClick({ fromBot: true }), 760);
+            this.prepareBotTurnPlan();
+            this.scheduleBotAction(() => this.onDiceClick({ fromBot: true }), this.getBotRollDelayMs());
         }
     }
 
@@ -148,6 +192,10 @@ export class Ludo {
         if (this.interactionLocked) return;
         const fromBot = Boolean(eventOrOptions?.fromBot);
         if (this.isBotTurn() && !fromBot) {
+            UI.showWaitTurnModal();
+            return;
+        }
+        if (!fromBot && PLAYERS[this.turn] === 'P1' && this.state !== STATE.DICE_NOT_ROLLED) {
             return;
         }
         console.log('dice clicked!');
@@ -169,7 +217,7 @@ export class Ludo {
                 this.scheduleBotAction(() => {
                     const piece = this.pickBotPiece(player, eligiblePieces);
                     this.handlePieceClick(player, piece);
-                }, 880);
+                }, this.getBotPieceDelayMs());
             }
         } else {
             this.incrementTurn();
@@ -192,7 +240,9 @@ export class Ludo {
     resetGame() {
         console.log('reset game');
         this.clearBotAction();
+        this.clearBotTurnPlan();
         UI.hideWinnerModal();
+        UI.hideWaitTurnModal();
         UI.resetDiceFaces();
         this.currentPositions = structuredClone(BASE_POSITIONS);
 
@@ -202,7 +252,7 @@ export class Ludo {
             })
         });
 
-        this.turn = 0;
+        this.turn = this.getRandomStartingTurn();
         this.state = STATE.DICE_NOT_ROLLED;
         this.refreshHudStats();
     }
