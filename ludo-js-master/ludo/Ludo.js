@@ -252,9 +252,6 @@ export class Ludo {
                 }
                 return this.pickStrongBotDice(player);
             }
-            if (player === 'P1') {
-                return this.pickRiggedHumanDice(player);
-            }
         }
         return 1 + Math.floor(Math.random() * 6);
     }
@@ -262,6 +259,19 @@ export class Ludo {
     areAllPiecesInBase(player) {
         const positions = Array.isArray(this.currentPositions[player]) ? this.currentPositions[player] : [];
         return positions.length > 0 && positions.every((position) => BASE_POSITIONS[player].includes(position));
+    }
+
+    countPiecesInBase(player) {
+        const positions = Array.isArray(this.currentPositions[player]) ? this.currentPositions[player] : [];
+        return positions.filter((position) => BASE_POSITIONS[player].includes(position)).length;
+    }
+
+    countPiecesOnBoard(player) {
+        const positions = Array.isArray(this.currentPositions[player]) ? this.currentPositions[player] : [];
+        return positions.filter((position) => (
+            !BASE_POSITIONS[player].includes(position)
+            && position !== HOME_POSITIONS[player]
+        )).length;
     }
 
     pickStrongBotDice(player) {
@@ -315,7 +325,6 @@ export class Ludo {
                 sixOption.wouldWin
                 || sixOption.captures > 0
                 || sixOption.reachesHome
-                || sixOption.leavesBase
             )
             && (sixOption.score >= (bestOption.score - 18))
         );
@@ -435,6 +444,11 @@ export class Ludo {
         const opponent = player === 'P1' ? 'P2' : 'P1';
         const opponentBestNextRoll = this.estimateBestScoreForAnyRoll(opponent);
         const exposedPenalty = !safeLanding && captures === 0 && !reachesHome ? 18 : 0;
+        const piecesInBase = this.countPiecesInBase(player);
+        const piecesOnBoard = this.countPiecesOnBoard(player);
+        const baseReleasePenalty = leavesBase && piecesOnBoard > 0 && captures === 0 && !reachesHome && !wouldWin
+            ? (70 + (piecesInBase >= 2 ? 26 : 0) + (this.botConsecutiveSixes >= 1 ? 48 : 0))
+            : 0;
 
         let score = progress * 2;
         if (leavesBase) score += 120;
@@ -445,6 +459,7 @@ export class Ludo {
         if (wouldWin) score += 1600;
         score -= Math.floor(opponentBestNextRoll * 0.35);
         score -= exposedPenalty;
+        score -= baseReleasePenalty;
         return score;
     }
 

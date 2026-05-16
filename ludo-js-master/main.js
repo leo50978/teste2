@@ -5,9 +5,9 @@ import {
     startLudoWagerSecure,
     touchLudoWagerHeartbeatSecure,
 } from '../secure-functions.js?v=20260515-ludo-searchpage1';
-import { PLAYERS, STATE } from './ludo/constants.js?v=20260515-ludo-botopen1';
-import { Ludo } from './ludo/Ludo.js?v=20260515-ludo-botopen1';
-import { UI } from './ludo/UI.js?v=20260515-ludo-botopen1';
+import { PLAYERS, STATE } from './ludo/constants.js?v=20260516-ludo-botbase1';
+import { Ludo } from './ludo/Ludo.js?v=20260516-ludo-botbase1';
+import { UI } from './ludo/UI.js?v=20260516-ludo-botbase1';
 
 const TURN_DURATION_SECONDS = 30;
 const LUDO_PUBLIC_STAKE_HTG = 25;
