@@ -1230,11 +1230,17 @@ var Domino_Partida = function() {
 
         var Oponentes = [ [], [] ];
         var CampoJugador = [];
+        var Ficha66Jugador = null;
         var idx66 = SacarIndice(Pool, function(FichaDomino) {
             return FichaDomino && FichaDomino.Valores && FichaDomino.Valores[0] === 6 && FichaDomino.Valores[1] === 6;
         });
         if (idx66 >= 0) {
-            Oponentes[0].push(Pool.splice(idx66, 1)[0]);
+            if (Math.random() < 0.18) {
+                Ficha66Jugador = Pool.splice(idx66, 1)[0];
+            }
+            else {
+                Oponentes[0].push(Pool.splice(idx66, 1)[0]);
+            }
         }
 
         var ExtraDobles = [];
@@ -1275,7 +1281,8 @@ var Domino_Partida = function() {
         var PoolFaible = this.BarajarListaUltraLocal(Pool.slice(CorteCarga));
         Pool = PoolCharge.concat(PoolFaible);
 
-        while (CampoJugador.length < 14 && Pool.length > 0) {
+        var ObjetivoCampoJugador = Ficha66Jugador ? 13 : 14;
+        while (CampoJugador.length < ObjetivoCampoJugador && Pool.length > 0) {
             CampoJugador.push(Pool.shift());
         }
 
@@ -1285,8 +1292,12 @@ var Domino_Partida = function() {
         Oponentes[0] = this.BarajarListaUltraLocal(Oponentes[0]);
         Oponentes[1] = this.BarajarListaUltraLocal(Oponentes[1]);
 
-        var ManoJugador = CampoJugador.slice(0, 7);
-        var ManoAliado = CampoJugador.slice(7, 14);
+        var ManoJugador = Ficha66Jugador
+            ? [ Ficha66Jugador ].concat(CampoJugador.slice(0, 6))
+            : CampoJugador.slice(0, 7);
+        var ManoAliado = Ficha66Jugador
+            ? CampoJugador.slice(6, 13)
+            : CampoJugador.slice(7, 14);
         ManoJugador = this.BarajarListaUltraLocal(ManoJugador);
         ManoAliado = this.BarajarListaUltraLocal(ManoAliado);
         var ManoOponente1 = Oponentes[0].slice(0, 7);
@@ -1315,8 +1326,14 @@ var Domino_Partida = function() {
         var ManoBot1 = [];
         var ManoBot2 = [];
         var ManoBot3 = [];
+        var Ficha66Jugador = null;
         if (idx66 >= 0) {
-            ManoBot1.push(Pool.splice(idx66, 1)[0]);
+            if (Math.random() < 0.12) {
+                Ficha66Jugador = Pool.splice(idx66, 1)[0];
+            }
+            else {
+                ManoBot1.push(Pool.splice(idx66, 1)[0]);
+            }
         }
 
         Pool.sort(function(A, B) {
@@ -1329,10 +1346,14 @@ var Domino_Partida = function() {
             return this.CalcularCargaFichaUltraLocal(B) - this.CalcularCargaFichaUltraLocal(A);
         }.bind(this));
 
+        var ManoJoueurCible = Ficha66Jugador ? 6 : 7;
         var ManoJugador = Reste.slice(0, Math.min(5, Reste.length));
         var ZoneVariableJoueur = this.BarajarListaUltraLocal(Reste.slice(5));
-        while (ManoJugador.length < 7 && ZoneVariableJoueur.length > 0) {
+        while (ManoJugador.length < ManoJoueurCible && ZoneVariableJoueur.length > 0) {
             ManoJugador.push(ZoneVariableJoueur.shift());
+        }
+        if (Ficha66Jugador) {
+            ManoJugador.unshift(Ficha66Jugador);
         }
         var ComplementsBots = ZoneVariableJoueur.slice();
         var PoolBots = BotsGarantis.concat(ComplementsBots);
