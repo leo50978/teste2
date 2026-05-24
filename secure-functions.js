@@ -518,6 +518,125 @@ export async function recordLudoMatchResultSecure(payload = {}) {
   return invokeCallable("recordLudoMatchResultSecure", payload, fallbackError);
 }
 
+export async function createFriendLudoRoomSecure(payload = {}) {
+  const fallbackError = "Impossible de kreye salon prive Ludo a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/create-friend-room", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("createFriendLudoRoom", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("createFriendLudoRoom", payload, fallbackError);
+}
+
+export async function joinFriendLudoRoomByCodeSecure(payload = {}) {
+  const fallbackError = "Impossible d'entrer nan salon prive Ludo a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/join-friend-room", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("joinFriendLudoRoomByCode", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("joinFriendLudoRoomByCode", payload, fallbackError);
+}
+
+export async function resumeFriendLudoRoomSecure(payload = {}) {
+  const fallbackError = "Impossible de reprann salon prive Ludo a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/resume-friend-room", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("resumeFriendLudoRoom", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("resumeFriendLudoRoom", payload, fallbackError);
+}
+
+export async function getFriendLudoRoomStateSecure(payload = {}) {
+  const fallbackError = "Impossible de chaje eta salon prive Ludo a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/get-room-state", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("getFriendLudoRoomState", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("getFriendLudoRoomState", payload, fallbackError);
+}
+
+export async function touchFriendLudoPresenceSecure(payload = {}) {
+  const fallbackError = "Impossible de mete prezans Ludo prive a ajou.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/touch-presence", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("touchFriendLudoPresence", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("touchFriendLudoPresence", payload, fallbackError);
+}
+
+export async function submitFriendLudoActionSecure(payload = {}) {
+  const fallbackError = "Impossible d'envoye aksyon Ludo prive a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/submit-action", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("submitFriendLudoAction", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("submitFriendLudoAction", payload, fallbackError);
+}
+
+export async function leaveFriendLudoRoomSecure(payload = {}) {
+  const fallbackError = "Impossible de kite salon prive Ludo a.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/games/ludo/leave-room", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch((error) => {
+      if (shouldFallbackToCallable(error)) {
+        return invokeCallable("leaveFriendLudoRoom", payload, fallbackError);
+      }
+      throw error;
+    });
+  }
+  return invokeCallable("leaveFriendLudoRoom", payload, fallbackError);
+}
+
 export async function joinMatchmakingDameSecure(payload = {}) {
   const fallbackError = "Impossible de rejoindre une partie de dame.";
   if (getConfiguredApiBaseUrl()) {

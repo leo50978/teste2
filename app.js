@@ -180,6 +180,7 @@ let pwaInstallModalTimer = null;
 const DAME_PUBLIC_ENTRY_HTG = 25;
 const LUDO_PUBLIC_ENTRY_HTG = 25;
 const LUDO_PUBLIC_ENTRY_DOES = 500;
+const LUDO_FRIEND_STAKE_OPTIONS_HTG = Object.freeze([25, 50, 100, 250, 500]);
 const UPCOMING_GAME_LABELS = {
   ludo: "Ludo",
   chess: "Echec",
@@ -342,13 +343,25 @@ async function launchDominoClassicEntry() {
   window.location.href = "./domino-classique.html?autostart=1";
 }
 
-function buildLudoEntryUrl() {
+function buildLudoEntryUrl({
+  roomMode = "",
+  friendAction = "",
+  inviteCode = "",
+  roomId = "",
+  stakeHtg = LUDO_PUBLIC_ENTRY_HTG,
+  autostart = true,
+} = {}) {
+  const safeStakeHtg = Math.max(0, Math.trunc(Number(stakeHtg) || LUDO_PUBLIC_ENTRY_HTG));
   const params = new URLSearchParams({
-    autostart: "1",
-    stakeDoes: String(LUDO_PUBLIC_ENTRY_DOES),
+    stakeDoes: String(safeStakeHtg * 20),
     fundingCurrency: "htg",
-    stakeHtg: String(LUDO_PUBLIC_ENTRY_HTG),
+    stakeHtg: String(safeStakeHtg),
   });
+  if (autostart) params.set("autostart", "1");
+  if (roomMode) params.set("roomMode", String(roomMode || "").trim());
+  if (friendAction) params.set("friendAction", String(friendAction || "").trim());
+  if (inviteCode) params.set("inviteCode", String(inviteCode || "").trim().toUpperCase());
+  if (roomId) params.set("friendLudoRoomId", String(roomId || "").trim());
   return `./ludo-js-master/index.html?${params.toString()}`;
 }
 
@@ -371,18 +384,84 @@ function ensureLudoStakeModal() {
         <i data-lucide="x" class="icon" aria-hidden="true"></i>
       </button>
       <p class="kobposh-forgot-modal__eyebrow">LUDO</p>
-      <h2 id="kobposhLudoStakeTitle" class="kobposh-forgot-modal__title">Konbyen HTG ou vle jwe?</h2>
-      <div class="mt-5 flex items-center justify-center">
-        <div class="rounded-full border border-[#d6ebe0] bg-[#eef8f1] px-5 py-3 text-base font-black text-[#156437]">
-          25 HTG
+      <h2 id="kobposhLudoStakeTitle" class="kobposh-forgot-modal__title">Chwazi kijan ou vle antre nan Ludo</h2>
+      <div class="mt-3 rounded-full border border-[#d6ebe0] bg-[#eef8f1] px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.14em] text-[#156437]" data-kobposh-ludo-step-label>
+        Etap 1/3
+      </div>
+
+      <div class="mt-5 space-y-4" data-kobposh-ludo-step-panel="mode">
+        <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="public">
+          <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Piblik</span>
+          <span class="mt-2 block text-lg font-black text-[#18212b]">Gran chanm</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Jwe kont bot la ak antre piblik 25 HTG la.</span>
+        </button>
+        <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="friend">
+          <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Entre amis</span>
+          <span class="mt-2 block text-lg font-black text-[#18212b]">Salon prive</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Kreye yon salon oswa antre ak kod zanmi ou voye ba ou.</span>
+        </button>
+      </div>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="public">
+        <div class="rounded-[22px] border border-[#d6ebe0] bg-[#eef8f1] px-5 py-4 text-center">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6f7f76]">Gran chanm</p>
+          <p class="mt-2 text-2xl font-black text-[#156437]">25 HTG</p>
+          <p class="mt-3 text-sm leading-6 text-[#5f6f67]">Le ou kontinye, paj Ludo a ap louvri sou antre piblik la.</p>
+        </div>
+        <p class="min-h-[20px] text-sm font-medium text-[#c05b5b]" data-kobposh-ludo-public-status></p>
+      </div>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="private">
+        <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="create">
+          <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kreye</span>
+          <span class="mt-2 block text-lg font-black text-[#18212b]">Nouvo salon prive</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Paj Ludo a ap kreye room nan epi ba ou kod la.</span>
+        </button>
+        <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="join">
+          <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Antre</span>
+          <span class="mt-2 block text-lg font-black text-[#18212b]">Mwen gen yon kod</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Antre sou paj Ludo a ak kod salon prive a.</span>
+        </button>
+      </div>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="privateCreate">
+        <div class="rounded-[22px] border border-[#dce5df] bg-white px-5 py-5">
+          <label class="block" for="kobposhLudoFriendStakeInput">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Miz salon an</span>
+            <div class="mt-3 flex items-center gap-3 rounded-[20px] border border-[#dce5df] bg-[#f7fbf8] px-4 py-3">
+              <input id="kobposhLudoFriendStakeInput" type="number" min="25" step="1" value="25" class="min-w-0 flex-1 border-0 bg-transparent text-[28px] font-black tracking-[-0.02em] text-[#18212b] outline-none" />
+              <span class="rounded-full border border-[#dce5df] bg-white px-3 py-1 text-xs font-semibold text-[#50615a]">HTG</span>
+            </div>
+          </label>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" class="rounded-full border border-[#dce5df] bg-[#f7fbf8] px-3 py-1.5 text-xs font-semibold text-[#42524c]" data-kobposh-ludo-stake-quick="25">25 HTG</button>
+            <button type="button" class="rounded-full border border-[#dce5df] bg-[#f7fbf8] px-3 py-1.5 text-xs font-semibold text-[#42524c]" data-kobposh-ludo-stake-quick="50">50 HTG</button>
+            <button type="button" class="rounded-full border border-[#dce5df] bg-[#f7fbf8] px-3 py-1.5 text-xs font-semibold text-[#42524c]" data-kobposh-ludo-stake-quick="100">100 HTG</button>
+            <button type="button" class="rounded-full border border-[#dce5df] bg-[#f7fbf8] px-3 py-1.5 text-xs font-semibold text-[#42524c]" data-kobposh-ludo-stake-quick="250">250 HTG</button>
+            <button type="button" class="rounded-full border border-[#dce5df] bg-[#f7fbf8] px-3 py-1.5 text-xs font-semibold text-[#42524c]" data-kobposh-ludo-stake-quick="500">500 HTG</button>
+          </div>
+          <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Joiner a ap suiv mise sa a. Li pap ka chanje li sou pa l.</p>
+          <p class="mt-3 min-h-[20px] text-sm font-medium text-[#c05b5b]" data-kobposh-ludo-private-status></p>
         </div>
       </div>
-      <div class="mt-6 flex flex-col gap-3">
-        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-ludo-stake-launch>
-          Jwe pou 25 HTG
-        </button>
-        <button class="rounded-full border border-[#dbe4dc] bg-white px-5 py-3 text-sm font-semibold text-[#43524c] transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-stake-close>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="privateJoin">
+        <div class="rounded-[22px] border border-[#dce5df] bg-white px-5 py-5">
+          <label class="block" for="kobposhLudoFriendJoinCodeInput">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod salon prive a</span>
+            <input id="kobposhLudoFriendJoinCodeInput" type="text" maxlength="12" placeholder="Egzanp: AB12CD" class="mt-3 w-full rounded-[20px] border border-[#dce5df] bg-[#f7fbf8] px-4 py-4 text-base font-semibold uppercase tracking-[0.24em] text-[#18212b] outline-none transition focus:border-[#1b6b3f]" />
+          </label>
+          <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Paj Ludo a ap verifye kod la epi relire room nan avan li kite w antre.</p>
+          <p class="mt-3 min-h-[20px] text-sm font-medium text-[#c05b5b]" data-kobposh-ludo-join-status></p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+        <button class="hidden rounded-full border border-[#dbe4dc] bg-white px-5 py-3 text-sm font-semibold text-[#43524c] transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-step-back>
           Retounen
+        </button>
+        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-ludo-step-next>
+          Kontinye
         </button>
       </div>
     </div>
@@ -391,17 +470,182 @@ function ensureLudoStakeModal() {
   document.body.appendChild(ludoStakeModal);
   renderIconsSafely();
 
+  const stepLabelEl = ludoStakeModal.querySelector("[data-kobposh-ludo-step-label]");
+  const backBtn = ludoStakeModal.querySelector("[data-kobposh-ludo-step-back]");
+  const nextBtn = ludoStakeModal.querySelector("[data-kobposh-ludo-step-next]");
+  const stepPanels = Array.from(ludoStakeModal.querySelectorAll("[data-kobposh-ludo-step-panel]"));
+  const privateStakeInput = ludoStakeModal.querySelector("#kobposhLudoFriendStakeInput");
+  const privateStakeStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-private-status]");
+  const joinCodeInput = ludoStakeModal.querySelector("#kobposhLudoFriendJoinCodeInput");
+  const joinStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-join-status]");
+  const publicStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-public-status]");
+  const quickStakeButtons = Array.from(ludoStakeModal.querySelectorAll("[data-kobposh-ludo-stake-quick]"));
+  const normalizeStakeHtg = (value, fallback = LUDO_PUBLIC_ENTRY_HTG) => {
+    const parsed = Number.parseInt(String(value || ""), 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
+  };
+  const normalizeInviteCode = (value = "") => String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+  const STEP_META = {
+    mode: { label: "Etap 1/3", nextLabel: "Suivant", showBack: false },
+    public: { label: "Etap 2/2", nextLabel: "Antre nan gran chanm nan", showBack: true },
+    private: { label: "Etap 2/3", nextLabel: "Suivant", showBack: true },
+    privateCreate: { label: "Etap 3/3", nextLabel: "Kontinye sou paj Ludo a", showBack: true },
+    privateJoin: { label: "Etap 3/3", nextLabel: "Antre sou paj Ludo a", showBack: true },
+  };
+  let currentStep = "mode";
+  let selectedMode = "";
+  let selectedFriendAction = "";
+  let privateStakeHtg = LUDO_PUBLIC_ENTRY_HTG;
+
+  const setPublicStatus = (message = "") => {
+    if (publicStatusEl) publicStatusEl.textContent = String(message || "");
+  };
+  const setPrivateStakeStatus = (message = "") => {
+    if (privateStakeStatusEl) privateStakeStatusEl.textContent = String(message || "");
+  };
+  const setJoinStatus = (message = "") => {
+    if (joinStatusEl) joinStatusEl.textContent = String(message || "");
+  };
+  const validatePublic = () => {
+    const balance = getCurrentHomeWalletTotalHtg();
+    if (balance < LUDO_PUBLIC_ENTRY_HTG) {
+      setPublicStatus(`Ou bezwen ${Math.max(0, LUDO_PUBLIC_ENTRY_HTG - balance)} HTG anplis pou antre nan gran chanm nan.`);
+      return false;
+    }
+    setPublicStatus("");
+    return true;
+  };
+  const validatePrivateStake = () => {
+    privateStakeHtg = normalizeStakeHtg(privateStakeInput?.value, LUDO_PUBLIC_ENTRY_HTG);
+    if (privateStakeInput) privateStakeInput.value = String(privateStakeHtg || "");
+    if (!LUDO_FRIEND_STAKE_OPTIONS_HTG.includes(privateStakeHtg)) {
+      setPrivateStakeStatus("Chwazi youn nan mise prive yo: 25, 50, 100, 250 oswa 500 HTG.");
+      return false;
+    }
+    const balance = getCurrentHomeWalletTotalHtg();
+    if (balance < privateStakeHtg) {
+      setPrivateStakeStatus(`Ou bezwen ${Math.max(0, privateStakeHtg - balance)} HTG anplis pou kreye salon sa a.`);
+      return false;
+    }
+    setPrivateStakeStatus("");
+    return true;
+  };
+  const validateJoinCode = () => {
+    const inviteCode = normalizeInviteCode(joinCodeInput?.value || "");
+    if (joinCodeInput) joinCodeInput.value = inviteCode;
+    if (!inviteCode || inviteCode.length < 4) {
+      setJoinStatus("Mete yon kod salon prive ki valab.");
+      return false;
+    }
+    setJoinStatus("");
+    return true;
+  };
+  const renderStep = () => {
+    stepPanels.forEach((panel) => {
+      panel.classList.toggle("hidden", panel.getAttribute("data-kobposh-ludo-step-panel") !== currentStep);
+    });
+    const meta = STEP_META[currentStep] || STEP_META.mode;
+    if (stepLabelEl) stepLabelEl.textContent = meta.label;
+    if (nextBtn) nextBtn.textContent = meta.nextLabel;
+    if (backBtn) backBtn.classList.toggle("hidden", !meta.showBack);
+  };
+  const launch = (options = {}) => {
+    closeLudoStakeModal();
+    window.location.href = buildLudoEntryUrl(options);
+  };
+
   ludoStakeModal.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target === ludoStakeModal || target?.closest("[data-kobposh-ludo-stake-close]")) {
       closeLudoStakeModal();
       return;
     }
-    if (target?.closest("[data-kobposh-ludo-stake-launch]")) {
-      closeLudoStakeModal();
-      window.location.href = buildLudoEntryUrl();
+    const modeBtn = target?.closest("[data-kobposh-ludo-mode]");
+    if (modeBtn) {
+      selectedMode = modeBtn.getAttribute("data-kobposh-ludo-mode") === "friend" ? "friend" : "public";
+      currentStep = selectedMode === "friend" ? "private" : "public";
+      renderStep();
+      return;
+    }
+    const friendActionBtn = target?.closest("[data-kobposh-ludo-friend-action]");
+    if (friendActionBtn) {
+      selectedFriendAction = friendActionBtn.getAttribute("data-kobposh-ludo-friend-action") === "join" ? "join" : "create";
+      currentStep = selectedFriendAction === "join" ? "privateJoin" : "privateCreate";
+      renderStep();
+      return;
+    }
+    const quickStakeBtn = target?.closest("[data-kobposh-ludo-stake-quick]");
+    if (quickStakeBtn) {
+      privateStakeHtg = normalizeStakeHtg(quickStakeBtn.getAttribute("data-kobposh-ludo-stake-quick"), LUDO_PUBLIC_ENTRY_HTG);
+      if (privateStakeInput) privateStakeInput.value = String(privateStakeHtg || "");
+      validatePrivateStake();
+      return;
+    }
+    if (target?.closest("[data-kobposh-ludo-step-back]")) {
+      if (currentStep === "public" || currentStep === "private") {
+        currentStep = "mode";
+      } else if (currentStep === "privateCreate" || currentStep === "privateJoin") {
+        currentStep = "private";
+      } else {
+        currentStep = "mode";
+      }
+      renderStep();
+      return;
+    }
+    if (target?.closest("[data-kobposh-ludo-step-next]")) {
+      if (currentStep === "mode") {
+        currentStep = selectedMode === "friend" ? "private" : "public";
+        renderStep();
+        return;
+      }
+      if (currentStep === "public") {
+        if (!validatePublic()) return;
+        launch({ autostart: true, stakeHtg: LUDO_PUBLIC_ENTRY_HTG });
+        return;
+      }
+      if (currentStep === "private") {
+        currentStep = selectedFriendAction === "join" ? "privateJoin" : "privateCreate";
+        renderStep();
+        return;
+      }
+      if (currentStep === "privateCreate") {
+        if (!validatePrivateStake()) return;
+        launch({
+          autostart: false,
+          roomMode: "ludo_friends",
+          friendAction: "create",
+          stakeHtg: privateStakeHtg,
+        });
+        return;
+      }
+      if (currentStep === "privateJoin") {
+        if (!validateJoinCode()) return;
+        launch({
+          autostart: false,
+          roomMode: "ludo_friends",
+          friendAction: "join",
+          inviteCode: normalizeInviteCode(joinCodeInput?.value || ""),
+          stakeHtg: LUDO_PUBLIC_ENTRY_HTG,
+        });
+      }
     }
   });
+
+  quickStakeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      privateStakeHtg = normalizeStakeHtg(button.getAttribute("data-kobposh-ludo-stake-quick"), LUDO_PUBLIC_ENTRY_HTG);
+      if (privateStakeInput) privateStakeInput.value = String(privateStakeHtg || "");
+      validatePrivateStake();
+    });
+  });
+  privateStakeInput?.addEventListener("input", () => {
+    validatePrivateStake();
+  });
+  joinCodeInput?.addEventListener("input", () => {
+    joinCodeInput.value = normalizeInviteCode(joinCodeInput.value || "");
+    validateJoinCode();
+  });
+  renderStep();
 
   return ludoStakeModal;
 }

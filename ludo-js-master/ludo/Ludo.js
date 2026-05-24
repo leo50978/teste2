@@ -1,5 +1,5 @@
-import { BASE_POSITIONS, HOME_ENTRANCE, HOME_POSITIONS, PLAYERS, SAFE_POSITIONS, START_POSITIONS, STATE, TURNING_POINTS } from './constants.js?v=20260514-ludo-money1';
-import { UI } from './UI.js?v=20260514-ludo-money1';
+import { BASE_POSITIONS, HOME_ENTRANCE, HOME_POSITIONS, PLAYERS, SAFE_POSITIONS, START_POSITIONS, STATE, TURNING_POINTS } from './constants.js?v=20260523-ludo-frienddice2';
+import { UI } from './UI.js?v=20260523-ludo-frienddice2';
 
 const BOT_DIFFICULTY_LEVELS = new Set(['weak', 'strong']);
 
@@ -23,6 +23,10 @@ export class Ludo {
     botDifficulty = 'weak';
     botLastDiceValue = 0;
     botConsecutiveSixes = 0;
+    localPlayerId = 'P1';
+    botPlayers = new Set(['P2']);
+    actionIntentHandler = null;
+    lastExternalDiceActionSeq = -1;
 
     _diceValue;
     get diceValue() {
@@ -51,13 +55,13 @@ export class Ludo {
         this._state = value;
 
         if(this.interactionLocked) {
-            UI.disableDice();
+            UI.disableDice(this.localPlayerId);
             UI.unhighlightPieces();
         } else if(value === STATE.DICE_NOT_ROLLED) {
-            UI.enableDice(PLAYERS[this.turn]);
+            UI.enableDice(PLAYERS[this.turn], this.localPlayerId);
             UI.unhighlightPieces();
         } else {
-            UI.disableDice();
+            UI.disableDice(this.localPlayerId);
         }
         UI.setGameState(value, PLAYERS[this.turn]);
         this.syncBotTurn();
@@ -66,6 +70,9 @@ export class Ludo {
     constructor(options = {}) {
         console.log('Hello World! Lets play Ludo!');
         this.setBotDifficulty(options?.botDifficulty || 'weak');
+        this.setLocalPlayerId(options?.localPlayerId || 'P1');
+        this.setBotPlayers(options?.botPlayers || ['P2']);
+        this.setActionIntentHandler(options?.onActionIntent || null);
 
         // this.diceValue = 4;
         // this.turn = 0;
@@ -86,19 +93,32 @@ export class Ludo {
         this.interactionLocked = Boolean(locked);
         if (this.interactionLocked) {
             this.clearBotAction();
-            UI.disableDice();
+            UI.disableDice(this.localPlayerId);
             UI.unhighlightPieces();
             return;
         }
         if (this.state === STATE.DICE_NOT_ROLLED) {
-            UI.enableDice(PLAYERS[this.turn]);
+            UI.enableDice(PLAYERS[this.turn], this.localPlayerId);
         } else {
-            UI.disableDice();
+            UI.disableDice(this.localPlayerId);
         }
     }
 
     setBotDifficulty(level = 'weak') {
         this.botDifficulty = normalizeBotDifficulty(level);
+    }
+
+    setLocalPlayerId(playerId = 'P1') {
+        this.localPlayerId = String(playerId || '').trim() === 'P2' ? 'P2' : 'P1';
+    }
+
+    setBotPlayers(players = ['P2']) {
+        const values = Array.isArray(players) ? players : [players];
+        this.botPlayers = new Set(values.map((value) => String(value || '').trim()).filter(Boolean));
+    }
+
+    setActionIntentHandler(handler = null) {
+        this.actionIntentHandler = typeof handler === 'function' ? handler : null;
     }
 
     clearBotAction() {
@@ -163,7 +183,7 @@ export class Ludo {
     }
 
     isBotPlayer(player) {
-        return player === 'P2';
+        return this.botPlayers.has(player);
     }
 
     isBotTurn() {
@@ -191,11 +211,27 @@ export class Ludo {
         if(this.state === STATE.GAME_OVER) return;
         if (this.interactionLocked) return;
         const fromBot = Boolean(eventOrOptions?.fromBot);
+        const clickedPlayer = String(eventOrOptions?.uiPlayer || eventOrOptions?.player || this.localPlayerId || 'P1').trim() === 'P2' ? 'P2' : 'P1';
         if (this.isBotTurn() && !fromBot) {
             UI.showWaitTurnModal();
             return;
         }
-        if (!fromBot && PLAYERS[this.turn] === 'P1' && this.state !== STATE.DICE_NOT_ROLLED) {
+        if (!fromBot && clickedPlayer !== this.localPlayerId) {
+            return;
+        }
+        if (!fromBot && PLAYERS[this.turn] !== this.localPlayerId) {
+            UI.showWaitTurnModal();
+            return;
+        }
+        if (!fromBot && this.state !== STATE.DICE_NOT_ROLLED) {
+            return;
+        }
+        if (!fromBot && this.actionIntentHandler && !this.isBotPlayer(PLAYERS[this.turn])) {
+            UI.startDicePreview(this.localPlayerId);
+            this.actionIntentHandler({
+                type: 'roll',
+                player: PLAYERS[this.turn],
+            });
             return;
         }
         console.log('dice clicked!');
@@ -241,6 +277,7 @@ export class Ludo {
         console.log('reset game');
         this.clearBotAction();
         this.clearBotTurnPlan();
+        this.lastExternalDiceActionSeq = -1;
         UI.hideWinnerModal();
         UI.hideWaitTurnModal();
         UI.resetDiceFaces();
@@ -255,6 +292,55 @@ export class Ludo {
         this.turn = this.getRandomStartingTurn();
         this.state = STATE.DICE_NOT_ROLLED;
         this.refreshHudStats();
+    }
+
+    applyExternalState(snapshot = {}) {
+        this.clearBotAction();
+        this.clearBotTurnPlan();
+        UI.hideWaitTurnModal();
+        UI.unhighlightPieces();
+
+        const sourcePositions = snapshot?.currentPositions && typeof snapshot.currentPositions === 'object'
+            ? snapshot.currentPositions
+            : {};
+        this.currentPositions = structuredClone({
+            P1: Array.isArray(sourcePositions.P1) ? sourcePositions.P1.slice(0, 4) : BASE_POSITIONS.P1.slice(),
+            P2: Array.isArray(sourcePositions.P2) ? sourcePositions.P2.slice(0, 4) : BASE_POSITIONS.P2.slice(),
+        });
+
+        PLAYERS.forEach(player => {
+            [0, 1, 2, 3].forEach(piece => {
+                this.setPiecePosition(player, piece, this.currentPositions[player][piece])
+            })
+        });
+
+        const nextTurn = Number(snapshot?.turnIndex) === 1 ? 1 : 0;
+        const nextDiceValue = Number(snapshot?.diceValue) || 0;
+        const nextState = String(snapshot?.state || STATE.DICE_NOT_ROLLED);
+        const nextActionSeq = Number(snapshot?.actionSeq) || 0;
+        const nextLastDicePlayer = String(snapshot?.lastDicePlayer || '').trim() === 'P2' ? 'P2' : (String(snapshot?.lastDicePlayer || '').trim() === 'P1' ? 'P1' : '');
+        const shouldAnimateDice = (
+            nextState === STATE.DICE_ROLLED
+            && nextDiceValue > 0
+            && nextActionSeq !== this.lastExternalDiceActionSeq
+        );
+        const diceOwner = nextLastDicePlayer || PLAYERS[nextTurn];
+
+        this.turn = nextTurn;
+        this._diceValue = nextDiceValue;
+        UI.setDiceValue(nextDiceValue, diceOwner, {
+            animate: shouldAnimateDice,
+        });
+        this.lastExternalDiceActionSeq = nextActionSeq;
+        this.state = nextState;
+        this.refreshHudStats();
+
+        const eligiblePieces = Array.isArray(snapshot?.eligiblePieces)
+            ? snapshot.eligiblePieces.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+            : [];
+        if (this.state === STATE.DICE_ROLLED && PLAYERS[this.turn] === this.localPlayerId && eligiblePieces.length) {
+            UI.highlightPieces(this.localPlayerId, eligiblePieces);
+        }
     }
 
     listenPieceClick() {
@@ -276,12 +362,25 @@ export class Ludo {
         if (player !== PLAYERS[this.turn] || this.isBotPlayer(player)) {
             return;
         }
+        if (player !== this.localPlayerId) {
+            return;
+        }
         this.handlePieceClick(player, piece);
     }
 
     handlePieceClick(player, piece) {
         console.log(player, piece);
         this.clearBotAction();
+        if (this.actionIntentHandler && !this.isBotPlayer(player)) {
+            UI.unhighlightPieces();
+            this.actionIntentHandler({
+                type: 'move',
+                player,
+                piece: Number(piece),
+                diceValue: this.diceValue,
+            });
+            return;
+        }
         const currentPosition = this.currentPositions[player][piece];
         
         if(BASE_POSITIONS[player].includes(currentPosition)) {
@@ -596,9 +695,10 @@ export class Ludo {
             return;
         }
 
+        const reachedHome = this.currentPositions[player][piece] === HOME_POSITIONS[player];
         const isKill = await this.checkForKill(player, piece);
 
-        if(isKill || this.diceValue === 6) {
+        if(reachedHome || isKill || this.diceValue === 6) {
             this.state = STATE.DICE_NOT_ROLLED;
             return;
         }

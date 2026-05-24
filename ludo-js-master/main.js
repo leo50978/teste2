@@ -1,13 +1,20 @@
 import { auth, onAuthStateChanged } from '../firebase-init.js?v=20260515-ludo-searchpage1';
 import {
+    createFriendLudoRoomSecure,
+    getFriendLudoRoomStateSecure,
     getDepositFundingStatusSecure,
+    joinFriendLudoRoomByCodeSecure,
+    leaveFriendLudoRoomSecure,
     recordLudoMatchResultSecure,
+    resumeFriendLudoRoomSecure,
     startLudoWagerSecure,
+    submitFriendLudoActionSecure,
+    touchFriendLudoPresenceSecure,
     touchLudoWagerHeartbeatSecure,
 } from '../secure-functions.js?v=20260515-ludo-searchpage1';
-import { PLAYERS, STATE } from './ludo/constants.js?v=20260516-ludo-matchflow1';
-import { Ludo } from './ludo/Ludo.js?v=20260516-ludo-matchflow1';
-import { UI } from './ludo/UI.js?v=20260516-ludo-matchflow1';
+import { PLAYERS, STATE } from './ludo/constants.js?v=20260523-ludo-frienddice2';
+import { Ludo } from './ludo/Ludo.js?v=20260523-ludo-frienddice2';
+import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
 
 const TURN_DURATION_SECONDS = 30;
 const LUDO_PUBLIC_STAKE_HTG = 25;
@@ -21,7 +28,12 @@ const LUDO_MATCHMAKING_MIN_WAIT_MS = 5000;
 const LUDO_MATCHMAKING_MAX_WAIT_MS = 10000;
 const LUDO_MATCHMAKING_SUCCESS_RATE = 0.65;
 const pageParams = new URLSearchParams(window.location.search);
-const MONETIZED_MODE = pageParams.get('autostart') === '1';
+const REQUESTED_ROOM_MODE = String(pageParams.get('roomMode') || '').trim().toLowerCase();
+const REQUESTED_FRIEND_ACTION = String(pageParams.get('friendAction') || '').trim().toLowerCase();
+const REQUESTED_INVITE_CODE = String(pageParams.get('inviteCode') || '').trim().toUpperCase();
+const REQUESTED_FRIEND_ROOM_ID = String(pageParams.get('friendLudoRoomId') || '').trim();
+const IS_FRIEND_MODE = REQUESTED_ROOM_MODE === 'ludo_friends';
+const MONETIZED_MODE = !IS_FRIEND_MODE && pageParams.get('autostart') === '1';
 const REQUESTED_STAKE_DOES = Math.max(0, Number.parseInt(pageParams.get('stakeDoes') || pageParams.get('stake') || String(LUDO_PUBLIC_STAKE_DOES), 10)) || LUDO_PUBLIC_STAKE_DOES;
 const REQUESTED_STAKE_HTG = Math.max(0, Number.parseInt(pageParams.get('stakeHtg') || String(LUDO_PUBLIC_STAKE_HTG), 10)) || LUDO_PUBLIC_STAKE_HTG;
 const REQUESTED_FUNDING_CURRENCY = 'htg';
@@ -73,6 +85,8 @@ const dom = {
 let activeTurnPlayer = 'P1';
 let activeState = STATE.DICE_NOT_ROLLED;
 let turnTimerHandle = 0;
+let turnTimerDeadlineMs = 0;
+let friendTurnTimerSignature = '';
 let heartbeatTimerHandle = 0;
 let heartbeatFailures = 0;
 let ludo = null;
@@ -88,6 +102,13 @@ let introGatePromise = null;
 let recoveredForfeitOnBoot = false;
 let matchmakingTimerHandle = 0;
 let matchmakingIntervalHandle = 0;
+let friendRoomState = null;
+let currentSearchRetryMode = 'retry';
+let friendPresenceTimerHandle = 0;
+let friendStatePollTimerHandle = 0;
+let friendResultShown = false;
+let friendLeaveInFlight = false;
+let cachedAuthToken = '';
 
 function safeInt(value) {
     const n = Number(value);
@@ -100,6 +121,21 @@ function sanitizeText(value, maxLength = 120) {
 
 function formatHtg(value) {
     return `${safeInt(value)} HTG`;
+}
+
+function getApiBaseUrlForFriendKeepalive() {
+    const candidates = [
+        window.localStorage?.getItem('kobposh_api_base_url'),
+        window.__KOBPOSH_API_BASE_URL,
+        window.__KOBPOSH_RUNTIME_CONFIG__?.apiBaseUrl,
+    ];
+    for (const raw of candidates) {
+        const value = String(raw || '').trim();
+        if (value) {
+            return value.replace(/\/+$/, '');
+        }
+    }
+    return '';
 }
 
 function normalizeBotDifficulty(value = '') {
@@ -127,6 +163,9 @@ function ensureGuideAcknowledged() {
         }
 
         const close = () => {
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
             modal.classList.add('hidden');
             modal.setAttribute('aria-hidden', 'true');
             confirmBtn.removeEventListener('click', handleConfirm);
@@ -184,6 +223,420 @@ function hideMatchmakingModal() {
     clearMatchmakingWait();
     dom.searchModal?.classList.add('hidden');
     dom.searchModal?.setAttribute('aria-hidden', 'true');
+}
+
+function setSearchRetryMode(mode = 'retry') {
+    currentSearchRetryMode = String(mode || 'retry').trim().toLowerCase() || 'retry';
+    if (!dom.searchRetryBtn) return;
+    if (currentSearchRetryMode === 'copy') {
+        dom.searchRetryBtn.textContent = 'Kopye kod la';
+    } else if (currentSearchRetryMode === 'waiting') {
+        dom.searchRetryBtn.textContent = 'Mwen la toujou';
+    } else {
+        dom.searchRetryBtn.textContent = 'Reeseye';
+    }
+}
+
+function showSearchModalBase() {
+    const modal = dom.searchModal;
+    if (!modal) return;
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function showFriendRoomErrorState(message = '') {
+    clearMatchmakingWait();
+    if (dom.searchTitle) dom.searchTitle.textContent = 'Salon prive Ludo a pa disponib';
+    if (dom.searchCopy) dom.searchCopy.textContent = String(message || 'Nou pa rive chaje salon prive Ludo a kounye a.');
+    dom.searchPill?.classList.add('hidden');
+    dom.searchActions?.classList.remove('hidden');
+    setSearchRetryMode('retry');
+    showSearchModalBase();
+}
+
+function showFriendRoomWaitingState(room = {}) {
+    clearMatchmakingWait();
+    clearTurnTimer();
+    resetTurnTimersUi();
+    friendRoomState = room && typeof room === 'object' ? room : null;
+    const inviteCode = sanitizeText(room?.inviteCode || '', 24).toUpperCase();
+    const stakeHtg = safeInt(room?.stakeHtg || REQUESTED_STAKE_HTG);
+    const humanCount = safeInt(room?.humanCount || 1);
+    const waitingDeadlineMs = safeInt(room?.waitingDeadlineMs || 0);
+    const waitingCopy = inviteCode
+        ? `Kod salon an se ${inviteCode}. Mise salon an se ${formatHtg(stakeHtg)}. ${humanCount >= 2 ? '2 jwè yo deja ladan. Slice sa a rete sou etap waiting room nan pandan nap branche gameplay sync la.' : 'N ap tann lot jw a antre ak menm kod sa a.'}`
+        : `Mise salon an se ${formatHtg(stakeHtg)}. N ap tann lot jw a antre nan salon prive a.`;
+
+    let normalizedWaitingCopy = waitingCopy;
+    if (inviteCode && humanCount >= 2) {
+        normalizedWaitingCopy = `Kod salon an se ${inviteCode}. Mise salon an se ${formatHtg(stakeHtg)}. 2 jwè yo deja ladan. Nou pral lanse pati a depi room nan fin senkronize.`;
+    }
+
+    if (dom.searchTitle) dom.searchTitle.textContent = 'Salon prive Ludo a pare';
+    if (inviteCode && humanCount >= 2) {
+        normalizedWaitingCopy = `Kod salon an se ${inviteCode}. Mise salon an se ${formatHtg(stakeHtg)}. 2 jwe yo deja ladan. Nou pral lanse pati a depi room nan fin senkronize.`;
+    }
+    if (dom.searchCopy) dom.searchCopy.textContent = normalizedWaitingCopy;
+    dom.searchPill?.classList.remove('hidden');
+    dom.searchActions?.classList.remove('hidden');
+    setSearchRetryMode(inviteCode ? 'copy' : 'waiting');
+
+    const updateCountdown = () => {
+        if (!waitingDeadlineMs) {
+            setMatchmakingCountdown(0);
+            return;
+        }
+        const remainingMs = Math.max(0, waitingDeadlineMs - Date.now());
+        setMatchmakingCountdown(Math.ceil(remainingMs / 1000));
+        if (remainingMs <= 0) {
+            clearMatchmakingWait();
+            showFriendRoomErrorState('Tan salon prive a fini anvan nou te ka pase sou lot etap la. Ou ka retounen oswa eseye ankò pita.');
+        }
+    };
+
+    updateCountdown();
+    matchmakingIntervalHandle = window.setInterval(updateCountdown, 1000);
+    showSearchModalBase();
+}
+
+function stopFriendRoomLoops() {
+    if (friendPresenceTimerHandle) {
+        window.clearInterval(friendPresenceTimerHandle);
+        friendPresenceTimerHandle = 0;
+    }
+    if (friendStatePollTimerHandle) {
+        window.clearInterval(friendStatePollTimerHandle);
+        friendStatePollTimerHandle = 0;
+    }
+}
+
+function resolveFriendLocalPlayer(room = {}) {
+    const currentUid = String(auth.currentUser?.uid || '').trim();
+    const playerUids = Array.isArray(room?.playerUids)
+        ? room.playerUids.slice(0, 2).map((value) => String(value || '').trim())
+        : [];
+    if (currentUid && playerUids.length) {
+        const index = playerUids.indexOf(currentUid);
+        if (index === 1) return 'P2';
+        if (index === 0) return 'P1';
+    }
+    return Number(room?.seatIndex) === 1 ? 'P2' : 'P1';
+}
+
+function resolveFriendRoomErrorMessage(error = null) {
+    const code = String(error?.code || '').trim().toLowerCase();
+    if (code === 'ludo-friend-room-not-found') {
+        return 'Nou pa jwenn salon prive Ludo sa a ankò.';
+    }
+    if (code === 'ludo-friend-room-expired') {
+        return 'Tan salon prive sa a fini deja. Ou ka kreye yon nouvo oswa mande lot jw a voye yon lot kod.';
+    }
+    if (code === 'ludo-friend-room-full') {
+        return 'Salon prive Ludo sa a deja plen.';
+    }
+    if (code === 'ludo-friend-room-closed') {
+        return 'Salon prive Ludo sa a femen deja.';
+    }
+    if (code === 'ludo-friend-not-room-member') {
+        return 'Kont sa a pa ladan salon prive Ludo sa a.';
+    }
+    if (code === 'ludo-friend-self-join-forbidden') {
+        return 'Ou pa ka antre nan pwop salon pa w ak menm kont la.';
+    }
+    if (code === 'ludo-friend-insufficient-balance') {
+        return 'Ou pa gen ase HTG pou antre nan salon prive Ludo sa a.';
+    }
+    return String(error?.message || 'Nou pa rive antre nan salon prive Ludo a kounye a.');
+}
+
+function applyFriendIdentity(room = {}) {
+    const localPlayer = resolveFriendLocalPlayer(room);
+    const playerNames = Array.isArray(room?.playerNames) ? room.playerNames : [];
+    const hostName = sanitizeText(playerNames[0] || 'Joueur 1', 48) || 'Joueur 1';
+    const guestName = sanitizeText(playerNames[1] || 'Joueur 2', 48) || 'Joueur 2';
+    const opponentName = localPlayer === 'P1' ? guestName : hostName;
+
+    UI.configurePerspective({
+        friendMode: true,
+        localPlayer,
+    });
+
+    PLAYER_DISPLAY.P1 = {
+        label: 'Ou',
+        name: 'Ou',
+    };
+    PLAYER_DISPLAY.P2 = {
+        label: 'Advese',
+        name: opponentName,
+    };
+    applyPlayerIdentity();
+}
+
+function resolveFriendEndPresentation(room = {}) {
+    const localPlayer = resolveFriendLocalPlayer(room);
+    const winnerPlayer = String(room?.engineState?.winnerPlayer || room?.winnerPlayer || '').trim();
+    const endReason = String(room?.endReason || '').trim().toLowerCase();
+    const localWon = !!winnerPlayer && winnerPlayer === localPlayer;
+
+    if (endReason === 'turn_timeout') {
+        return localWon
+            ? {
+                title: 'Ou genyen pati a',
+                copy: 'Advese a pa jwe nan 30 segonn yo. Pati prive Ludo a fini an favè ou.',
+            }
+            : {
+                title: 'Ou pedi',
+                copy: '30 segonn yo fini anvan ou te jwe kou ou. Pati prive Ludo a fini kont ou.',
+            };
+    }
+
+    if (endReason === 'disconnect_forfeit') {
+        return localWon
+            ? {
+                title: 'Ou genyen pati a',
+                copy: 'Advese a pedi koneksyon li oswa kite salon an twop lontan. Pati prive Ludo a fini an favè ou.',
+            }
+            : {
+                title: 'Ou pedi',
+                copy: 'Koneksyon ou te koupe oswa ou te kite salon an twop lontan. Pati prive Ludo a fini kont ou.',
+            };
+    }
+
+    if (endReason === 'player_quit') {
+        return localWon
+            ? {
+                title: 'Ou genyen pati a',
+                copy: 'Advese a kite salon prive Ludo a. Pati a fini an favo ou.',
+            }
+            : {
+                title: 'Ou pedi',
+                copy: 'Ou kite salon prive Ludo a anvan fen pati a.',
+            };
+    }
+
+    return localWon
+        ? {
+            title: 'Ou genyen pati a',
+            copy: 'Pati prive Ludo a fini. Ou ka tounen nan paj akey la.',
+        }
+        : {
+            title: 'Ou pedi',
+            copy: 'Pati prive Ludo a fini. Ou ka tounen nan akey la.',
+        };
+}
+
+function showFriendRoomEndedModal(room = {}) {
+    if (friendResultShown) return;
+    clearTurnTimer();
+    resetTurnTimersUi();
+    friendResultShown = true;
+    const presentation = resolveFriendEndPresentation(room);
+    UI.showResultModal({
+        title: presentation.title,
+        copy: presentation.copy,
+        showReplay: false,
+        homeLabel: 'Akey',
+    });
+}
+
+function applyFriendRoomSnapshot(room = {}) {
+    friendRoomState = room && typeof room === 'object' ? room : null;
+    if (!friendRoomState) return;
+    const roomStatus = String(friendRoomState.status || '').trim().toLowerCase();
+
+    const localPlayer = resolveFriendLocalPlayer(friendRoomState);
+    applyFriendIdentity(friendRoomState);
+    ludo?.setLocalPlayerId?.(localPlayer);
+    ludo?.setBotPlayers?.([]);
+    ludo?.setActionIntentHandler?.((intent) => {
+        void submitFriendRoomAction(intent);
+    });
+
+    if (roomStatus === 'closed') {
+        friendResultShown = false;
+        stopFriendRoomLoops();
+        ludo?.setInteractionLocked?.(true);
+        clearTurnTimer();
+        resetTurnTimersUi();
+        showFriendRoomErrorState('Tan salon prive Ludo a fini. Ou ka retounen nan akey la oswa rekomanse ak yon nouvo salon.');
+        return;
+    }
+
+    if (roomStatus === 'waiting') {
+        friendResultShown = false;
+        ludo?.setInteractionLocked?.(true);
+        showFriendRoomWaitingState(friendRoomState);
+        return;
+    }
+
+    hideMatchmakingModal();
+    if (friendRoomState.engineState) {
+        ludo?.setInteractionLocked?.(false);
+        ludo?.applyExternalState?.(friendRoomState.engineState);
+        syncFriendTurnTimer(friendRoomState);
+    } else {
+        clearTurnTimer();
+        resetTurnTimersUi();
+    }
+
+    if (roomStatus === 'ended') {
+        ludo?.setInteractionLocked?.(true);
+        showFriendRoomEndedModal(friendRoomState);
+    } else {
+        friendResultShown = false;
+    }
+}
+
+async function refreshFriendRoomState() {
+    if (!IS_FRIEND_MODE || !friendRoomState?.roomId) return null;
+    const result = await getFriendLudoRoomStateSecure({ roomId: friendRoomState.roomId });
+    applyFriendRoomSnapshot(result || {});
+    return result || null;
+}
+
+async function sendFriendRoomPresence() {
+    if (!IS_FRIEND_MODE || !friendRoomState?.roomId) return null;
+    const result = await touchFriendLudoPresenceSecure({ roomId: friendRoomState.roomId });
+    applyFriendRoomSnapshot(result || {});
+    return result || null;
+}
+
+async function submitFriendRoomAction(intent = {}) {
+    if (!IS_FRIEND_MODE || !friendRoomState?.roomId) return;
+    try {
+        ludo?.setInteractionLocked?.(true);
+        const payload = {
+            roomId: friendRoomState.roomId,
+            action: String(intent?.type || '').trim().toLowerCase(),
+        };
+        if (payload.action === 'move') {
+            payload.pieceIndex = safeInt(intent?.piece);
+        }
+        const result = await submitFriendLudoActionSecure(payload);
+        applyFriendRoomSnapshot(result || {});
+    } catch (error) {
+        console.warn('[LUDO_FRIEND] submit action failed', error);
+        ludo?.setInteractionLocked?.(false);
+    }
+}
+
+function canLeaveFriendRoomNow() {
+    if (!IS_FRIEND_MODE || !friendRoomState?.roomId) return false;
+    const status = String(friendRoomState?.status || '').trim().toLowerCase();
+    return status === 'waiting' || status === 'playing';
+}
+
+async function leaveFriendRoom(reason = 'player_quit', { redirectHome = false } = {}) {
+    if (!canLeaveFriendRoomNow() || friendLeaveInFlight) {
+        if (redirectHome) {
+            window.location.href = HOME_URL;
+        }
+        return false;
+    }
+
+    friendLeaveInFlight = true;
+    stopFriendRoomLoops();
+    ludo?.setInteractionLocked?.(true);
+
+    try {
+        await leaveFriendLudoRoomSecure({
+            roomId: friendRoomState.roomId,
+            reason: sanitizeText(reason, 40) || 'player_quit',
+        });
+        return true;
+    } catch (error) {
+        console.warn('[LUDO_FRIEND] leave room failed', error);
+        return false;
+    } finally {
+        friendLeaveInFlight = false;
+        if (redirectHome) {
+            window.location.href = HOME_URL;
+        }
+    }
+}
+
+function fireAndForgetLeaveFriendRoom(reason = 'player_quit') {
+    if (!canLeaveFriendRoomNow()) return;
+    const baseUrl = getApiBaseUrlForFriendKeepalive();
+    const token = String(cachedAuthToken || '').trim();
+    if (!baseUrl || !token) return;
+    try {
+        fetch(`${baseUrl}/api/games/ludo/leave-room`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                roomId: friendRoomState.roomId,
+                reason: sanitizeText(reason, 40) || 'player_quit',
+            }),
+            keepalive: true,
+        }).catch(() => null);
+    } catch (_) {
+        // Ignore best-effort keepalive errors.
+    }
+}
+
+function startFriendRoomLoops() {
+    stopFriendRoomLoops();
+    if (!IS_FRIEND_MODE) return;
+    friendPresenceTimerHandle = window.setInterval(() => {
+        void sendFriendRoomPresence().catch((error) => {
+            console.warn('[LUDO_FRIEND] touch presence failed', error);
+        });
+    }, 10000);
+    friendStatePollTimerHandle = window.setInterval(() => {
+        void refreshFriendRoomState().catch((error) => {
+            console.warn('[LUDO_FRIEND] get room state failed', error);
+        });
+    }, 1000);
+}
+
+async function bootFriendRoomFlow() {
+    if (!IS_FRIEND_MODE) return false;
+    if (!auth.currentUser) {
+        window.location.href = HOME_URL;
+        return false;
+    }
+
+    clearTurnTimer();
+    stopHeartbeat();
+    stopFriendRoomLoops();
+    ludo?.setInteractionLocked?.(true);
+    UI.hideWinnerModal();
+    hideMatchmakingModal();
+
+    const basePayload = {
+        stakeDoes: REQUESTED_STAKE_DOES,
+        stakeHtg: REQUESTED_STAKE_HTG,
+        fundingCurrency: REQUESTED_FUNDING_CURRENCY,
+    };
+
+    try {
+        let result = null;
+        if (REQUESTED_FRIEND_ROOM_ID) {
+            result = await resumeFriendLudoRoomSecure({ roomId: REQUESTED_FRIEND_ROOM_ID });
+        } else if (REQUESTED_FRIEND_ACTION === 'create') {
+            result = await createFriendLudoRoomSecure(basePayload);
+        } else if (REQUESTED_FRIEND_ACTION === 'join') {
+            result = await joinFriendLudoRoomByCodeSecure({
+                ...basePayload,
+                inviteCode: REQUESTED_INVITE_CODE,
+            });
+        } else {
+            showFriendRoomErrorState('Flow salon prive Ludo a pa fin branche sou URL sa a.');
+            return false;
+        }
+
+        friendRoomState = result && typeof result === 'object' ? result : null;
+        applyFriendRoomSnapshot(friendRoomState || {});
+        startFriendRoomLoops();
+        return true;
+    } catch (error) {
+        showFriendRoomErrorState(resolveFriendRoomErrorMessage(error));
+        return false;
+    }
 }
 
 function waitForMatchmakingGate() {
@@ -305,6 +758,8 @@ function clearTurnTimer() {
         window.clearInterval(turnTimerHandle);
         turnTimerHandle = 0;
     }
+    turnTimerDeadlineMs = 0;
+    friendTurnTimerSignature = '';
 }
 
 function setTimerUi(player, remaining) {
@@ -313,6 +768,80 @@ function setTimerUi(player, remaining) {
         total: TURN_DURATION_SECONDS,
         danger: remaining <= 5,
     });
+}
+
+function resetTurnTimersUi() {
+    UI.resetTurnTimers(TURN_DURATION_SECONDS);
+}
+
+function renderAbsoluteTurnTimer(player, deadlineMs) {
+    const remainingMs = Math.max(0, safeInt(deadlineMs) - Date.now());
+    const remainingSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+    setTimerUi(player, remainingSeconds);
+    return remainingSeconds;
+}
+
+function startAbsoluteTurnTimer(player, startedAtMs, totalSeconds = TURN_DURATION_SECONDS) {
+    const safeStartedAtMs = safeInt(startedAtMs);
+    if (!safeStartedAtMs) {
+        clearTurnTimer();
+        resetTurnTimersUi();
+        return;
+    }
+
+    const safeTotalSeconds = Math.max(1, safeInt(totalSeconds) || TURN_DURATION_SECONDS);
+    const nextDeadlineMs = safeStartedAtMs + (safeTotalSeconds * 1000);
+    const nextSignature = `${player}:${safeStartedAtMs}:${activeState}`;
+    activeTurnPlayer = player;
+
+    PLAYERS.forEach((playerId) => {
+        UI.renderTurnTimer(playerId, {
+            remaining: TURN_DURATION_SECONDS,
+            total: TURN_DURATION_SECONDS,
+            danger: false,
+        });
+    });
+
+    if (turnTimerHandle && friendTurnTimerSignature === nextSignature && turnTimerDeadlineMs === nextDeadlineMs) {
+        renderAbsoluteTurnTimer(player, nextDeadlineMs);
+        return;
+    }
+
+    if (turnTimerHandle) {
+        window.clearInterval(turnTimerHandle);
+        turnTimerHandle = 0;
+    }
+    turnTimerDeadlineMs = nextDeadlineMs;
+    friendTurnTimerSignature = nextSignature;
+
+    if (renderAbsoluteTurnTimer(player, nextDeadlineMs) <= 0) {
+        return;
+    }
+
+    turnTimerHandle = window.setInterval(() => {
+        const remainingSeconds = renderAbsoluteTurnTimer(player, nextDeadlineMs);
+        if (remainingSeconds > 0) return;
+        clearTurnTimer();
+    }, 250);
+}
+
+function syncFriendTurnTimer(room = friendRoomState) {
+    if (!IS_FRIEND_MODE) return;
+    const status = String(room?.status || '').trim().toLowerCase();
+    if (status !== 'playing') {
+        clearTurnTimer();
+        resetTurnTimersUi();
+        return;
+    }
+
+    const engineState = room?.engineState && typeof room.engineState === 'object' ? room.engineState : null;
+    const currentPlayer = String(
+        engineState?.currentPlayer
+        || (safeInt(room?.currentPlayerSeat) === 1 ? 'P2' : 'P1')
+    ).trim() === 'P2' ? 'P2' : 'P1';
+    const turnStartedAtMs = safeInt(engineState?.turnStartedAtMs || room?.turnStartedAtMs);
+
+    startAbsoluteTurnTimer(currentPlayer, turnStartedAtMs, TURN_DURATION_SECONDS);
 }
 
 function triggerTimeoutMove(player) {
@@ -365,6 +894,7 @@ async function handleTurnTimeout(player) {
 function startTurnTimer(player) {
     activeTurnPlayer = player;
     clearTurnTimer();
+    turnTimerDeadlineMs = Date.now() + (TURN_DURATION_SECONDS * 1000);
     let remaining = TURN_DURATION_SECONDS;
 
     PLAYERS.forEach((playerId) => {
@@ -390,6 +920,15 @@ function handleStateEvent(event) {
     const detail = event?.detail || {};
     activeState = detail.state || STATE.DICE_NOT_ROLLED;
     activeTurnPlayer = detail.player || activeTurnPlayer;
+
+    if (IS_FRIEND_MODE) {
+        if (activeState === STATE.GAME_OVER) {
+            clearTurnTimer();
+            return;
+        }
+        syncFriendTurnTimer(friendRoomState || {});
+        return;
+    }
 
     if (activeState === STATE.GAME_OVER) {
         clearTurnTimer();
@@ -814,6 +1353,17 @@ function installUiBridges() {
     });
 
     dom.searchRetryBtn?.addEventListener('click', () => {
+        if (IS_FRIEND_MODE) {
+            if (currentSearchRetryMode === 'copy') {
+                const inviteCode = sanitizeText(friendRoomState?.inviteCode || '', 24).toUpperCase();
+                if (inviteCode && navigator?.clipboard?.writeText) {
+                    void navigator.clipboard.writeText(inviteCode).catch(() => null);
+                }
+                return;
+            }
+            void bootFriendRoomFlow();
+            return;
+        }
         void runMatchmakingAndMaybeStartRound();
     });
 }
@@ -857,17 +1407,65 @@ function installMonetizedExitGuards() {
     });
 }
 
+function installFriendExitGuards() {
+    if (!IS_FRIEND_MODE) return;
+
+    try {
+        window.history.pushState({ ludoFriendRoom: true }, '', window.location.href);
+    } catch {
+        // Ignore history API failures.
+    }
+
+    window.addEventListener('popstate', () => {
+        fireAndForgetLeaveFriendRoom('player_quit');
+        void leaveFriendRoom('player_quit', { redirectHome: true });
+    });
+
+    window.addEventListener('offline', () => {
+        fireAndForgetLeaveFriendRoom('player_quit');
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            fireAndForgetLeaveFriendRoom('player_quit');
+        }
+    });
+
+    window.addEventListener('pagehide', () => {
+        fireAndForgetLeaveFriendRoom('player_quit');
+    });
+
+    window.addEventListener('beforeunload', () => {
+        fireAndForgetLeaveFriendRoom('player_quit');
+    });
+}
+
 assignRandomBotIdentity();
+UI.configurePerspective({
+    friendMode: false,
+    localPlayer: 'P1',
+});
 applyPlayerIdentity();
 installUiBridges();
 applyBotDifficulty(pageParams.get('botDifficulty'));
-ludo = new Ludo({ botDifficulty: activeBotDifficulty });
+ludo = new Ludo({
+    botDifficulty: activeBotDifficulty,
+    localPlayerId: IS_FRIEND_MODE ? 'P1' : 'P1',
+    botPlayers: IS_FRIEND_MODE ? [] : ['P2'],
+    onActionIntent: IS_FRIEND_MODE ? ((intent) => {
+        void submitFriendRoomAction(intent);
+    }) : null,
+});
 ludo.setInteractionLocked(true);
 UI.resetTurnTimers(TURN_DURATION_SECONDS);
 installMonetizedExitGuards();
+installFriendExitGuards();
 
 if (!MONETIZED_MODE) {
     void ensureGuideAcknowledged().then(() => {
+        if (IS_FRIEND_MODE) {
+            return;
+        }
         ludo?.setInteractionLocked(false);
         ludo?.resetGame();
     });
@@ -876,7 +1474,7 @@ if (!MONETIZED_MODE) {
 onAuthStateChanged(auth, async () => {
     await refreshWalletValue();
 
-    if (!MONETIZED_MODE || bootstrapStarted) {
+    if ((!MONETIZED_MODE && !IS_FRIEND_MODE) || bootstrapStarted) {
         return;
     }
     bootstrapStarted = true;
@@ -886,12 +1484,18 @@ onAuthStateChanged(auth, async () => {
         return;
     }
 
+    cachedAuthToken = await auth.currentUser.getIdToken().catch(() => '');
+
     await ensureGuideAcknowledged();
     recoveredForfeitOnBoot = recoverStoredActiveSession();
     await flushPendingResults();
     if (recoveredForfeitOnBoot) {
         await refreshWalletValue();
         showReloadForfeitModal();
+        return;
+    }
+    if (IS_FRIEND_MODE) {
+        await bootFriendRoomFlow();
         return;
     }
     await runMatchmakingAndMaybeStartRound();

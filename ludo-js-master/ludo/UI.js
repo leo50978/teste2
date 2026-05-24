@@ -57,6 +57,32 @@ const diceRollIntervalHandles = {
     P2: 0,
 };
 
+function syncFriendDiceThemes() {
+    const bottomButton = diceButtonElements.P1;
+    const topButton = diceButtonElements.P2;
+    if (!bottomButton || !topButton) return;
+
+    const bottomLogicalPlayer = UI.resolveLogicalPlayerFromDisplaySlot('P1');
+    const topLogicalPlayer = UI.resolveLogicalPlayerFromDisplaySlot('P2');
+
+    bottomButton.classList.toggle('player-die--self', bottomLogicalPlayer === 'P1');
+    bottomButton.classList.toggle('player-die--bot', bottomLogicalPlayer === 'P2');
+    topButton.classList.toggle('player-die--self', topLogicalPlayer === 'P1');
+    topButton.classList.toggle('player-die--bot', topLogicalPlayer === 'P2');
+
+    if (UI.friendPerspectiveEnabled) {
+        bottomButton.classList.remove('player-die--passive');
+        bottomButton.removeAttribute('tabindex');
+        topButton.classList.add('player-die--passive');
+        topButton.setAttribute('tabindex', '-1');
+    } else {
+        bottomButton.classList.remove('player-die--passive');
+        bottomButton.removeAttribute('tabindex');
+        topButton.classList.remove('player-die--passive');
+        topButton.removeAttribute('tabindex');
+    }
+}
+
 function getPlayerDisplayName(player) {
     const element = playerNameElements[player];
     const fallback = player === 'P1' ? 'Ou' : 'Advese a';
@@ -81,6 +107,33 @@ function clearDiceAnimation(player) {
         window.clearInterval(diceRollIntervalHandles[player]);
         diceRollIntervalHandles[player] = 0;
     }
+}
+
+function startDicePreviewAnimation(displaySlot = 'P1') {
+    const slot = String(displaySlot || 'P1').trim() === 'P2' ? 'P2' : 'P1';
+    const faceElement = diceValueElements[slot];
+    const diceButtonElement = diceButtonElements[slot];
+    if (!faceElement || !diceButtonElement) return;
+
+    clearDiceAnimation(slot);
+    diceButtonElement.classList.remove('is-rolling');
+    void diceButtonElement.offsetWidth;
+    diceButtonElement.classList.add('is-rolling');
+
+    let previousValue = 0;
+    diceRollIntervalHandles[slot] = window.setInterval(() => {
+        let previewValue = 1 + Math.floor(Math.random() * 6);
+        if (previewValue === previousValue) {
+            previewValue = previewValue === 6 ? 1 : previewValue + 1;
+        }
+        previousValue = previewValue;
+        setText(faceElement, String(previewValue));
+    }, 78);
+
+    diceRollAnimationHandles[slot] = window.setTimeout(() => {
+        clearDiceAnimation(slot);
+        diceButtonElement.classList.remove('is-rolling');
+    }, 1200);
 }
 
 function getStackOffsets(count, index) {
@@ -144,9 +197,55 @@ function restackPieces() {
 export class UI {
     static lastDiceValue = 0;
     static lastDicePlayer = 'P1';
+    static friendPerspectiveEnabled = false;
+    static localPerspectivePlayer = 'P1';
+
+    static configurePerspective({ friendMode = false, localPlayer = 'P1' } = {}) {
+        UI.friendPerspectiveEnabled = Boolean(friendMode);
+        UI.localPerspectivePlayer = String(localPlayer || 'P1').trim() === 'P2' ? 'P2' : 'P1';
+        syncFriendDiceThemes();
+    }
+
+    static resolveDisplaySlot(player = 'P1') {
+        const logicalPlayer = String(player || 'P1').trim() === 'P2' ? 'P2' : 'P1';
+        if (!UI.friendPerspectiveEnabled) {
+            return logicalPlayer;
+        }
+        return logicalPlayer === UI.localPerspectivePlayer ? 'P1' : 'P2';
+    }
+
+    static resolveLogicalPlayerFromDisplaySlot(slot = 'P1') {
+        const displaySlot = String(slot || 'P1').trim() === 'P2' ? 'P2' : 'P1';
+        if (!UI.friendPerspectiveEnabled) {
+            return displaySlot;
+        }
+        if (displaySlot === 'P1') {
+            return UI.localPerspectivePlayer;
+        }
+        return UI.localPerspectivePlayer === 'P2' ? 'P1' : 'P2';
+    }
 
     static listenDiceClick(callback) {
-        diceButtonElements.P1?.addEventListener('click', callback);
+        diceButtonElements.P1?.addEventListener('click', (event) => callback({
+            originalEvent: event,
+            uiPlayer: UI.friendPerspectiveEnabled
+                ? UI.localPerspectivePlayer
+                : UI.resolveLogicalPlayerFromDisplaySlot('P1'),
+        }));
+        diceButtonElements.P2?.addEventListener('click', (event) => {
+            if (UI.friendPerspectiveEnabled) {
+                event.preventDefault();
+                event.stopPropagation();
+                if (typeof event.stopImmediatePropagation === 'function') {
+                    event.stopImmediatePropagation();
+                }
+                return;
+            }
+            callback({
+                originalEvent: event,
+                uiPlayer: UI.resolveLogicalPlayerFromDisplaySlot('P2'),
+            });
+        });
     }
 
     static listenResetClick(callback) {
@@ -186,18 +285,22 @@ export class UI {
         }
 
         const player = PLAYERS[index];
-        setText(activePlayerValueElement, getPlayerDisplayName(player));
+        const displaySlot = UI.resolveDisplaySlot(player);
+        setText(activePlayerValueElement, getPlayerDisplayName(displaySlot));
 
         PLAYERS.forEach((playerId) => {
-            playerCardElements[playerId]?.classList.toggle('is-active', playerId === player);
+            playerCardElements[playerId]?.classList.toggle('is-active', playerId === displaySlot);
         });
 
         dispatchUiEvent('kobposh:ludo-turn', { index, player });
     }
 
     static setGameState(state, player) {
-        const displayName = getPlayerDisplayName(player);
-        const isSelf = player === 'P1';
+        const displaySlot = UI.resolveDisplaySlot(player);
+        const displayName = getPlayerDisplayName(displaySlot);
+        const isSelf = UI.friendPerspectiveEnabled
+            ? String(player || 'P1').trim() === UI.localPerspectivePlayer
+            : player === 'P1';
         if (state === STATE.DICE_NOT_ROLLED) {
             setText(turnPromptElement, isSelf ? 'Se ou ki gen men an. Lanse de a pou kontinye.' : `Se ${displayName} ki gen men an. Lanse de a pou li.`);
             setText(statusTextElement, isSelf ? 'Lanse de a, epi pare pou chwazi pyon ki dwe avanse a.' : `${displayName} pare pou woule de a.`);
@@ -212,12 +315,30 @@ export class UI {
         dispatchUiEvent('kobposh:ludo-state', { state, player, diceValue: UI.lastDiceValue });
     }
 
-    static enableDice(player = 'P1') {
+    static enableDice(player = 'P1', localPlayer = 'P1') {
+        if (UI.friendPerspectiveEnabled) {
+            const localLogicalPlayer = UI.localPerspectivePlayer;
+            const bottomButton = diceButtonElements.P1;
+            const topButton = diceButtonElements.P2;
+            const canUse = String(player || 'P1').trim() === localLogicalPlayer;
+            if (bottomButton) {
+                bottomButton.removeAttribute('disabled');
+                bottomButton.setAttribute('aria-disabled', canUse ? 'false' : 'true');
+                bottomButton.classList.toggle('is-ready', canUse);
+                bottomButton.classList.remove('is-bot-turn');
+            }
+            if (topButton) {
+                topButton.setAttribute('disabled', '');
+                topButton.classList.remove('is-ready', 'is-bot-turn');
+            }
+            return;
+        }
         PLAYERS.forEach((playerId) => {
             const button = diceButtonElements[playerId];
             if (!button) return;
-            const canUse = playerId === player && playerId === 'P1';
-            if (playerId === 'P1') {
+            const isLocalPlayer = playerId === localPlayer;
+            const canUse = playerId === player && isLocalPlayer;
+            if (isLocalPlayer) {
                 button.removeAttribute('disabled');
                 button.setAttribute('aria-disabled', canUse ? 'false' : 'true');
             } else {
@@ -228,11 +349,25 @@ export class UI {
         });
     }
 
-    static disableDice() {
+    static disableDice(localPlayer = 'P1') {
+        if (UI.friendPerspectiveEnabled) {
+            const bottomButton = diceButtonElements.P1;
+            const topButton = diceButtonElements.P2;
+            if (bottomButton) {
+                bottomButton.removeAttribute('disabled');
+                bottomButton.setAttribute('aria-disabled', 'true');
+                bottomButton.classList.remove('is-ready', 'is-bot-turn');
+            }
+            if (topButton) {
+                topButton.setAttribute('disabled', '');
+                topButton.classList.remove('is-ready', 'is-bot-turn');
+            }
+            return;
+        }
         PLAYERS.forEach((playerId) => {
             const button = diceButtonElements[playerId];
             if (!button) return;
-            if (playerId === 'P1') {
+            if (playerId === localPlayer) {
                 button.removeAttribute('disabled');
                 button.setAttribute('aria-disabled', 'true');
             } else {
@@ -255,18 +390,34 @@ export class UI {
         });
     }
 
-    static setDiceValue(value, player = 'P1') {
+    static setDiceValue(value, player = 'P1', options = {}) {
         UI.lastDiceValue = Number(value) || 0;
         UI.lastDicePlayer = player;
-        const faceElement = diceValueElements[player];
-        const diceButtonElement = diceButtonElements[player];
+        const displaySlot = UI.resolveDisplaySlot(player);
+        const faceElement = diceValueElements[displaySlot];
+        const diceButtonElement = diceButtonElements[displaySlot];
+        const safeValue = Number(value) || 0;
+        const isFriendOpponentDisplay = UI.friendPerspectiveEnabled && displaySlot === 'P2';
+        const shouldAnimate = options?.animate !== false;
         if (diceButtonElement && faceElement) {
-            clearDiceAnimation(player);
+            clearDiceAnimation(displaySlot);
+            if (safeValue <= 0) {
+                diceButtonElement.classList.remove('is-rolling');
+                setText(faceElement, '--');
+                dispatchUiEvent('kobposh:ludo-dice', { value: UI.lastDiceValue });
+                return;
+            }
+            if (isFriendOpponentDisplay || !shouldAnimate) {
+                diceButtonElement.classList.remove('is-rolling');
+                setText(faceElement, String(safeValue));
+                dispatchUiEvent('kobposh:ludo-dice', { value: UI.lastDiceValue });
+                return;
+            }
             diceButtonElement.classList.remove('is-rolling');
             void diceButtonElement.offsetWidth;
             diceButtonElement.classList.add('is-rolling');
             let previousValue = 0;
-            diceRollIntervalHandles[player] = window.setInterval(() => {
+            diceRollIntervalHandles[displaySlot] = window.setInterval(() => {
                 let previewValue = 1 + Math.floor(Math.random() * 6);
                 if (previewValue === previousValue) {
                     previewValue = previewValue === 6 ? 1 : previewValue + 1;
@@ -274,15 +425,20 @@ export class UI {
                 previousValue = previewValue;
                 setText(faceElement, String(previewValue));
             }, 78);
-            diceRollAnimationHandles[player] = window.setTimeout(() => {
-                clearDiceAnimation(player);
-                setText(faceElement, value > 0 ? String(value) : '--');
+            diceRollAnimationHandles[displaySlot] = window.setTimeout(() => {
+                clearDiceAnimation(displaySlot);
+                setText(faceElement, String(safeValue));
                 diceButtonElement.classList.remove('is-rolling');
             }, 620);
         } else {
-            setText(faceElement, value > 0 ? String(value) : '--');
+            setText(faceElement, safeValue > 0 ? String(safeValue) : '--');
         }
         dispatchUiEvent('kobposh:ludo-dice', { value: UI.lastDiceValue });
+    }
+
+    static startDicePreview(player = 'P1') {
+        const displaySlot = UI.resolveDisplaySlot(player);
+        startDicePreviewAnimation(displaySlot);
     }
 
     static setPlayerStats(player, stats = {}) {
@@ -291,15 +447,16 @@ export class UI {
     }
 
     static renderTurnTimer(player, { remaining = 30, total = 30, danger = false } = {}) {
+        const displaySlot = UI.resolveDisplaySlot(player);
         const safeRemaining = Math.max(0, Math.floor(Number(remaining) || 0));
         const safeTotal = Math.max(1, Math.floor(Number(total) || 1));
         const ratio = Math.max(0, Math.min(1, safeRemaining / safeTotal));
 
-        setText(timerLabelElements[player], `${safeRemaining}s`);
-        if (timerFillElements[player]) {
-            timerFillElements[player].style.width = `${ratio * 100}%`;
+        setText(timerLabelElements[displaySlot], `${safeRemaining}s`);
+        if (timerFillElements[displaySlot]) {
+            timerFillElements[displaySlot].style.width = `${ratio * 100}%`;
         }
-        playerCardElements[player]?.classList.toggle('is-danger', danger === true);
+        playerCardElements[displaySlot]?.classList.toggle('is-danger', danger === true);
     }
 
     static resetTurnTimers(total = 30) {

@@ -94,7 +94,11 @@ function recordMatchesClientHistory(data = {}, clientId = "") {
 function inferClientHistoryOpponentType(gameKey = "", data = {}) {
   const normalizedGameKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedGameKey === "pong") return "bot";
-  if (normalizedGameKey === "ludo") return "bot";
+  if (normalizedGameKey === "ludo") {
+    const roomMode = String(data.roomMode || data.gameMode || data.mode || "").trim().toLowerCase();
+    if (roomMode === "ludo_friends" || roomMode.includes("friend")) return "human";
+    return "bot";
+  }
   const botCount = safeInt(data.botCount);
   if (botCount > 0) return "bot";
   const roomMode = String(data.roomMode || data.gameMode || data.mode || "").trim().toLowerCase();
@@ -265,7 +269,7 @@ async function collectClientGameHistoryRows(clientId = "", {
 
   const activeSources = sourceDefs.filter((item) => gameFilter === "all" || item.gameKey === gameFilter);
   const snapshots = await Promise.all(activeSources.map(async (source) => {
-    const useUidQuery = source.key === "pongMatchResults" || source.key === "dominoClassicMatchResults" || source.key === "ludoMatchResults";
+    const useUidQuery = source.key === "pongMatchResults" || source.key === "dominoClassicMatchResults";
     const fallbackQuery = useUidQuery
       ? source.collection.where("uid", "==", normalizedClientId)
       : source.collection.where("playerUids", "array-contains", normalizedClientId);

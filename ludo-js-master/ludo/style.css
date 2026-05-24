@@ -219,6 +219,10 @@ a {
     cursor: default;
 }
 
+.player-die--passive {
+    pointer-events: none;
+}
+
 .player-die.is-bot-turn {
     border-color: rgba(47, 158, 116, 0.26);
     box-shadow:
