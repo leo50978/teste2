@@ -1083,7 +1083,10 @@ if (!Array.prototype.filter) {
             var attacks = [];
             var isABK = allowBackwardAttack;
             if (!allowBackwardAttack) {
-                isABK = this.board.allowBackwardAttack && this.attackTurn > 0;
+                // When backward attack is enabled on the board, a normal piece
+                // must be able to capture backward on the first attack too,
+                // not only during chained captures.
+                isABK = this.board.allowBackwardAttack;
             }
             
             this.findNextFields(field, isABK).forEach(function (atkField) {
