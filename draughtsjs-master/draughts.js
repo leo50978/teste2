@@ -1401,7 +1401,12 @@ window.addEventListener('load', function () {
         element: draughts.querySelector('#board'),
         size: 8,
         turn: 0,
-        map: false
+        map: false,
+        forceAttack: !!(draughts.querySelector('#forceattack') && draughts.querySelector('#forceattack').checked),
+        forcePieceHold: !!(draughts.querySelector('#forcehold') && draughts.querySelector('#forcehold').checked),
+        allowBackwardAttack: !!(draughts.querySelector('#backwardattack') && draughts.querySelector('#backwardattack').checked),
+        allowQueenRun: !!(draughts.querySelector('#queenfreerun') && draughts.querySelector('#queenfreerun').checked),
+        allowQueenAttackRun: !!(draughts.querySelector('#queenattackrun') && draughts.querySelector('#queenattackrun').checked)
     };
     
     var board = new DraughtsBoard(opt);
