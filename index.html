@@ -75,7 +75,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="./style.css?v=20260531-championna-desktop1" />
+    <link rel="stylesheet" href="./style.css?v=20260601-welcome-championna1" />
   </head>
   <body>
     <section class="auth-screen" data-kobposh-auth-screen hidden>
@@ -292,6 +292,7 @@
             </section>
 
             <button
+              id="championna"
               class="tournaments-hero"
               type="button"
               aria-label="Ouvri championna yo"
@@ -306,6 +307,30 @@
                 <strong class="tournaments-hero__title">Cliker pouw patisipe nan youn nan championna yo</strong>
               </span>
             </button>
+
+            <section class="championna-blog-preview" aria-label="Gid championna pou nouvo vizite">
+              <div class="championna-blog-preview__head">
+                <h2>Nouveau sou Kobposh?</h2>
+                <p>Li gid sa yo pou konprann sit la, Championna a, ak kijan pou jwe san konfizyon.</p>
+              </div>
+              <div class="championna-blog-preview__grid">
+                <a class="championna-blog-preview__card" href="./championna-bienvenue.html">
+                  <span class="championna-blog-preview__badge">Debut</span>
+                  <strong>Kisa Kobposh ye?</strong>
+                  <small>Nou eksplike kijan platfom nan mache ak poukisa moun renmen jwe ladan li.</small>
+                </a>
+                <a class="championna-blog-preview__card" href="./championna-comment-jouer.html">
+                  <span class="championna-blog-preview__badge">Pratik</span>
+                  <strong>Kijan pou jwe</strong>
+                  <small>Etap pa etap pou enskri, resevwa kod, antre nan match, epi jere depans yo.</small>
+                </a>
+                <a class="championna-blog-preview__card" href="./championna-regles-prix.html">
+                  <span class="championna-blog-preview__badge">Ofisyel</span>
+                  <strong>Reg, disiplin ak pri</strong>
+                  <small>Format 8 jwè, nòt match, konduit, ak rekonpans final Championna a.</small>
+                </a>
+              </div>
+            </section>
 
             <section class="features" aria-label="Fonksyonalite">
               <button class="feature-item feature-item--action" type="button" data-open-deposit-modal>
@@ -564,7 +589,7 @@
     </section>
 
     <script type="module" src="./firebase-init.js?v=20260505-firebase1"></script>
-<script type="module" src="./app.js?v=20260601-championna-pending-guard1"></script>
+<script type="module" src="./app.js?v=20260601-welcome-championna1"></script>
   </body>
 </html>
 

@@ -573,6 +573,70 @@ img {
   text-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
 
+.championna-blog-preview {
+  margin-top: 16px;
+  border: 1px solid rgba(94, 161, 123, 0.18);
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.championna-blog-preview__head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #153b27;
+}
+
+.championna-blog-preview__head p {
+  margin: 8px 0 0;
+  color: #617166;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.championna-blog-preview__grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.championna-blog-preview__card {
+  display: grid;
+  gap: 6px;
+  text-decoration: none;
+  border: 1px solid rgba(31, 174, 91, 0.18);
+  border-radius: 14px;
+  background: #f8fcf9;
+  padding: 12px;
+}
+
+.championna-blog-preview__badge {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  background: rgba(31, 174, 91, 0.14);
+  color: #136238;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.championna-blog-preview__card strong {
+  color: #183523;
+  font-size: 0.94rem;
+}
+
+.championna-blog-preview__card small {
+  color: #607166;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .game-card {
   background: var(--white);
   border: 0;
@@ -1492,6 +1556,204 @@ img {
   background: #ffffff;
   color: #0e5c34;
   border: 1px solid rgba(15, 92, 52, 0.14);
+}
+
+.kobposh-welcome-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 4400;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  background:
+    radial-gradient(circle at 20% 8%, rgba(57, 205, 116, 0.22), transparent 30%),
+    rgba(7, 18, 12, 0.62);
+  backdrop-filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+
+.kobposh-welcome-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kobposh-welcome-modal__panel {
+  position: relative;
+  width: min(100%, 680px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  border-radius: 30px;
+  border: 1px solid rgba(189, 247, 207, 0.24);
+  background:
+    linear-gradient(135deg, rgba(9, 41, 24, 0.94), rgba(11, 76, 39, 0.88)),
+    #0d2b19;
+  color: #ffffff;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.32);
+  transform: translateY(18px) scale(0.985);
+  transition: transform 240ms ease;
+}
+
+.kobposh-welcome-modal.is-open .kobposh-welcome-modal__panel {
+  transform: translateY(0) scale(1);
+}
+
+.kobposh-welcome-modal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.kobposh-welcome-modal__close .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.kobposh-welcome-modal__hero {
+  position: relative;
+  min-height: 176px;
+  overflow: hidden;
+  border-radius: 30px 30px 24px 24px;
+  background: #102d1a;
+}
+
+.kobposh-welcome-modal__hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(7, 18, 12, 0.05), rgba(7, 18, 12, 0.72)),
+    radial-gradient(circle at 78% 18%, rgba(255, 232, 117, 0.2), transparent 28%);
+}
+
+.kobposh-welcome-modal__hero-img {
+  width: 100%;
+  height: 100%;
+  min-height: 176px;
+  object-fit: cover;
+  display: block;
+  filter: saturate(1.08) contrast(1.02);
+}
+
+.kobposh-welcome-modal__live-pill {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #0e5c34;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.kobposh-welcome-modal__content {
+  padding: 20px 18px 18px;
+}
+
+.kobposh-welcome-modal__eyebrow {
+  margin: 0 0 8px;
+  color: #bdf7cf;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.kobposh-welcome-modal__title {
+  margin: 0;
+  max-width: 14ch;
+  color: #ffffff;
+  font-size: clamp(28px, 8vw, 46px);
+  line-height: 0.96;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.kobposh-welcome-modal__text {
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.kobposh-welcome-modal__highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.kobposh-welcome-modal__highlights span {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.kobposh-welcome-modal__highlights .icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: #a8f3c1;
+}
+
+.kobposh-welcome-modal__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.kobposh-welcome-modal__button {
+  min-height: 54px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border: 0;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.kobposh-welcome-modal__button--primary {
+  background: linear-gradient(180deg, #27d969, #0c9a47);
+  color: #ffffff;
+  box-shadow: 0 18px 34px rgba(16, 178, 82, 0.28);
+}
+
+.kobposh-welcome-modal__button--secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e9fff0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .deposit-modal {
@@ -2690,7 +2952,8 @@ body.is-modal-open {
 }
 
 @media (min-width: 900px) {
-  .pwa-install-modal {
+  .pwa-install-modal,
+  .kobposh-welcome-modal {
     align-items: center;
     padding: 24px;
   }
@@ -2711,6 +2974,29 @@ body.is-modal-open {
 
   .pwa-install-modal__actions {
     grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  }
+
+  .kobposh-welcome-modal__panel {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.88fr) minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .kobposh-welcome-modal__hero {
+    min-height: 100%;
+    border-radius: 30px 0 0 30px;
+  }
+
+  .kobposh-welcome-modal__hero-img {
+    height: 100%;
+  }
+
+  .kobposh-welcome-modal__content {
+    padding: 34px 28px 28px;
+  }
+
+  .kobposh-welcome-modal__actions {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .site-header__inner,
@@ -2742,6 +3028,10 @@ body.is-modal-open {
 
   .tournaments-hero {
     min-height: 280px;
+  }
+
+  .championna-blog-preview__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .game-card {
@@ -2787,7 +3077,8 @@ body.is-modal-open {
 }
 
 @media (max-width: 899px) {
-  .pwa-install-modal__panel {
+  .pwa-install-modal__panel,
+  .kobposh-welcome-modal__panel {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }

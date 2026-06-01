@@ -103,6 +103,22 @@ La verification passe par:
 - la mise a jour d'un score modifie directement `tournamentBrackets/{gameKey}`
 - le calendrier public du site recoit les scores en live via Firestore
 
+## 2026-06-01 - Etape 2
+
+- correction: le dashboard Championna devait aussi exister dans le vrai hub admin `D:\dashboardkobposhv2`
+- ajout page dashboard principale:
+  - `D:\dashboardkobposhv2\Dchampionna.html`
+  - `D:\dashboardkobposhv2\Dchampionna.js`
+- ajout bouton `Championna` dans `D:\dashboardkobposhv2\index.html`
+- ajout carte `Gestion Championna` dans la section `Jeux et analyse`
+- ajout entree `Championna` dans `D:\dashboardkobposhv2\dashboard-nav-bubble.js`
+- ajout wrappers dashboard:
+  - `getChampionnaDashboardSnapshotSecure`
+  - `updateChampionnaMatchScoreSecure`
+- verification locale:
+  - hub dashboard affiche le bouton/la carte Championna
+  - `Dchampionna.html` charge sans erreur console
+
 ---
 
 ## Checklist

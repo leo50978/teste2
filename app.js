@@ -35,6 +35,9 @@ const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
 const PWA_MODAL_STORAGE_KEY = "kobposh_pwa_install_dismissed";
 const PWA_MODAL_INITIAL_DELAY_MS = 1600;
+const WELCOME_COORDINATOR_MODAL_STORAGE_KEY = "kobposh_welcome_championna_dismissed_v1";
+const WELCOME_COORDINATOR_MODAL_DELAY_MS = 700;
+const CHAMPIONNA_COORDINATOR_WHATSAPP = "50943160977";
 const pageParams = new URLSearchParams(window.location.search);
 let heroRotationTimer = null;
 
@@ -193,6 +196,7 @@ let upcomingGameModal = null;
 let deferredPwaInstallPrompt = null;
 let pwaInstallModalRefs = null;
 let pwaInstallModalTimer = null;
+let welcomeCoordinatorModalRefs = null;
 let tournamentCostConfirmModal = null;
 let tournamentFeedbackModal = null;
 let tournamentRulesModal = null;
@@ -5368,6 +5372,129 @@ function clearPwaInstallDismiss() {
   }
 }
 
+function isWelcomeCoordinatorDismissed() {
+  try {
+    return window.localStorage.getItem(WELCOME_COORDINATOR_MODAL_STORAGE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberWelcomeCoordinatorDismiss() {
+  try {
+    window.localStorage.setItem(WELCOME_COORDINATOR_MODAL_STORAGE_KEY, "1");
+  } catch {
+    // Ignore storage errors and keep the UX functional.
+  }
+}
+
+function buildChampionnaCoordinatorWhatsappUrl() {
+  const message = "Bonjou, mwen sou Kobposh pou Championna a. Mwen bezwen pale ak yon kowodonate.";
+  return `https://wa.me/${CHAMPIONNA_COORDINATOR_WHATSAPP}?text=${encodeURIComponent(message)}`;
+}
+
+function isWelcomeCoordinatorModalOpen() {
+  return Boolean(welcomeCoordinatorModalRefs?.overlay?.classList.contains("is-open"));
+}
+
+function closeWelcomeCoordinatorModal({ persistDismiss = false } = {}) {
+  if (!welcomeCoordinatorModalRefs) {
+    if (persistDismiss) rememberWelcomeCoordinatorDismiss();
+    return;
+  }
+
+  if (persistDismiss) rememberWelcomeCoordinatorDismiss();
+  const { overlay } = welcomeCoordinatorModalRefs;
+  if (overlay.contains(document.activeElement)) {
+    document.activeElement?.blur?.();
+  }
+  overlay.classList.remove("is-open");
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-modal-open");
+}
+
+function ensureWelcomeCoordinatorModal() {
+  if (welcomeCoordinatorModalRefs) return welcomeCoordinatorModalRefs;
+
+  const overlay = document.createElement("section");
+  overlay.className = "kobposh-welcome-modal";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = `
+    <div class="kobposh-welcome-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhWelcomeTitle">
+      <button class="kobposh-welcome-modal__close" type="button" aria-label="Femen mesaj la" data-kobposh-welcome-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <div class="kobposh-welcome-modal__hero" aria-hidden="true">
+        <img src="./assets/images/championna.png" alt="" class="kobposh-welcome-modal__hero-img" />
+        <span class="kobposh-welcome-modal__live-pill">Championna Kobposh</span>
+      </div>
+      <div class="kobposh-welcome-modal__content">
+        <p class="kobposh-welcome-modal__eyebrow">Byenveni sou Kobposh</p>
+        <h2 class="kobposh-welcome-modal__title" id="kobposhWelcomeTitle">Ou la pou yon championna?</h2>
+        <p class="kobposh-welcome-modal__text">
+          Si ou nouvo sou sit la oswa ou vini pou championna a, yon kowodonate ka ede ou konprann kijan pou enskri,
+          kijan pou jwe, epi kijan pou antre nan gwoup WhatsApp ofisyel la.
+        </p>
+        <div class="kobposh-welcome-modal__highlights" aria-label="Sa kowodonate a ka ede ou fe">
+          <span><i data-lucide="message-circle" class="icon" aria-hidden="true"></i> Pale ak kowodonate a</span>
+          <span><i data-lucide="trophy" class="icon" aria-hidden="true"></i> Konprann championna a</span>
+        </div>
+        <div class="kobposh-welcome-modal__actions">
+          <a class="kobposh-welcome-modal__button kobposh-welcome-modal__button--primary" href="${buildChampionnaCoordinatorWhatsappUrl()}" data-kobposh-welcome-whatsapp>
+            Kontakte sou WhatsApp
+          </a>
+          <button class="kobposh-welcome-modal__button kobposh-welcome-modal__button--secondary" type="button" data-kobposh-welcome-dismiss>
+            Pa montre mesaj sa anko
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  renderIconsSafely();
+
+  const refs = {
+    overlay,
+    close: overlay.querySelector("[data-kobposh-welcome-close]"),
+    dismiss: overlay.querySelector("[data-kobposh-welcome-dismiss]"),
+    whatsapp: overlay.querySelector("[data-kobposh-welcome-whatsapp]"),
+  };
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      closeWelcomeCoordinatorModal();
+    }
+  });
+
+  refs.close?.addEventListener("click", () => {
+    closeWelcomeCoordinatorModal();
+  });
+
+  refs.dismiss?.addEventListener("click", () => {
+    closeWelcomeCoordinatorModal({ persistDismiss: true });
+  });
+
+  welcomeCoordinatorModalRefs = refs;
+  return refs;
+}
+
+function openWelcomeCoordinatorModal(force = false) {
+  if (!force && isWelcomeCoordinatorDismissed()) return;
+  const refs = ensureWelcomeCoordinatorModal();
+  refs.overlay.classList.add("is-open");
+  refs.overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-modal-open");
+  window.setTimeout(() => refs.whatsapp?.focus?.(), 60);
+}
+
+function scheduleWelcomeCoordinatorModal(delayMs = WELCOME_COORDINATOR_MODAL_DELAY_MS) {
+  if (isWelcomeCoordinatorDismissed()) return;
+  window.setTimeout(() => {
+    openWelcomeCoordinatorModal();
+  }, delayMs);
+}
+
 function getPwaInstallConfig() {
   const platform = getPwaPlatform();
   const hasNativePrompt = Boolean(deferredPwaInstallPrompt);
@@ -5583,6 +5710,10 @@ function schedulePwaInstallModal(delayMs = PWA_MODAL_INITIAL_DELAY_MS) {
 
   pwaInstallModalTimer = window.setTimeout(() => {
     pwaInstallModalTimer = null;
+    if (isWelcomeCoordinatorModalOpen()) {
+      schedulePwaInstallModal(2500);
+      return;
+    }
     openPwaInstallModal();
   }, delayMs);
 }
@@ -5674,6 +5805,7 @@ function renderIconsSafely() {
 renderIconsSafely();
 window.addEventListener("DOMContentLoaded", renderIconsSafely);
 window.setTimeout(renderIconsSafely, 150);
+scheduleWelcomeCoordinatorModal();
 window.addEventListener("focus", refreshHomeLiveSurface);
 window.addEventListener("pageshow", refreshHomeLiveSurface);
 window.addEventListener("storage", refreshHomeLiveSurface);

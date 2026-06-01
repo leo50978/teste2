@@ -269,6 +269,30 @@ Si le backend n'autorise pas ce montant, l'inscription echoue avec message.
   - `/api/dashboard/championna/update-match`
 - creation du document de suivi dedie `CHAMPIONNA_DASHBOARD_CONTEXT.md`
 
+## 2026-06-01 - Etape 10
+
+- creation d'un parcours de pages blog pour nouveaux visiteurs Championna:
+  - `championna-bienvenue.html`
+  - `championna-comment-jouer.html`
+  - `championna-regles-prix.html`
+- ajout d'une section de navigation sur l'accueil `Nouveau sou Kobposh?`
+- ajout feuille de style dediee `championna-blog.css`
+- mise a jour `sitemap.xml` avec les 3 nouvelles pages pour SEO/indexation
+- creation du fichier de contexte dedie `CHAMPIONNA_BLOG_CONTEXT.md`
+
+## 2026-06-01 - Etape 11
+
+- ajout modal de bienvenue pour premiere visite du site
+- contenu en kreyol ayisyen oriente nouveaux visiteurs Championna
+- bouton principal `Kontakte sou WhatsApp` redirige vers le coordonateur `50943160977`
+- bouton `Pa montre mesaj sa anko` sauvegarde le choix en localStorage:
+  - cle: `kobposh_welcome_championna_dismissed_v1`
+- le modal PWA attend si le modal de bienvenue est ouvert afin d'eviter deux popups en meme temps
+- cache-busting site mis a jour:
+  - `app.js?v=20260601-welcome-championna1`
+  - `style.css?v=20260601-welcome-championna1`
+  - service worker `kobposh-shell-v16`
+
 ---
 
 ## Checklist rapide avant push
