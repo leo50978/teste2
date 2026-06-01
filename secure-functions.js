@@ -209,6 +209,24 @@ export async function getDepositFundingStatusSecure() {
   };
 }
 
+export async function getChampionnaDashboardSnapshotSecure(payload = {}) {
+  const fallbackError = "Impossible de charger le dashboard Championna.";
+  return invokeBackendHttp("/api/dashboard/championna/snapshot", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
+export async function updateChampionnaMatchScoreSecure(payload = {}) {
+  const fallbackError = "Impossible de mettre a jour le score Championna.";
+  return invokeBackendHttp("/api/dashboard/championna/update-match", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
 export async function createOrderSecure(payload = {}) {
   const fallbackError = "Impossible de creer la commande.";
   if (getConfiguredApiBaseUrl()) {
@@ -222,7 +240,15 @@ export async function createOrderSecure(payload = {}) {
 }
 
 export async function walletMutateSecure(payload = {}) {
-  return invokeCallable("walletMutate", payload, "Impossible de mettre a jour le wallet.");
+  const fallbackError = "Impossible de mettre a jour le wallet.";
+  if (getConfiguredApiBaseUrl()) {
+    return invokeBackendHttp("/api/wallet/mutate", {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    }).catch(() => invokeCallable("walletMutate", payload, fallbackError));
+  }
+  return invokeCallable("walletMutate", payload, fallbackError);
 }
 
 export async function getPublicPaymentOptionsSecure(payload = {}) {

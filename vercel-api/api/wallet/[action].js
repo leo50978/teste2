@@ -7,6 +7,7 @@ const ROUTES = Object.freeze({
   "create-withdrawal": require("../../routes/wallet/create-withdrawal"),
   "create-order": require("../../routes/wallet/create-order"),
   "funding-status": require("../../routes/wallet/funding-status"),
+  "mutate": require("../../routes/wallet/mutate"),
   "order-client-action": require("../../routes/wallet/order-client-action"),
   "search-transfer-recipients": require("../../routes/wallet/search-transfer-recipients"),
   "transfer-history": require("../../routes/wallet/transfer-history"),

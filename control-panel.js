@@ -11,7 +11,9 @@ import {
   debugSimulateMorpionV3FriendWinSecure,
   debugSimulateMorpionV3WinSecure,
   debugSimulatePongWinSecure,
+  getChampionnaDashboardSnapshotSecure,
   getDepositFundingStatusSecure,
+  updateChampionnaMatchScoreSecure,
 } from "./secure-functions.js";
 
 const PROBES = [
@@ -57,6 +59,10 @@ const state = {
   funding: null,
   authBusy: false,
   runningProbeId: "",
+  championnaBusy: false,
+  championnaSavingMatchId: "",
+  championnaSnapshot: null,
+  championnaGameKey: "domino",
   localOriginAllowed: false,
   results: [],
   liveLogs: [],
@@ -83,6 +89,11 @@ const dom = {
   withdrawableValue: document.getElementById("cpWithdrawableValue"),
   probeGrid: document.getElementById("cpProbeGrid"),
   results: document.getElementById("cpResults"),
+  championnaRefreshBtn: document.getElementById("cpChampionnaRefreshBtn"),
+  championnaGameSelect: document.getElementById("cpChampionnaGameSelect"),
+  championnaSummary: document.getElementById("cpChampionnaSummary"),
+  championnaMessage: document.getElementById("cpChampionnaMessage"),
+  championnaMatches: document.getElementById("cpChampionnaMatches"),
 };
 
 function safeInt(value) {
@@ -282,6 +293,211 @@ function renderProbes() {
 
   dom.runAllBtn.disabled = !state.localOriginAllowed || !state.currentUser?.uid || Boolean(state.runningProbeId);
   dom.refreshBtn.disabled = !state.currentUser?.uid || Boolean(state.runningProbeId);
+}
+
+function getChampionnaSnapshotParts() {
+  const snapshot = state.championnaSnapshot && typeof state.championnaSnapshot === "object"
+    ? state.championnaSnapshot
+    : {};
+  return {
+    games: Array.isArray(snapshot.games) ? snapshot.games : [],
+    registrationsByGame: snapshot.registrationsByGame && typeof snapshot.registrationsByGame === "object"
+      ? snapshot.registrationsByGame
+      : {},
+    bracketsByGame: snapshot.bracketsByGame && typeof snapshot.bracketsByGame === "object"
+      ? snapshot.bracketsByGame
+      : {},
+  };
+}
+
+function groupMatchesByRound(matches = []) {
+  const grouped = [];
+  const byRound = new Map();
+  (Array.isArray(matches) ? matches : []).forEach((match) => {
+    const roundLabel = String(match?.roundLabel || "Match").trim() || "Match";
+    const key = `${safeInt(match?.roundOrder || 99)}_${roundLabel}`;
+    if (!byRound.has(key)) {
+      byRound.set(key, { label: roundLabel.replace(/\s+-\s+Match\s+\d+$/i, ""), matches: [] });
+      grouped.push(byRound.get(key));
+    }
+    byRound.get(key).matches.push(match);
+  });
+  return grouped;
+}
+
+function renderChampionnaDashboard() {
+  if (!dom.championnaGameSelect || !dom.championnaSummary || !dom.championnaMatches) return;
+  const { games, registrationsByGame, bracketsByGame } = getChampionnaSnapshotParts();
+  const gameKey = state.championnaGameKey || dom.championnaGameSelect.value || "domino";
+  const game = games.find((item) => item.key === gameKey) || { key: gameKey, name: gameKey };
+  const registrations = registrationsByGame[gameKey] || [];
+  const bracket = bracketsByGame[gameKey] || null;
+  const matches = Array.isArray(bracket?.matches) ? bracket.matches : [];
+  const completedCount = matches.filter((match) => String(match?.status || "") === "completed").length;
+
+  if (games.length) {
+    dom.championnaGameSelect.innerHTML = games.map((item) => `
+      <option value="${escapeHtml(item.key)}" ${item.key === gameKey ? "selected" : ""}>
+        ${escapeHtml(item.name)} (${safeInt(item.registrationCount)}/8)
+      </option>
+    `).join("");
+  }
+
+  dom.championnaSummary.innerHTML = `
+    <span class="championna-pill">Jeu: ${escapeHtml(game.name || gameKey)}</span>
+    <span class="championna-pill">Inscrits: ${escapeHtml(String(registrations.length))}/8</span>
+    <span class="championna-pill">Matchs finis: ${escapeHtml(String(completedCount))}/${escapeHtml(String(matches.length || 7))}</span>
+    <span class="championna-pill">Statut: ${escapeHtml(bracket?.status || (bracket ? "active" : "en attente"))}</span>
+  `;
+
+  if (!state.currentUser?.uid) {
+    dom.championnaMessage.textContent = "Konekte ak yon kont admin pou chaje dashboard Championna a.";
+    dom.championnaMatches.innerHTML = `<div class="empty">Dashboard la ap tann koneksyon admin.</div>`;
+    dom.championnaRefreshBtn.disabled = true;
+    return;
+  }
+
+  dom.championnaRefreshBtn.disabled = state.championnaBusy;
+  dom.championnaMessage.textContent = state.championnaBusy
+    ? "N ap chaje done Championna yo..."
+    : bracket
+      ? "Antre score final match la. Le gagnant dwe gen 2 pati gagnees."
+      : "Pa gen bracket pou jeu sa a poko. Tiraj la kreye le 8 moun fin enskri.";
+
+  if (!bracket) {
+    dom.championnaMatches.innerHTML = `
+      <div class="empty">
+        ${escapeHtml(game.name || gameKey)} poko gen kalandriye. Inscrits aktyel: ${escapeHtml(String(registrations.length))}/8.
+      </div>
+    `;
+    return;
+  }
+
+  if (!matches.length) {
+    dom.championnaMatches.innerHTML = `<div class="empty">Bracket la egziste, men pa gen match ladan l.</div>`;
+    return;
+  }
+
+  dom.championnaMatches.innerHTML = groupMatchesByRound(matches).map((round) => `
+    <section class="championna-round">
+      <h3>${escapeHtml(round.label)}</h3>
+      ${round.matches.map(renderChampionnaMatchCard).join("")}
+    </section>
+  `).join("");
+
+  dom.championnaMatches.querySelectorAll("[data-championna-score-form]").forEach((form) => {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const matchId = String(form.getAttribute("data-match-id") || "").trim();
+      const homeScore = form.querySelector("[data-home-score]")?.value ?? "";
+      const awayScore = form.querySelector("[data-away-score]")?.value ?? "";
+      void saveChampionnaMatchScore(matchId, homeScore, awayScore);
+    });
+  });
+}
+
+function renderChampionnaMatchCard(match = {}) {
+  const matchId = String(match?.id || "").trim();
+  const status = String(match?.status || "scheduled").trim();
+  const isCompleted = status === "completed";
+  const isReady = Boolean(match?.homeUid && match?.awayUid);
+  const isSaving = state.championnaSavingMatchId === matchId;
+  const homeScore = match?.homeScore == null ? "" : safeInt(match.homeScore);
+  const awayScore = match?.awayScore == null ? "" : safeInt(match.awayScore);
+  const winnerText = isCompleted && match?.winnerName
+    ? `Ganyan: ${String(match.winnerName)}`
+    : isReady
+      ? "Pare pou score"
+      : "Ap tann gagnant faz avan an";
+  return `
+    <article class="championna-match">
+      <div>
+        <strong>${escapeHtml(match.roundLabel || matchId || "Match")}</strong>
+        <span class="championna-status">${escapeHtml(winnerText)}</span>
+      </div>
+      <div class="championna-pair">
+        <div class="championna-player">
+          <strong>${escapeHtml(match.homeName || "TBD")}</strong>
+          <span>Kay</span>
+        </div>
+        <div class="championna-versus">${escapeHtml(isCompleted ? `${homeScore} - ${awayScore}` : "VS")}</div>
+        <div class="championna-player" style="text-align: right;">
+          <strong>${escapeHtml(match.awayName || "TBD")}</strong>
+          <span>Deyo</span>
+        </div>
+      </div>
+      <form class="championna-score-form" data-championna-score-form data-match-id="${escapeHtml(matchId)}">
+        <div class="field">
+          <label>Score kay</label>
+          <input type="number" min="0" max="2" step="1" value="${escapeHtml(String(homeScore))}" data-home-score ${!isReady || isSaving ? "disabled" : ""} />
+        </div>
+        <div class="field">
+          <label>Score deyo</label>
+          <input type="number" min="0" max="2" step="1" value="${escapeHtml(String(awayScore))}" data-away-score ${!isReady || isSaving ? "disabled" : ""} />
+        </div>
+        <button class="primary-btn" type="submit" ${!isReady || isSaving ? "disabled" : ""}>
+          ${escapeHtml(isSaving ? "Nap sove..." : "Sove score + pase faz")}
+        </button>
+      </form>
+    </article>
+  `;
+}
+
+async function refreshChampionnaDashboard() {
+  if (!state.currentUser?.uid || state.championnaBusy) {
+    renderChampionnaDashboard();
+    return;
+  }
+  state.championnaBusy = true;
+  renderChampionnaDashboard();
+  try {
+    const snapshot = await getChampionnaDashboardSnapshotSecure({});
+    state.championnaSnapshot = snapshot || {};
+    pushLiveLog("success", "Dashboard Championna chaje", {
+      games: Array.isArray(snapshot?.games) ? snapshot.games.length : 0,
+    });
+  } catch (error) {
+    setAuthMessage(formatAuthError(error, "Dashboard Championna pa ka chaje."), "danger");
+    pushLiveLog("error", "Echec dashboard Championna", {
+      message: error?.message || "",
+      code: error?.code || "",
+    });
+  } finally {
+    state.championnaBusy = false;
+    renderChampionnaDashboard();
+  }
+}
+
+async function saveChampionnaMatchScore(matchId, homeScore, awayScore) {
+  if (!state.currentUser?.uid || !matchId || state.championnaSavingMatchId) return;
+  state.championnaSavingMatchId = matchId;
+  renderChampionnaDashboard();
+  try {
+    const result = await updateChampionnaMatchScoreSecure({
+      gameKey: state.championnaGameKey,
+      matchId,
+      homeScore: safeInt(homeScore),
+      awayScore: safeInt(awayScore),
+    });
+    pushLiveLog("success", "Score Championna sove", {
+      gameKey: state.championnaGameKey,
+      matchId,
+      winner: result?.match?.winnerName || "",
+    });
+    await refreshChampionnaDashboard();
+    setAuthMessage("Score Championna a sove, kalandriye piblik la mete ajou.", "success");
+  } catch (error) {
+    setAuthMessage(formatAuthError(error, "Score Championna a pa sove."), "danger");
+    pushLiveLog("error", "Echec score Championna", {
+      gameKey: state.championnaGameKey,
+      matchId,
+      message: error?.message || "",
+      code: error?.code || "",
+    });
+  } finally {
+    state.championnaSavingMatchId = "";
+    renderChampionnaDashboard();
+  }
 }
 
 function renderResults() {
@@ -604,6 +820,13 @@ function bindEvents() {
   dom.stakeSelect?.addEventListener("change", () => {
     renderProbes();
   });
+  dom.championnaRefreshBtn?.addEventListener("click", () => {
+    void refreshChampionnaDashboard();
+  });
+  dom.championnaGameSelect?.addEventListener("change", () => {
+    state.championnaGameKey = String(dom.championnaGameSelect.value || "domino").trim() || "domino";
+    renderChampionnaDashboard();
+  });
 }
 
 function bootstrap() {
@@ -613,15 +836,18 @@ function bootstrap() {
   renderResults();
   renderProbes();
   renderLiveLogs();
+  renderChampionnaDashboard();
   bindEvents();
 
   onAuthStateChanged(auth, async (user) => {
     state.currentUser = user || null;
     renderSession();
     renderProbes();
+    renderChampionnaDashboard();
     if (state.currentUser?.uid) {
       try {
         await refreshFunding();
+        await refreshChampionnaDashboard();
         pushLiveLog("info", "Wallet rafrechi", snapshotSummary(state.funding));
       } catch (error) {
         setAuthMessage(formatAuthError(error, "Impossible de charger le wallet."), "danger");

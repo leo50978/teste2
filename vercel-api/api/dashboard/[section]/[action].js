@@ -21,6 +21,8 @@ const ROUTES = Object.freeze({
   "client-admin/set-password": require("../../../routes/dashboard/client-admin/set-password"),
   "client-admin/set-withdrawal-temporary-hold": require("../../../routes/dashboard/client-admin/set-withdrawal-temporary-hold"),
   "client-admin/unfreeze-account": require("../../../routes/dashboard/client-admin/unfreeze-account"),
+  "championna/snapshot": require("../../../routes/dashboard/championna/snapshot"),
+  "championna/update-match": require("../../../routes/dashboard/championna/update-match"),
   "morpion/snapshot": require("../../../routes/dashboard/morpion/snapshot"),
   "site-visits/snapshot": require("../../../routes/dashboard/site-visits/snapshot"),
   "transfers/analytics": require("../../../routes/dashboard/transfers/analytics"),

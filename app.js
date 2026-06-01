@@ -28,6 +28,7 @@ import {
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
+  walletMutateSecure,
 } from "./secure-functions.js";
 
 const HERO_ROTATION_MS = 5000;
@@ -113,6 +114,8 @@ async function refreshKobposhHeroRotation() {
 }
 
 const gamesModal = document.querySelector("[data-games-modal]");
+const tournamentsModal = document.querySelector("[data-tournaments-modal]");
+const tournamentRegisterModal = document.querySelector("[data-tournament-register-modal]");
 const authScreenEl = document.querySelector("[data-kobposh-auth-screen]");
 const signupToggleBtn = document.querySelector("[data-kobposh-open-signup]");
 const siteAboutToggleBtn = document.querySelector("[data-kobposh-open-site-about]");
@@ -143,6 +146,20 @@ const profileLinks = Array.from(document.querySelectorAll('a[href="./profile.htm
 const transferFriendBtn = document.getElementById("kobposhTransferBtn");
 const openGamesButtons = Array.from(document.querySelectorAll("[data-open-games-modal]"));
 const closeGamesButtons = Array.from(document.querySelectorAll("[data-close-games-modal]"));
+const openTournamentsButtons = Array.from(document.querySelectorAll("[data-open-tournaments-modal]"));
+const closeTournamentsButtons = Array.from(document.querySelectorAll("[data-close-tournaments-modal]"));
+const openTournamentRegisterButtons = Array.from(document.querySelectorAll("[data-open-tournament-register-modal]"));
+const closeTournamentRegisterButtons = Array.from(document.querySelectorAll("[data-close-tournament-register-modal]"));
+const tournamentRegisterGameEl = document.querySelector("[data-tournament-register-game]");
+const tournamentRegisterImageEl = document.querySelector("[data-tournament-register-image]");
+const tournamentRegisterSubmitBtn = document.querySelector("[data-tournament-register-submit]");
+const tournamentRegisterRulesBtn = document.querySelector("[data-tournament-register-rules]");
+const tournamentRegisterCountEl = document.querySelector("[data-tournament-register-count]");
+const tournamentRegisterListStateEl = document.querySelector("[data-tournament-register-list-state]");
+const tournamentRegisterListEl = document.querySelector("[data-tournament-register-list]");
+const tournamentBracketStateEl = document.querySelector("[data-tournament-bracket-state]");
+const tournamentUpcomingListEl = document.querySelector("[data-tournament-upcoming-list]");
+const tournamentCompletedListEl = document.querySelector("[data-tournament-completed-list]");
 const openHistoryButtons = Array.from(document.querySelectorAll("[data-open-history-modal]"));
 let authMode = "login";
 let walletUnsubscribe = null;
@@ -176,6 +193,22 @@ let upcomingGameModal = null;
 let deferredPwaInstallPrompt = null;
 let pwaInstallModalRefs = null;
 let pwaInstallModalTimer = null;
+let tournamentCostConfirmModal = null;
+let tournamentFeedbackModal = null;
+let tournamentRulesModal = null;
+let tournamentRegisterBusy = false;
+let tournamentRegisterListUnsub = null;
+let tournamentBracketUnsub = null;
+let tournamentBracketBuildInFlight = false;
+let tournamentRegisterGateBusy = false;
+let tournamentAlreadyRegistered = false;
+let currentTournamentGameState = {
+  name: "",
+  key: "",
+  image: "./assets/images/championna.png",
+};
+const TOURNAMENT_REGISTER_COST_HTG = 200;
+const TOURNAMENT_REGISTER_COST_DOES = TOURNAMENT_REGISTER_COST_HTG * 20;
 
 const DAME_PUBLIC_ENTRY_HTG = 25;
 const LUDO_PUBLIC_ENTRY_HTG = 25;
@@ -2978,14 +3011,875 @@ function setAuthBusy(isBusy) {
 
 function openGamesModal() {
   if (!gamesModal) return;
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   gamesModal.classList.add("is-open");
   gamesModal.setAttribute("aria-hidden", "false");
+  closeTournamentsModal();
+  closeTournamentRegisterModal();
+  document.body.classList.add("is-modal-open");
+  window.requestAnimationFrame(() => {
+    gamesModal.querySelector(".games-modal__back, .games-modal__item")?.focus?.();
+  });
 }
 
 function closeGamesModal() {
   if (!gamesModal) return;
+  if (gamesModal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
   gamesModal.classList.remove("is-open");
   gamesModal.setAttribute("aria-hidden", "true");
+  if (!tournamentsModal?.classList.contains("is-open") && !tournamentRegisterModal?.classList.contains("is-open")) {
+    document.body.classList.remove("is-modal-open");
+  }
+}
+
+function openTournamentsModal() {
+  if (!tournamentsModal) return;
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  closeGamesModal();
+  closeTournamentRegisterModal();
+  tournamentsModal.classList.add("is-open");
+  tournamentsModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-modal-open");
+  window.requestAnimationFrame(() => {
+    tournamentsModal.querySelector(".games-modal__back, .games-modal__item")?.focus?.();
+  });
+}
+
+function closeTournamentsModal() {
+  if (!tournamentsModal) return;
+  if (tournamentsModal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+  tournamentsModal.classList.remove("is-open");
+  tournamentsModal.setAttribute("aria-hidden", "true");
+  if (!gamesModal?.classList.contains("is-open") && !tournamentRegisterModal?.classList.contains("is-open")) {
+    document.body.classList.remove("is-modal-open");
+  }
+}
+
+function openTournamentRegisterModal(gameName = "", imagePath = "") {
+  if (!tournamentRegisterModal) return;
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  const normalizedName = String(gameName || "").trim() || "Championna";
+  const normalizedKey = normalizeTournamentGameKey(normalizedName);
+  const normalizedImage = String(imagePath || "").trim() || "./assets/images/championna.png";
+  currentTournamentGameState = {
+    name: normalizedName,
+    key: normalizedKey,
+    image: normalizedImage,
+  };
+  if (tournamentRegisterGameEl) {
+    tournamentRegisterGameEl.textContent = normalizedName.toUpperCase();
+  }
+  if (tournamentRegisterImageEl) {
+    tournamentRegisterImageEl.src = normalizedImage;
+    tournamentRegisterImageEl.alt = `Championna ${normalizedName}`;
+  }
+  closeTournamentsModal();
+  tournamentRegisterModal.classList.add("is-open");
+  tournamentRegisterModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-modal-open");
+  startTournamentRegisterListSync(normalizedKey);
+  window.requestAnimationFrame(() => {
+    tournamentRegisterModal.querySelector("[data-tournament-register-submit], .games-modal__back")?.focus?.();
+  });
+}
+
+function closeTournamentRegisterModal() {
+  if (!tournamentRegisterModal) return;
+  if (tournamentRegisterModal.contains(document.activeElement)) {
+    document.activeElement.blur();
+  }
+  tournamentRegisterModal.classList.remove("is-open");
+  tournamentRegisterModal.setAttribute("aria-hidden", "true");
+  if (tournamentCostConfirmModal?.classList.contains("is-open")) {
+    if (tournamentCostConfirmModal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    tournamentCostConfirmModal.classList.remove("is-open");
+    tournamentCostConfirmModal.setAttribute("aria-hidden", "true");
+  }
+  if (typeof tournamentRegisterListUnsub === "function") {
+    tournamentRegisterListUnsub();
+    tournamentRegisterListUnsub = null;
+  }
+  closeTournamentBracketSync();
+  if (!gamesModal?.classList.contains("is-open") && !tournamentsModal?.classList.contains("is-open")) {
+    document.body.classList.remove("is-modal-open");
+  }
+}
+
+function normalizeTournamentGameKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function updateTournamentRegisterPrimaryButton() {
+  if (!tournamentRegisterSubmitBtn) return;
+  if (tournamentRegisterGateBusy) {
+    tournamentRegisterSubmitBtn.disabled = true;
+    tournamentRegisterSubmitBtn.textContent = "Verifikasyon...";
+    return;
+  }
+  if (tournamentRegisterBusy) {
+    tournamentRegisterSubmitBtn.disabled = true;
+    tournamentRegisterSubmitBtn.textContent = "Enskripsyon an kou...";
+    return;
+  }
+  if (tournamentAlreadyRegistered) {
+    tournamentRegisterSubmitBtn.disabled = true;
+    tournamentRegisterSubmitBtn.textContent = "N ap tann lot jwe yo";
+    return;
+  }
+  tournamentRegisterSubmitBtn.disabled = false;
+  tournamentRegisterSubmitBtn.textContent = "S'inscrire";
+}
+
+function getTournamentDisplayUsername() {
+  const candidate = String(
+    latestHomeClientData?.username
+    || latestHomeClientData?.displayName
+    || auth.currentUser?.displayName
+    || auth.currentUser?.email?.split("@")?.[0]
+    || "Utilisateur"
+  ).trim();
+  return candidate || "Utilisateur";
+}
+
+function renderTournamentRegisterList(rows = [], { isLoading = false, errorText = "" } = {}) {
+  if (!tournamentRegisterListEl || !tournamentRegisterListStateEl || !tournamentRegisterCountEl) return;
+  const safeRows = Array.isArray(rows) ? rows : [];
+  tournamentRegisterCountEl.textContent = String(safeRows.length);
+  tournamentRegisterListEl.innerHTML = safeRows.map((row) => {
+    const username = String(row?.username || "Utilisateur").trim() || "Utilisateur";
+    const enrolledAt = Number(row?.createdAtMs || 0);
+    const dateLabel = enrolledAt > 0
+      ? new Date(enrolledAt).toLocaleString("fr-FR")
+      : "Kounye a";
+    return `
+      <li class="tournament-register-list__item">
+        <span class="tournament-register-list__name">${username}</span>
+        <small class="tournament-register-list__meta">${dateLabel}</small>
+      </li>
+    `;
+  }).join("");
+  if (isLoading) {
+    tournamentRegisterListStateEl.hidden = false;
+    tournamentRegisterListStateEl.textContent = "Chajman lis la...";
+    return;
+  }
+  if (errorText) {
+    tournamentRegisterListStateEl.hidden = false;
+    tournamentRegisterListStateEl.textContent = errorText;
+    return;
+  }
+  if (safeRows.length === 0) {
+    tournamentRegisterListStateEl.hidden = false;
+    tournamentRegisterListStateEl.textContent = "Pa gen moun enskri pou kounye a.";
+    return;
+  }
+  tournamentRegisterListStateEl.hidden = true;
+}
+
+function startTournamentRegisterListSync(gameKey = "") {
+  if (typeof tournamentRegisterListUnsub === "function") {
+    tournamentRegisterListUnsub();
+    tournamentRegisterListUnsub = null;
+  }
+  if (!gameKey) {
+    renderTournamentRegisterList([], { errorText: "Jwet la pa valid pou enskripsyon." });
+    return;
+  }
+  tournamentAlreadyRegistered = false;
+  updateTournamentRegisterPrimaryButton();
+  renderTournamentRegisterList([], { isLoading: true });
+  const registrationsQuery = query(
+    collection(db, "tournamentRegistrations"),
+    where("gameKey", "==", gameKey),
+    limit(150),
+  );
+  tournamentRegisterListUnsub = onSnapshot(registrationsQuery, (snapshot) => {
+    const currentUid = String(auth.currentUser?.uid || "").trim();
+    const rows = snapshot.docs
+      .map((docSnap) => docSnap.data() || {})
+      .sort((a, b) => Number(b?.createdAtMs || 0) - Number(a?.createdAtMs || 0));
+    tournamentAlreadyRegistered = currentUid
+      ? rows.some((row) => String(row?.uid || "").trim() === currentUid)
+      : false;
+    updateTournamentRegisterPrimaryButton();
+    renderTournamentRegisterList(rows, { isLoading: false });
+    void maybeCreateTournamentBracket(rows);
+  }, () => {
+    tournamentAlreadyRegistered = false;
+    updateTournamentRegisterPrimaryButton();
+    renderTournamentRegisterList([], { errorText: "Nou pa ka chaje lis enskripsyon an pou kounye a." });
+  });
+  startTournamentBracketSync(gameKey);
+}
+
+function closeTournamentBracketSync() {
+  if (typeof tournamentBracketUnsub === "function") {
+    tournamentBracketUnsub();
+    tournamentBracketUnsub = null;
+  }
+}
+
+function renderTournamentBracket({
+  stateText = "N ap tann 8 patisipan pou lanse tiraj la.",
+  upcomingMatches = [],
+  completedMatches = [],
+} = {}) {
+  if (!tournamentBracketStateEl || !tournamentUpcomingListEl || !tournamentCompletedListEl) return;
+  tournamentBracketStateEl.textContent = String(stateText || "");
+  const renderMatch = (match = {}) => {
+    const title = String(match.roundLabel || "Match").trim();
+    const homeName = String(match.homeName || "TBD").trim() || "TBD";
+    const awayName = String(match.awayName || "TBD").trim() || "TBD";
+    const scoreText = (Number.isFinite(Number(match.homeScore)) && Number.isFinite(Number(match.awayScore)))
+      ? `${Math.trunc(Number(match.homeScore))} - ${Math.trunc(Number(match.awayScore))}`
+      : "A poko jwe";
+    return `
+      <li class="tournament-bracket__match">
+        <span class="tournament-bracket__match-title">${title}</span>
+        <span class="tournament-bracket__pair">${homeName} vs ${awayName}</span>
+        <span class="tournament-bracket__score">${scoreText}</span>
+      </li>
+    `;
+  };
+
+  tournamentUpcomingListEl.innerHTML = upcomingMatches.length
+    ? upcomingMatches.map(renderMatch).join("")
+    : `<li class="tournament-bracket__empty">Pa gen match k ap vini pou kounye a.</li>`;
+
+  tournamentCompletedListEl.innerHTML = completedMatches.length
+    ? completedMatches.map(renderMatch).join("")
+    : `<li class="tournament-bracket__empty">Pa gen match fini pou kounye a.</li>`;
+}
+
+function formatRoundLabel(round = "", index = 0) {
+  const safeIndex = Math.max(1, Number(index) + 1);
+  const normalized = String(round || "").trim().toLowerCase();
+  if (normalized === "quarter") return `Premye tou - Match ${safeIndex}`;
+  if (normalized === "semi") return `Demi final - Match ${safeIndex}`;
+  if (normalized === "final") return "Final";
+  return `Match ${safeIndex}`;
+}
+
+function shuffleTournamentParticipants(list = []) {
+  const arr = Array.isArray(list) ? [...list] : [];
+  for (let i = arr.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i];
+    arr[i] = arr[j];
+    arr[j] = tmp;
+  }
+  return arr;
+}
+
+function buildInitialTournamentMatches(participants = []) {
+  const safeParticipants = Array.isArray(participants) ? participants.slice(0, 8) : [];
+  const quarterMatches = [];
+  for (let i = 0; i < 4; i += 1) {
+    const home = safeParticipants[i * 2] || null;
+    const away = safeParticipants[(i * 2) + 1] || null;
+    quarterMatches.push({
+      id: `QF${i + 1}`,
+      round: "quarter",
+      roundOrder: 1,
+      order: i + 1,
+      roundLabel: formatRoundLabel("quarter", i),
+      homeUid: String(home?.uid || "").trim(),
+      homeName: String(home?.username || "TBD").trim() || "TBD",
+      awayUid: String(away?.uid || "").trim(),
+      awayName: String(away?.username || "TBD").trim() || "TBD",
+      status: "scheduled",
+      homeScore: null,
+      awayScore: null,
+      winnerUid: "",
+    });
+  }
+
+  const semiMatches = [
+    {
+      id: "SF1",
+      round: "semi",
+      roundOrder: 2,
+      order: 1,
+      roundLabel: formatRoundLabel("semi", 0),
+      homeUid: "",
+      homeName: "Ganyan QF1",
+      awayUid: "",
+      awayName: "Ganyan QF2",
+      status: "scheduled",
+      homeScore: null,
+      awayScore: null,
+      winnerUid: "",
+      sourceMatchIds: ["QF1", "QF2"],
+    },
+    {
+      id: "SF2",
+      round: "semi",
+      roundOrder: 2,
+      order: 2,
+      roundLabel: formatRoundLabel("semi", 1),
+      homeUid: "",
+      homeName: "Ganyan QF3",
+      awayUid: "",
+      awayName: "Ganyan QF4",
+      status: "scheduled",
+      homeScore: null,
+      awayScore: null,
+      winnerUid: "",
+      sourceMatchIds: ["QF3", "QF4"],
+    },
+  ];
+
+  const finalMatch = [{
+    id: "F1",
+    round: "final",
+    roundOrder: 3,
+    order: 1,
+    roundLabel: formatRoundLabel("final", 0),
+    homeUid: "",
+    homeName: "Ganyan SF1",
+    awayUid: "",
+    awayName: "Ganyan SF2",
+    status: "scheduled",
+    homeScore: null,
+    awayScore: null,
+    winnerUid: "",
+    sourceMatchIds: ["SF1", "SF2"],
+  }];
+
+  return [...quarterMatches, ...semiMatches, ...finalMatch];
+}
+
+async function maybeCreateTournamentBracket(registrationRows = []) {
+  const gameKey = String(currentTournamentGameState?.key || "").trim();
+  const gameName = String(currentTournamentGameState?.name || "").trim() || "Championna";
+  if (!gameKey) return;
+  if (tournamentBracketBuildInFlight) return;
+
+  const uniqueRows = [];
+  const seen = new Set();
+  for (const row of registrationRows) {
+    const uid = String(row?.uid || "").trim();
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    uniqueRows.push({
+      uid,
+      username: String(row?.username || "Utilisateur").trim() || "Utilisateur",
+      createdAtMs: Number(row?.createdAtMs || 0),
+    });
+  }
+  if (uniqueRows.length < 8) {
+    return;
+  }
+
+  tournamentBracketBuildInFlight = true;
+  try {
+    const bracketRef = doc(db, "tournamentBrackets", gameKey);
+    const bracketSnap = await getDoc(bracketRef);
+    if (bracketSnap.exists()) return;
+
+    const selected = shuffleTournamentParticipants(
+      uniqueRows.sort((a, b) => Number(a.createdAtMs || 0) - Number(b.createdAtMs || 0)).slice(0, 8)
+    );
+    const matches = buildInitialTournamentMatches(selected);
+    await setDoc(bracketRef, {
+      gameKey,
+      gameName,
+      participantCount: selected.length,
+      bracketSize: 8,
+      drawCompleted: true,
+      createdAtMs: Date.now(),
+      updatedAt: serverTimestamp(),
+      participants: selected,
+      matches,
+    }, { merge: true });
+  } catch (_) {
+  } finally {
+    tournamentBracketBuildInFlight = false;
+  }
+}
+
+function startTournamentBracketSync(gameKey = "") {
+  closeTournamentBracketSync();
+  if (!gameKey) {
+    renderTournamentBracket({
+      stateText: "N ap tann 8 patisipan pou lanse tiraj la.",
+      upcomingMatches: [],
+      completedMatches: [],
+    });
+    return;
+  }
+  renderTournamentBracket({
+    stateText: "N ap tcheke kalandriye championna a...",
+    upcomingMatches: [],
+    completedMatches: [],
+  });
+  const bracketRef = doc(db, "tournamentBrackets", gameKey);
+  tournamentBracketUnsub = onSnapshot(bracketRef, (snap) => {
+    if (!snap.exists()) {
+      renderTournamentBracket({
+        stateText: "N ap tann 8 patisipan pou lanse tiraj la.",
+        upcomingMatches: [],
+        completedMatches: [],
+      });
+      return;
+    }
+    const data = snap.data() || {};
+    const matches = Array.isArray(data.matches) ? data.matches : [];
+    const normalizedMatches = matches
+      .map((match) => ({
+        ...match,
+        roundOrder: Number(match?.roundOrder || 99),
+        order: Number(match?.order || 99),
+      }))
+      .sort((a, b) => (a.roundOrder - b.roundOrder) || (a.order - b.order));
+
+    const completedMatches = normalizedMatches.filter((match) => String(match?.status || "").trim().toLowerCase() === "completed");
+    const upcomingMatches = normalizedMatches.filter((match) => String(match?.status || "").trim().toLowerCase() !== "completed");
+    const participantCount = Number(data?.participantCount || 0);
+    const stateText = participantCount >= 8
+      ? "Tiraj la fet. Men kalandriye ofisyel championna a."
+      : `N ap tann 8 patisipan pou lanse tiraj la. (${participantCount}/8)`;
+    renderTournamentBracket({
+      stateText,
+      upcomingMatches,
+      completedMatches,
+    });
+  }, () => {
+    renderTournamentBracket({
+      stateText: "Nou pa ka chaje kalandriye championna a pou kounye a.",
+      upcomingMatches: [],
+      completedMatches: [],
+    });
+  });
+}
+
+function ensureTournamentCostConfirmModal() {
+  if (tournamentCostConfirmModal) return tournamentCostConfirmModal;
+
+  tournamentCostConfirmModal = document.createElement("section");
+  tournamentCostConfirmModal.className = "kobposh-forgot-modal";
+  tournamentCostConfirmModal.setAttribute("aria-hidden", "true");
+  tournamentCostConfirmModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhTournamentCostTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-tournament-cost-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">ENSKRIPSYON CHAMPIONNA</p>
+      <h2 id="kobposhTournamentCostTitle" class="kobposh-forgot-modal__title">Pri enskripsyon an se ${TOURNAMENT_REGISTER_COST_HTG} HTG</h2>
+      <p class="kobposh-forgot-modal__text" data-kobposh-tournament-cost-text>
+        Le ou konfime, ${TOURNAMENT_REGISTER_COST_HTG} HTG ap soti sou kont ou epi non itilizate ou ap antre nan lis moun ki enskri yo.
+      </p>
+      <button class="kobposh-forgot-modal__action" type="button" data-kobposh-tournament-cost-confirm>
+        Peye ${TOURNAMENT_REGISTER_COST_HTG} HTG
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(tournamentCostConfirmModal);
+  renderIconsSafely();
+
+  const closeModal = () => {
+    if (tournamentCostConfirmModal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    tournamentCostConfirmModal.classList.remove("is-open");
+    tournamentCostConfirmModal.setAttribute("aria-hidden", "true");
+    if (
+      !gamesModal?.classList.contains("is-open")
+      && !tournamentsModal?.classList.contains("is-open")
+      && !tournamentRegisterModal?.classList.contains("is-open")
+    ) {
+      document.body.classList.remove("is-modal-open");
+    }
+  };
+
+  tournamentCostConfirmModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target === tournamentCostConfirmModal || target?.closest("[data-kobposh-tournament-cost-close]")) {
+      closeModal();
+      return;
+    }
+    if (target?.closest("[data-kobposh-tournament-cost-confirm]")) {
+      closeModal();
+      void registerCurrentUserToTournament();
+    }
+  });
+
+  tournamentCostConfirmModal.__open = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    tournamentCostConfirmModal.classList.add("is-open");
+    tournamentCostConfirmModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-modal-open");
+    window.requestAnimationFrame(() => {
+      tournamentCostConfirmModal.querySelector("[data-kobposh-tournament-cost-confirm], [data-kobposh-tournament-cost-close]")?.focus?.();
+    });
+  };
+  tournamentCostConfirmModal.__close = closeModal;
+  return tournamentCostConfirmModal;
+}
+
+function openTournamentCostConfirmModal() {
+  const modal = ensureTournamentCostConfirmModal();
+  modal.__open?.();
+}
+
+async function readLivePendingHtgForTournamentGate() {
+  let fundingData = {};
+  try {
+    fundingData = await getDepositFundingStatusSecure({});
+  } catch (_) {
+    fundingData = {};
+  }
+  if (fundingData && typeof fundingData === "object") {
+    latestHomeFundingData = fundingData;
+    renderLiveHomeHeaderBalance();
+  }
+  return getPendingHtgAmount(fundingData, latestHomeFundingData, latestHomeClientData);
+}
+
+async function openTournamentRegisterPaymentGate() {
+  if (!auth.currentUser) {
+    openAuthScreen("login");
+    return;
+  }
+  if (tournamentAlreadyRegistered || tournamentRegisterBusy || tournamentRegisterGateBusy) return;
+
+  tournamentRegisterGateBusy = true;
+  updateTournamentRegisterPrimaryButton();
+  try {
+    const pendingHtgAmount = await readLivePendingHtgForTournamentGate();
+    if (pendingHtgAmount > 0) {
+      openTournamentFeedbackModal({
+        eyebrow: "ENSKRIPSYON BLOKE",
+        title: "Ou gen HTG an atant sou kont ou",
+        text: `Ou pa ka enskri nan championna a pandan ou gen ${formatHtg(pendingHtgAmount)} an atant. Tann validsyon an fini avan ou eseye anko.`,
+      });
+      return;
+    }
+    openTournamentCostConfirmModal();
+  } finally {
+    tournamentRegisterGateBusy = false;
+    updateTournamentRegisterPrimaryButton();
+  }
+}
+
+function ensureTournamentFeedbackModal() {
+  if (tournamentFeedbackModal) return tournamentFeedbackModal;
+
+  tournamentFeedbackModal = document.createElement("section");
+  tournamentFeedbackModal.className = "kobposh-forgot-modal";
+  tournamentFeedbackModal.setAttribute("aria-hidden", "true");
+  tournamentFeedbackModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhTournamentFeedbackTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-tournament-feedback-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow" data-kobposh-tournament-feedback-eyebrow>CHAMPIONNA</p>
+      <h2 id="kobposhTournamentFeedbackTitle" class="kobposh-forgot-modal__title" data-kobposh-tournament-feedback-title></h2>
+      <p class="kobposh-forgot-modal__text" data-kobposh-tournament-feedback-text></p>
+      <button class="kobposh-forgot-modal__action" type="button" data-kobposh-tournament-feedback-ok>Dakò</button>
+    </div>
+  `;
+
+  document.body.appendChild(tournamentFeedbackModal);
+  renderIconsSafely();
+
+  const closeModal = () => {
+    if (tournamentFeedbackModal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    tournamentFeedbackModal.classList.remove("is-open");
+    tournamentFeedbackModal.setAttribute("aria-hidden", "true");
+    if (
+      !gamesModal?.classList.contains("is-open")
+      && !tournamentsModal?.classList.contains("is-open")
+      && !tournamentRegisterModal?.classList.contains("is-open")
+      && !tournamentCostConfirmModal?.classList.contains("is-open")
+    ) {
+      document.body.classList.remove("is-modal-open");
+    }
+  };
+
+  tournamentFeedbackModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      target === tournamentFeedbackModal
+      || target?.closest("[data-kobposh-tournament-feedback-close]")
+      || target?.closest("[data-kobposh-tournament-feedback-ok]")
+    ) {
+      closeModal();
+    }
+  });
+
+  tournamentFeedbackModal.__open = ({
+    eyebrow = "CHAMPIONNA",
+    title = "Mesaj",
+    text = "",
+  } = {}) => {
+    const eyebrowEl = tournamentFeedbackModal.querySelector("[data-kobposh-tournament-feedback-eyebrow]");
+    const titleEl = tournamentFeedbackModal.querySelector("[data-kobposh-tournament-feedback-title]");
+    const textEl = tournamentFeedbackModal.querySelector("[data-kobposh-tournament-feedback-text]");
+    if (eyebrowEl) eyebrowEl.textContent = String(eyebrow || "CHAMPIONNA");
+    if (titleEl) titleEl.textContent = String(title || "Mesaj");
+    if (textEl) textEl.textContent = String(text || "");
+
+    tournamentFeedbackModal.classList.add("is-open");
+    tournamentFeedbackModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-modal-open");
+    window.requestAnimationFrame(() => {
+      tournamentFeedbackModal.querySelector("[data-kobposh-tournament-feedback-ok]")?.focus?.();
+    });
+  };
+  tournamentFeedbackModal.__close = closeModal;
+  return tournamentFeedbackModal;
+}
+
+function openTournamentFeedbackModal(options = {}) {
+  const modal = ensureTournamentFeedbackModal();
+  modal.__open?.(options);
+}
+
+function ensureTournamentRulesModal() {
+  if (tournamentRulesModal) return tournamentRulesModal;
+
+  tournamentRulesModal = document.createElement("section");
+  tournamentRulesModal.className = "kobposh-forgot-modal";
+  tournamentRulesModal.setAttribute("aria-hidden", "true");
+  tournamentRulesModal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel kobposh-tournament-rules-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhTournamentRulesTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-tournament-rules-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">RÈG CHAMPIONNA</p>
+      <h2 id="kobposhTournamentRulesTitle" class="kobposh-forgot-modal__title">Règ ofisyèl Championna a</h2>
+      <div class="kobposh-tournament-rules-modal__content">
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Fòma konpetisyon an</h3>
+          <ul>
+            <li>Championna a fèt ak 8 patisipan, epi li kòmanse dirèkteman an kat de final.</li>
+            <li>Premye tou: 4 match (yon jwè kont yon jwè).</li>
+            <li>Dezyèm tou: 2 match demi final.</li>
+            <li>Dènye tou: 1 gran final.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Kijan pou genyen yon match</h3>
+          <ul>
+            <li>Chak match gen plizyè pati.</li>
+            <li>Premye jwè ki genyen 2 pati ranpòte match la.</li>
+            <li>Pèdan an elimine, gayan an pase nan pwochen tou.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Pri ak rekonpans</h3>
+          <ul>
+            <li>Apre enskripsyon an, chak jwè ap peye chak pati nòmalman sou sit ofisyèl la.</li>
+            <li>Pri yon pati se 25 HTG, li enpòtan pou chak jwè konprann sa avan li kòmanse match li yo.</li>
+            <li>1e plas (chanpyon): 1100 HTG.</li>
+            <li>2e plas (finalis): 500 HTG.</li>
+            <li>Tout lòt jwè yo pa resevwa prim finansye.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Supervizyon ak abit</h3>
+          <ul>
+            <li>Tout match yo ap fèt anba sipèvizyon yon kowòdonatè ofisyèl.</li>
+            <li>Kowòdonatè a se abit match yo, epi desizyon li pran sou jwèt la dwe respekte.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Kominikasyon ofisyèl</h3>
+          <ul>
+            <li>Kowòdonatè a ap kominike ak jwè yo sou gwoup WhatsApp Championna a.</li>
+            <li>Chak jwè dwe rete aktif sou gwoup la pou resevwa orè, enfòmasyon, ak enstriksyon match yo.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Kijan yon pati ap lanse</h3>
+          <ul>
+            <li>Pou chak pati, chak jwè ap resevwa yon kòd.</li>
+            <li>Jwè a antre sou sit la, chwazi jwèt la, epi antre kòd la pou li rantre nan pati a.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Règ disiplin ak konpòtman</h3>
+          <ul>
+            <li>Move konpòtman, jouman, menas, oswa mank respè sou advèsè/staf pa aksepte.</li>
+            <li>Nenpòt trich oswa tantativ manipilasyon mennen nan diskalifikasyon imedya.</li>
+            <li>Si yon jwè kite jwèt la volontèman, li pèdi match la sou fotfè.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Spectateurs ak envitasyon</h3>
+          <ul>
+            <li>Gen match ki ka ouvè pou spectateurs.</li>
+            <li>Jwè yo ka envite zanmi ak fanmi yo vin gade match yo.</li>
+          </ul>
+        </section>
+        <section class="kobposh-tournament-rules-modal__section">
+          <h3>Pèt koneksyon / pwoblèm teknik</h3>
+          <ul>
+            <li>Si yon jwè pèdi koneksyon pandan match, li gen yon delè kout pou retounen.</li>
+            <li>Si li pa retounen nan delè a, li ka pèdi pati a oswa match la selon desizyon òganizasyon an.</li>
+            <li>Repete dekoneksyon oswa sòti jwèt an seri kapab mennen nan diskalifikasyon.</li>
+          </ul>
+        </section>
+      </div>
+      <button class="kobposh-forgot-modal__action" type="button" data-kobposh-tournament-rules-close>Mwen konprann</button>
+    </div>
+  `;
+
+  document.body.appendChild(tournamentRulesModal);
+  renderIconsSafely();
+
+  const closeModal = () => {
+    if (tournamentRulesModal.contains(document.activeElement)) {
+      document.activeElement.blur();
+    }
+    tournamentRulesModal.classList.remove("is-open");
+    tournamentRulesModal.setAttribute("aria-hidden", "true");
+    if (
+      !gamesModal?.classList.contains("is-open")
+      && !tournamentsModal?.classList.contains("is-open")
+      && !tournamentRegisterModal?.classList.contains("is-open")
+      && !tournamentCostConfirmModal?.classList.contains("is-open")
+      && !tournamentFeedbackModal?.classList.contains("is-open")
+    ) {
+      document.body.classList.remove("is-modal-open");
+    }
+  };
+
+  tournamentRulesModal.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (
+      target === tournamentRulesModal
+      || target?.closest("[data-kobposh-tournament-rules-close]")
+    ) {
+      closeModal();
+    }
+  });
+
+  tournamentRulesModal.__open = () => {
+    tournamentRulesModal.classList.add("is-open");
+    tournamentRulesModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-modal-open");
+    window.requestAnimationFrame(() => {
+      tournamentRulesModal.querySelector("[data-kobposh-tournament-rules-close]")?.focus?.();
+    });
+  };
+  tournamentRulesModal.__close = closeModal;
+  return tournamentRulesModal;
+}
+
+function openTournamentRulesModal() {
+  const modal = ensureTournamentRulesModal();
+  modal.__open?.();
+}
+
+async function registerCurrentUserToTournament() {
+  if (tournamentRegisterBusy) return;
+  if (tournamentAlreadyRegistered) return;
+  const uid = String(auth.currentUser?.uid || "").trim();
+  if (!uid) {
+    openAuthScreen("login");
+    return;
+  }
+  if (!currentTournamentGameState?.key) {
+    openTournamentFeedbackModal({
+      eyebrow: "ERÈ CHAMPIONNA",
+      title: "Jwèt la pa valid",
+      text: "Nou pa rive idantifye championna jwèt sa a. Tanpri fèmen fenèt la epi eseye ankò.",
+    });
+    return;
+  }
+
+  tournamentRegisterBusy = true;
+  updateTournamentRegisterPrimaryButton();
+
+  try {
+    const pendingHtgAmount = getPendingHtgAmount(latestHomeFundingData, latestHomeClientData);
+    if (pendingHtgAmount > 0) {
+      openTournamentFeedbackModal({
+        eyebrow: "ENSKRIPSYON BLOKE",
+        title: "Ou gen HTG an atant sou kont ou",
+        text: `Ou pa ka enskri nan championna a pandan ou gen ${formatHtg(pendingHtgAmount)} an atant. Tann validsyon an fini avan ou eseye anko.`,
+      });
+      return;
+    }
+
+    const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+    if (currentBalanceHtg < TOURNAMENT_REGISTER_COST_HTG) {
+      const missing = Math.max(0, TOURNAMENT_REGISTER_COST_HTG - currentBalanceHtg);
+      openTournamentFeedbackModal({
+        eyebrow: "SOLDE ENSIFIZAN",
+        title: "Ou pa gen ase HTG",
+        text: `Ou bezwen ${missing} HTG anplis pou enskri nan championna a.`,
+      });
+      return;
+    }
+
+    await walletMutateSecure({
+      op: "game_entry",
+      amountDoes: TOURNAMENT_REGISTER_COST_DOES,
+      amountGourdes: TOURNAMENT_REGISTER_COST_HTG,
+      fundingCurrency: "htg",
+    });
+
+    const username = getTournamentDisplayUsername();
+    const gameKey = currentTournamentGameState.key;
+    const gameName = String(currentTournamentGameState.name || "").trim() || "Championna";
+    const registrationRef = doc(db, "tournamentRegistrations", `${gameKey}_${uid}`);
+    await setDoc(registrationRef, {
+      uid,
+      username,
+      gameKey,
+      gameName,
+      costHtg: TOURNAMENT_REGISTER_COST_HTG,
+      createdAtMs: Date.now(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    tournamentAlreadyRegistered = true;
+    updateTournamentRegisterPrimaryButton();
+    openTournamentFeedbackModal({
+      eyebrow: "ENSKRIPSYON KONFIME",
+      title: `Byenveni nan championna ${gameName}`,
+      text: `${TOURNAMENT_REGISTER_COST_HTG} HTG deja debite sou kont ou. Non ou antre nan lis moun ki enskri yo.`,
+    });
+    refreshHomeLiveSurface();
+  } catch (error) {
+    const rawMessage = String(error?.message || "");
+    const looksLikeCorsFailure = /cors|failed to fetch|network request failed|preflight/i.test(rawMessage);
+    const message = looksLikeCorsFailure
+      ? "Enskripsyon an pa pase sou localhost akoz blokaj CORS sou backend wallet la. Teste sou domain deploye a oswa aktive route API backend ki otorize origin lokal la."
+      : String(error?.message || "Enskripsyon an pa pase. Tanpri eseye anko.");
+    openTournamentFeedbackModal({
+      eyebrow: "ENSKRIPSYON ECHOUE",
+      title: "Nou pa rive valide enskripsyon an",
+      text: message,
+    });
+  } finally {
+    tournamentRegisterBusy = false;
+    updateTournamentRegisterPrimaryButton();
+  }
 }
 
 function formatDepositAmount(value) {
@@ -4272,6 +5166,18 @@ openGamesButtons.forEach((button) => button.addEventListener("click", (event) =>
   openGamesModal();
 }));
 
+openTournamentsButtons.forEach((button) => button.addEventListener("click", (event) => {
+  event.preventDefault();
+  openTournamentsModal();
+}));
+
+openTournamentRegisterButtons.forEach((button) => button.addEventListener("click", (event) => {
+  event.preventDefault();
+  const gameName = String(button.dataset.tournamentGame || "").trim();
+  const imagePath = String(button.dataset.tournamentImage || "").trim();
+  openTournamentRegisterModal(gameName, imagePath);
+}));
+
 openDepositModalBtns.forEach((button) => {
   button.addEventListener("click", async () => {
     if (!auth.currentUser) {
@@ -4304,6 +5210,38 @@ if (agentHelpQuickBtn && agentHelpQuickBtn.dataset.bound !== "1") {
 }
 
 closeGamesButtons.forEach((button) => button.addEventListener("click", closeGamesModal));
+closeTournamentsButtons.forEach((button) => button.addEventListener("click", closeTournamentsModal));
+closeTournamentRegisterButtons.forEach((button) => button.addEventListener("click", () => {
+  closeTournamentRegisterModal();
+  openTournamentsModal();
+}));
+
+gamesModal?.addEventListener("click", (event) => {
+  if (event.target === gamesModal) {
+    closeGamesModal();
+  }
+});
+
+tournamentsModal?.addEventListener("click", (event) => {
+  if (event.target === tournamentsModal) {
+    closeTournamentsModal();
+  }
+});
+
+tournamentRegisterModal?.addEventListener("click", (event) => {
+  if (event.target === tournamentRegisterModal) {
+    closeTournamentRegisterModal();
+    openTournamentsModal();
+  }
+});
+
+tournamentRegisterSubmitBtn?.addEventListener("click", () => {
+  void openTournamentRegisterPaymentGate();
+});
+
+tournamentRegisterRulesBtn?.addEventListener("click", () => {
+  openTournamentRulesModal();
+});
 
 openHistoryButtons.forEach((button) => {
   if (button.dataset.boundHistoryModal === "1") return;

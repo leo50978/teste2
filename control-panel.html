@@ -411,6 +411,114 @@
         margin-top: 16px;
       }
 
+      .championna-layout {
+        display: grid;
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .championna-summary,
+      .championna-match {
+        border-radius: 18px;
+        padding: 14px;
+        border: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .championna-summary {
+        display: grid;
+        gap: 10px;
+      }
+
+      .championna-summary strong,
+      .championna-match strong {
+        display: block;
+      }
+
+      .championna-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .championna-pill {
+        border-radius: 999px;
+        padding: 7px 10px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .championna-round {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .championna-round h3 {
+        font-size: 1rem;
+      }
+
+      .championna-match {
+        display: grid;
+        gap: 12px;
+      }
+
+      .championna-pair {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .championna-player {
+        min-width: 0;
+      }
+
+      .championna-player span,
+      .championna-status {
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .championna-versus {
+        color: var(--sky);
+        font-weight: 900;
+      }
+
+      .championna-score-form {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .championna-score-form .field input {
+        text-align: center;
+        font-weight: 900;
+      }
+
+      .championna-score-form button {
+        grid-column: 1 / -1;
+      }
+
+      @media (min-width: 760px) {
+        .championna-layout {
+          grid-template-columns: 0.9fr 1.3fr;
+          align-items: start;
+        }
+
+        .championna-score-form {
+          grid-template-columns: 120px 120px minmax(180px, 1fr);
+          align-items: end;
+        }
+
+        .championna-score-form button {
+          grid-column: auto;
+        }
+      }
+
       .collection-meta {
         display: flex;
         flex-wrap: wrap;
@@ -637,6 +745,36 @@
           </div>
         </div>
         <div id="cpProbeGrid" class="probe-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>Dashboard Championna</h2>
+            <p class="helper">Chwazi yon jeu, antre score match yo, epi kalandriye piblik la ap mete ajou sou sit la.</p>
+          </div>
+          <button id="cpChampionnaRefreshBtn" class="secondary-btn" type="button">Rafrechi Championna</button>
+        </div>
+
+        <div class="championna-layout">
+          <aside class="championna-summary">
+            <div class="field">
+              <label for="cpChampionnaGameSelect">Jeu Championna</label>
+              <select id="cpChampionnaGameSelect">
+                <option value="domino">Domino</option>
+                <option value="mopyon">Mopyon</option>
+                <option value="dame">Dame</option>
+                <option value="ludo">Ludo</option>
+                <option value="echec">Echec</option>
+              </select>
+            </div>
+            <div id="cpChampionnaSummary" class="championna-meta"></div>
+            <p id="cpChampionnaMessage" class="helper">Konekte ak yon kont admin pou chaje dashboard Championna a.</p>
+          </aside>
+          <div id="cpChampionnaMatches" class="championna-round">
+            <div class="empty">Chwazi yon jeu pou wè match yo.</div>
+          </div>
+        </div>
       </section>
 
       <section class="panel">
