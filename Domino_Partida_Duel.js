@@ -2156,7 +2156,13 @@ var Domino_Partida = function() {
             }
             else if (this.DuelStockTileIds.length > 0) {
                 this.MostrarMensaje(this.JugadorActual,
-                    "<span data-idioma-en='Open the stock with the button Lot' data-idioma-cat='Obre el lot amb el boto Lot' data-idioma-es='Abre el lote con el boton Lote'></span>");
+                    "<span>Ou pa gen domino pou jwe. Klike sou Lot pou piocher.</span>");
+                if (window.KobposhDuelPromptLot && typeof(window.KobposhDuelPromptLot) === "function") {
+                    window.KobposhDuelPromptLot({
+                        player: this.JugadorActual,
+                        stockCount: this.DuelStockTileIds.length
+                    });
+                }
             }
             else {
                 this.PublicarAccion({ type: "pass", player: this.JugadorActual });
