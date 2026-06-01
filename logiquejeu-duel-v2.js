@@ -66,6 +66,23 @@ let orientationGuardDeferredAction = null;
 let orientationGuardAutoContinueTimer = 0;
 let duelTurnWarningAccepted = false;
 let duelBranchChoiceGuideAccepted = false;
+let lotModalOpen = false;
+let lotActionSending = false;
+let duelLotScene = null;
+let duelLotCamera = null;
+let duelLotRenderer = null;
+let duelLotViewport = null;
+let duelLotLightsReady = false;
+let duelLotTileEntries = [];
+let duelLotRaycaster = null;
+let duelLotPointer = null;
+
+const DUEL_LOT_COLUMNS = 7;
+const DUEL_LOT_TILE_SCALE = 1.34;
+const DUEL_LOT_TILE_WIDTH = 1.0 * DUEL_LOT_TILE_SCALE;
+const DUEL_LOT_TILE_HEIGHT = 2.0 * DUEL_LOT_TILE_SCALE;
+const DUEL_LOT_GAP_X = 0.22;
+const DUEL_LOT_GAP_Z = 0.58;
 
 function safeInt(value, fallback = 0) {
   const n = Number(value);
@@ -912,6 +929,239 @@ function scheduleTurnTimeout(roomData) {
   }, remainingMs);
 }
 
+function getDuelPartida() {
+  return window.Domino?.Partida || null;
+}
+
+function getDuelStockTileIds() {
+  const partida = getDuelPartida();
+  return Array.isArray(partida?.DuelStockTileIds) ? partida.DuelStockTileIds.slice() : [];
+}
+
+function canOpenLotModal() {
+  return Boolean(currentRoomData && String(currentRoomData.status || "") === "playing" && getDuelPartida());
+}
+
+function canCurrentPlayerDrawFromLot() {
+  const partida = getDuelPartida();
+  if (!partida || !currentRoomData || String(currentRoomData.status || "") !== "playing") return false;
+  if (safeSignedInt(currentRoomData.currentPlayer, -1) !== currentSeatIndex) return false;
+  if (typeof partida.EsTurnoHumanoLocal === "function" && partida.EsTurnoHumanoLocal() !== true) return false;
+  if (!Array.isArray(partida.DuelStockTileIds) || partida.DuelStockTileIds.length <= 0) return false;
+  const legalMoves = typeof partida.PosibilidadesJugador === "function"
+    ? partida.PosibilidadesJugador(currentSeatIndex)
+    : [];
+  return !Array.isArray(legalMoves) || legalMoves.length === 0;
+}
+
+function clearLotSceneTiles() {
+  if (!duelLotScene || !Array.isArray(duelLotTileEntries) || duelLotTileEntries.length === 0) return;
+  duelLotTileEntries.forEach((entry) => {
+    if (entry?.root && duelLotScene) duelLotScene.remove(entry.root);
+  });
+  duelLotTileEntries = [];
+}
+
+function ensureLotScene() {
+  const viewport = $("DuelLotViewport");
+  if (!viewport || typeof window.THREE === "undefined" || typeof window.Domino_Ficha !== "function") return false;
+  duelLotViewport = viewport;
+
+  if (!duelLotRenderer) {
+    duelLotRenderer = new window.THREE.WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
+    duelLotRenderer.setClearColor(0x000000, 0);
+    duelLotRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    viewport.appendChild(duelLotRenderer.domElement);
+  }
+
+  if (!duelLotScene) duelLotScene = new window.THREE.Scene();
+  if (!duelLotCamera) {
+    duelLotCamera = new window.THREE.OrthographicCamera(-10, 10, 6, -6, 0.1, 40);
+    duelLotCamera.position.set(0, 14, 0.001);
+    duelLotCamera.up.set(0, 0, -1);
+    duelLotCamera.lookAt(0, 0, 0);
+  }
+
+  if (!duelLotLightsReady) {
+    duelLotScene.add(new window.THREE.AmbientLight(0xffffff, 1.25));
+    duelLotLightsReady = true;
+  }
+
+  if (!duelLotRaycaster) duelLotRaycaster = new window.THREE.Raycaster();
+  if (!duelLotPointer) duelLotPointer = new window.THREE.Vector2();
+  return true;
+}
+
+function layoutLotCamera(tileCount) {
+  if (!duelLotCamera || !duelLotViewport || !duelLotRenderer) return;
+  const rect = duelLotViewport.getBoundingClientRect();
+  const width = Math.max(1, rect.width || 1);
+  const height = Math.max(1, rect.height || 1);
+  const aspect = width / height;
+  const columns = Math.min(DUEL_LOT_COLUMNS, Math.max(1, tileCount));
+  const rows = tileCount > DUEL_LOT_COLUMNS ? 2 : 1;
+  const contentWidth = Math.max(8.6, columns * DUEL_LOT_TILE_WIDTH + Math.max(0, columns - 1) * DUEL_LOT_GAP_X);
+  const contentHeight = Math.max(5.1, rows * DUEL_LOT_TILE_HEIGHT + Math.max(0, rows - 1) * DUEL_LOT_GAP_Z);
+  const halfHeight = Math.max(contentHeight / 2, (contentWidth / 2) / Math.max(0.65, aspect)) + 0.55;
+  const halfWidth = halfHeight * aspect;
+  duelLotCamera.left = -halfWidth;
+  duelLotCamera.right = halfWidth;
+  duelLotCamera.top = halfHeight;
+  duelLotCamera.bottom = -halfHeight;
+  duelLotCamera.updateProjectionMatrix();
+  duelLotRenderer.setSize(width, height, false);
+}
+
+function renderLotScene() {
+  if (!duelLotRenderer || !duelLotScene || !duelLotCamera) return;
+  duelLotRenderer.render(duelLotScene, duelLotCamera);
+}
+
+function getLotTileSelectionFromPointer(event) {
+  if (!duelLotViewport || !duelLotCamera || !duelLotRaycaster) return null;
+  const rect = duelLotViewport.getBoundingClientRect();
+  if (!rect.width || !rect.height) return null;
+  duelLotPointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  duelLotPointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+  duelLotRaycaster.setFromCamera(duelLotPointer, duelLotCamera);
+  const hits = duelLotRaycaster.intersectObjects(duelLotTileEntries.map((entry) => entry.root).filter(Boolean), true);
+  const hit = hits.find((item) => safeSignedInt(item?.object?.userData?.lotTileId, -1) >= 0);
+  if (!hit) return null;
+  return {
+    tileId: safeSignedInt(hit.object.userData.lotTileId, -1),
+    slotIndex: safeSignedInt(hit.object.userData.lotSlotIndex, -1),
+  };
+}
+
+function teardownLotScene() {
+  clearLotSceneTiles();
+  if (duelLotRenderer?.domElement?.parentNode) {
+    duelLotRenderer.domElement.parentNode.removeChild(duelLotRenderer.domElement);
+  }
+  duelLotScene = null;
+  duelLotCamera = null;
+  duelLotRenderer = null;
+  duelLotViewport = null;
+  duelLotLightsReady = false;
+  duelLotRaycaster = null;
+  duelLotPointer = null;
+}
+
+function syncLotScene() {
+  const emptyEl = $("DuelLotEmpty");
+  if (!ensureLotScene()) {
+    if (emptyEl) {
+      emptyEl.style.display = "flex";
+      emptyEl.textContent = "Lot la pa disponib pou kounye a.";
+    }
+    return;
+  }
+
+  const stockPile = getDuelStockTileIds();
+  clearLotSceneTiles();
+  if (emptyEl) {
+    emptyEl.style.display = stockPile.length > 0 ? "none" : "flex";
+    emptyEl.textContent = stockPile.length > 0 ? "" : "Lot la vid.";
+  }
+
+  if (stockPile.length <= 0) {
+    layoutLotCamera(1);
+    renderLotScene();
+    return;
+  }
+
+  stockPile.forEach((tileId, index) => {
+    const tile = new window.Domino_Ficha();
+    tile.Crear(tileId);
+    tile.Ficha.rotation.set(Math.PI / 2, 0, 0);
+    if (tile.Base?.material?.clone) {
+      const matteBack = tile.Base.material.clone();
+      if (typeof matteBack.color?.setHex === "function") matteBack.color.setHex(0x050505);
+      if (typeof matteBack.specular?.setHex === "function") matteBack.specular.setHex(0x000000);
+      matteBack.shininess = 0;
+      tile.Base.material = matteBack;
+    }
+    if (tile.Cara1) tile.Cara1.visible = false;
+    if (tile.Cara2) tile.Cara2.visible = false;
+    if (tile.Textura1) tile.Textura1.visible = false;
+    if (tile.Textura2) tile.Textura2.visible = false;
+    if (tile.Bola) tile.Bola.visible = false;
+
+    const tileWrap = new window.THREE.Group();
+    tileWrap.add(tile.Ficha);
+    tileWrap.rotation.y = Math.PI / 2;
+    const col = index % DUEL_LOT_COLUMNS;
+    const row = Math.floor(index / DUEL_LOT_COLUMNS);
+    const columnsInRow = Math.min(DUEL_LOT_COLUMNS, stockPile.length - row * DUEL_LOT_COLUMNS);
+    tileWrap.position.set(
+      (col - ((columnsInRow - 1) / 2)) * (DUEL_LOT_TILE_WIDTH + DUEL_LOT_GAP_X),
+      0,
+      (row - 0.5) * (DUEL_LOT_TILE_HEIGHT + DUEL_LOT_GAP_Z),
+    );
+    tileWrap.scale.set(DUEL_LOT_TILE_SCALE, DUEL_LOT_TILE_SCALE, DUEL_LOT_TILE_SCALE);
+    tileWrap.traverse((node) => {
+      node.userData = { ...(node.userData || {}), lotTileId: tileId, lotSlotIndex: index };
+    });
+    duelLotScene.add(tileWrap);
+    duelLotTileEntries.push({ tileId, slotIndex: index, root: tileWrap });
+  });
+
+  layoutLotCamera(stockPile.length);
+  renderLotScene();
+}
+
+function setLotModalOpen(open) {
+  lotModalOpen = open === true;
+  syncLotUi();
+}
+
+function syncLotUi() {
+  const btn = $("LotModalOpenBtn");
+  const callout = $("LotModalCallout");
+  const countEl = $("LotModalCount");
+  const overlay = $("DuelLotModal");
+  const hint = $("DuelLotHint");
+  const stockCount = getDuelStockTileIds().length;
+  const canOpen = canOpenLotModal();
+  const drawAllowed = canCurrentPlayerDrawFromLot();
+  const shouldGuideToLot = drawAllowed && canOpen && !lotModalOpen;
+
+  if (btn) {
+    btn.disabled = !canOpen;
+    btn.classList.toggle("opacity-50", btn.disabled);
+    btn.classList.toggle("pointer-events-none", btn.disabled);
+    btn.classList.toggle("duel-lot-cta", shouldGuideToLot);
+    btn.setAttribute("aria-label", drawAllowed ? "Ouvri lot la pou piocher" : "Ouvrir le lot");
+    btn.title = drawAllowed ? "Ou pa gen domino pou jwe. Klike sou Lot pou piocher." : "Lot";
+  }
+  if (callout) {
+    callout.classList.toggle("hidden", !shouldGuideToLot);
+    callout.classList.toggle("duel-lot-cta-visible", shouldGuideToLot);
+  }
+  if (countEl) countEl.textContent = String(stockCount);
+  if (hint) {
+    hint.textContent = stockCount <= 0
+      ? "Lot la vid."
+      : drawAllowed
+        ? "Ou pa gen domino pou jwe. Chwazi yon domino nan lot la pou piocher."
+        : "Ou ka gade lot la, men ou ka piocher selman le se tou pa ou epi ou pa gen okenn domino pou jwe.";
+  }
+  if (overlay) {
+    const shouldShow = lotModalOpen && canOpen;
+    overlay.classList.toggle("hidden", !shouldShow);
+    overlay.classList.toggle("flex", shouldShow);
+    if (shouldShow) window.requestAnimationFrame(() => syncLotScene());
+  }
+}
+
+function promptLotDraw() {
+  syncLotUi();
+  const btn = $("LotModalOpenBtn");
+  if (canCurrentPlayerDrawFromLot() && btn) {
+    btn.focus({ preventScroll: true });
+  }
+}
+
 function parseHumanSeats(seats = {}) {
   const out = [];
   Object.keys(seats || {}).forEach((uid) => {
@@ -1079,6 +1329,7 @@ function watchActions(roomId) {
       if (currentRoomData && String(currentRoomData.status || "") === "playing") {
         scheduleTurnTimeout(currentRoomData);
       }
+      syncLotUi();
       setMatchLoading(false);
     },
     () => {
@@ -1107,6 +1358,7 @@ function launchLocalGame(roomData) {
     if (window.UI && typeof window.UI.ActualizarBotonLucesJugadores === "function") {
       window.UI.ActualizarBotonLucesJugadores();
     }
+    syncLotUi();
     return;
   }
   gameLaunched = true;
@@ -1115,6 +1367,7 @@ function launchLocalGame(roomData) {
   if (window.UI && typeof window.UI.ActualizarBotonLucesJugadores === "function") {
     window.UI.ActualizarBotonLucesJugadores();
   }
+  syncLotUi();
   watchActions(currentRoomId);
 }
 
@@ -1158,6 +1411,7 @@ function watchRoom(roomId) {
       }
       refreshOrientationGuardState();
       if (status === "waiting") {
+        setLotModalOpen(false);
         hideEndedOverlay();
         setLeaveRoomButtonVisible(true);
         clearTurnTimer();
@@ -1181,7 +1435,9 @@ function watchRoom(roomId) {
           setMatchLoading(false);
           scheduleTurnTimeout(currentRoomData);
         }
+        syncLotUi();
       } else if (status === "ended") {
+        setLotModalOpen(false);
         stopWaitingCycle();
         waitDeadlineMs = 0;
         roomWaitingDeadlineMs = 0;
@@ -1280,6 +1536,9 @@ async function leaveCurrentRoom(reason = "manual") {
   duelDeckOrder = [];
   gameLaunched = false;
   actionsReady = false;
+  lotModalOpen = false;
+  lotActionSending = false;
+  teardownLotScene();
   setFriendJoinStatus("");
   closeOverlay("DuelFriendShareOverlay");
   closeOverlay("DuelFriendJoinOverlay");
@@ -1303,6 +1562,25 @@ async function pushAction(action) {
     clientActionId: `duelv2_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
     action,
   });
+}
+
+async function sendDrawMove(tileId = -1) {
+  if (!currentRoomId || lotActionSending) return;
+  lotActionSending = true;
+  syncLotUi();
+  try {
+    await pushAction({
+      type: "draw",
+      tileId: safeSignedInt(tileId, -1),
+    });
+    setStatus("Pioche envoyee. N ap mete lot la ajou...");
+  } catch (error) {
+    console.error("[DUEL] draw failed", error);
+    setStatus(error?.message || "Nou pa rive piocher nan lot la.");
+  } finally {
+    lotActionSending = false;
+    syncLotUi();
+  }
 }
 
 function onGameEnded() {
@@ -1501,6 +1779,45 @@ function bindButtons() {
   if (viewBtn) {
     viewBtn.addEventListener("click", () => hideEndedOverlay());
   }
+
+  const lotOpenBtn = $("LotModalOpenBtn");
+  if (lotOpenBtn && lotOpenBtn.dataset.bound !== "1") {
+    lotOpenBtn.dataset.bound = "1";
+    lotOpenBtn.addEventListener("click", () => {
+      if (!canOpenLotModal()) return;
+      setLotModalOpen(true);
+    });
+  }
+
+  const lotOverlay = $("DuelLotModal");
+  if (lotOverlay && lotOverlay.dataset.bound !== "1") {
+    lotOverlay.dataset.bound = "1";
+    lotOverlay.addEventListener("click", (event) => {
+      if (event.target === lotOverlay) setLotModalOpen(false);
+    });
+  }
+
+  const lotViewport = $("DuelLotViewport");
+  if (lotViewport && lotViewport.dataset.bound !== "1") {
+    lotViewport.dataset.bound = "1";
+    lotViewport.addEventListener("click", (event) => {
+      const selection = getLotTileSelectionFromPointer(event);
+      if (!selection || !canCurrentPlayerDrawFromLot() || lotActionSending) return;
+      if (window.Domino?.Partida && typeof window.Domino.Partida.DefinirPosePiocheDepuisModal === "function") {
+        window.Domino.Partida.DefinirPosePiocheDepuisModal(selection.slotIndex);
+      }
+      setLotModalOpen(false);
+      void sendDrawMove(selection.tileId);
+    });
+  }
+
+  if (window.__duelLotResizeBound !== true) {
+    window.__duelLotResizeBound = true;
+    window.addEventListener("resize", () => {
+      if (!lotModalOpen) return;
+      window.requestAnimationFrame(() => syncLotScene());
+    });
+  }
 }
 
 window.LogiqueJeu = {
@@ -1510,6 +1827,8 @@ window.LogiqueJeu = {
   hasActiveRoom: () => !!currentRoomId,
   getSession: () => window.GameSession || null,
 };
+window.KobposhDuelPromptLot = promptLotDraw;
+window.KobposhDuelSyncLotUi = syncLotUi;
 
 window.addEventListener("pagehide", () => {
   if (currentRoomId && navigator.onLine !== false) {
@@ -1539,6 +1858,7 @@ setLeaveRoomButtonVisible(false);
 hideEndedOverlay();
 setMatchLoading(false);
 setTurnTimerUI(0, -1);
+syncLotUi();
 refreshOrientationGuardState();
 
 window.addEventListener("resize", () => {
