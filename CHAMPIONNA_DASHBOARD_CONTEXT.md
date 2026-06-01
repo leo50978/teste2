@@ -119,6 +119,24 @@ La verification passe par:
   - hub dashboard affiche le bouton/la carte Championna
   - `Dchampionna.html` charge sans erreur console
 
+## 2026-06-01 - Etape 3
+
+- correction du chargement module dashboard:
+  - `Dchampionna.js` importe maintenant `secure-functions.js` avec cache-busting
+  - `Dchampionna.html` charge `Dchampionna.js?v=20260601-championna-remove1`
+- nettoyage interface `Dchampionna.html`:
+  - retrait du gros bloc intro `Gestion des matchs et scores`
+  - retrait des liens `Retour hub`, `Volume jeux`, `Analytics Morpion`
+  - retrait du bouton top `Rafraichir Championna`
+- ajout gestion des inscrits:
+  - liste des inscrits du jeu choisi dans le dashboard
+  - bouton `Retirer` par inscrit
+  - endpoint backend `POST /api/dashboard/championna/remove-registration`
+- regle de securite backend:
+  - retrait autorise avant match termine
+  - si un bracket existe sans match termine, il est supprime pour forcer un nouveau tirage propre apres retour a 8 inscrits
+  - si un match est deja termine, retrait refuse pour eviter de casser le calendrier
+
 ---
 
 ## Checklist

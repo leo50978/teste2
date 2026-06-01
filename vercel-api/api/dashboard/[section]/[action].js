@@ -23,6 +23,7 @@ const ROUTES = Object.freeze({
   "client-admin/unfreeze-account": require("../../../routes/dashboard/client-admin/unfreeze-account"),
   "championna/snapshot": require("../../../routes/dashboard/championna/snapshot"),
   "championna/update-match": require("../../../routes/dashboard/championna/update-match"),
+  "championna/remove-registration": require("../../../routes/dashboard/championna/remove-registration"),
   "morpion/snapshot": require("../../../routes/dashboard/morpion/snapshot"),
   "site-visits/snapshot": require("../../../routes/dashboard/site-visits/snapshot"),
   "transfers/analytics": require("../../../routes/dashboard/transfers/analytics"),
