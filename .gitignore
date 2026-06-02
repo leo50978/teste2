@@ -1,4 +1,8 @@
 contextesite/
+contexte/
+
+*.md
+**/*.md
 
 dashboard-morpion-staging/
 dashboard-review-staging/
