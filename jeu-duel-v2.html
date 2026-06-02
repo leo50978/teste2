@@ -40,10 +40,10 @@
         <script src="./Domino_Ficha_Duel.js"></script>        
         <script src="./Domino_UI.js"></script>        
         <script src="./Domino_Opciones.js"></script>        
-        <script src="./Domino_Partida_Duel.js?v=20260601-duel-lot-draw1"></script>        
+        <script src="./Domino_Partida_Duel.js?v=20260601-duel-end-replay1"></script>        
         <script src="./Domino.js"></script>        
 
-        <script type="module" src="./logiquejeu-duel-v2.js?v=20260601-duel-lot-draw1"></script>
+        <script type="module" src="./logiquejeu-duel-v2.js?v=20260601-duel-end-replay1"></script>
         <style>
             :root {
                 --kob-bg-0: #f4fbf6;
@@ -1218,17 +1218,17 @@
                 <div class="mt-4 flex justify-center">
                     <img id="GameEndTrophy" src="./tropher.jpg" alt="Trophée" onerror="this.onerror=null;this.src='./troper.jpg';" class="hidden h-24 w-24 object-contain" />
                 </div>
-                <div id="GameEndViewWrap" class="mt-5">
-                    <button id="GameEndViewTableBtn" type="button" class="h-12 w-full rounded-2xl border border-[#ffb26e] bg-[#F57C00] text-sm font-semibold text-white shadow-[8px_8px_18px_rgba(163,82,27,0.45),-6px_-6px_14px_rgba(255,175,102,0.22)] transition hover:-translate-y-0.5">
-                        Voir la table
-                    </button>
-                </div>
-                <div id="GameEndActionsWrap" class="mt-5 hidden grid-cols-1 gap-3 sm:grid-cols-2">
+                <div id="GameEndActionsWrap" class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <button id="GameEndReplayBtn" type="button" class="h-12 rounded-2xl border border-[#ffb26e] bg-[#F57C00] text-sm font-semibold text-white shadow-[8px_8px_18px_rgba(163,82,27,0.45),-6px_-6px_14px_rgba(255,175,102,0.22)] transition hover:-translate-y-0.5">
                         Rejouer
                     </button>
                     <button id="GameEndBackBtn" type="button" class="h-12 rounded-2xl border border-white/20 bg-white/10 text-sm font-semibold text-white shadow-[8px_8px_18px_rgba(19,25,40,0.34),-6px_-6px_14px_rgba(111,126,164,0.2)] transition hover:bg-white/15">
-                        Retour
+                        Retour accueil
+                    </button>
+                </div>
+                <div id="GameEndViewWrap" class="mt-3">
+                    <button id="GameEndViewTableBtn" type="button" class="h-12 w-full rounded-2xl border border-white/20 bg-white/10 text-sm font-semibold text-white shadow-[8px_8px_18px_rgba(19,25,40,0.34),-6px_-6px_14px_rgba(111,126,164,0.2)] transition hover:bg-white/15">
+                        Voir la table seulement
                     </button>
                 </div>
             </div>
