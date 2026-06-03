@@ -1228,38 +1228,21 @@ function prepareDuelFriendRematchStart() {
   setMatchLoading(true, "Nouvo won Domino a ap pare...");
 }
 
-function setGameEndReplayCtaVisible(visible = false) {
-  const goBtn = $("GameEndGoBtn");
-  if (!goBtn) return;
-  goBtn.textContent = currentRoomMode === "duel_v2_friends" ? "Mande revanj" : "Rejouer";
-  goBtn.classList.toggle("hidden", visible !== true);
-}
-
-function hideEndedOverlay(options = {}) {
+function hideEndedOverlay() {
   const overlay = $("GameEndOverlay");
-  if (overlay) {
-    overlay.classList.add("hidden");
-    overlay.classList.remove("flex");
-  }
-  setGameEndReplayCtaVisible(options?.keepReplayCta === true);
+  if (!overlay) return;
+  overlay.classList.add("hidden");
+  overlay.classList.remove("flex");
 }
 
 function showEndedOverlay() {
   const overlay = $("GameEndOverlay");
   const winnerText = $("GameEndWinnerText");
   const infoText = $("GameEndInfoText");
-  const replayBtn = $("GameEndReplayBtn");
-  const backBtn = $("GameEndBackBtn");
-  const viewBtn = $("GameEndViewTableBtn");
-  const actionsWrap = $("GameEndActionsWrap");
   if (!overlay || !currentRoomData) return;
   const winnerSeat = safeSignedInt(currentRoomData.winnerSeat, -1);
   const isWinner = winnerSeat >= 0 && winnerSeat === currentSeatIndex;
   const reason = String(currentRoomData.endedReason || "").trim();
-  const title = overlay.querySelector("h2");
-  const isFriendRoom = currentRoomMode === "duel_v2_friends";
-  const replayLabel = isFriendRoom ? "Mande revanj" : "Rejouer nan gran chanm";
-  if (title) title.textContent = "Partie terminee";
   if (winnerText) {
     if (reason === "quit_refund_before_opening" || reason === "timeout_refund") {
       winnerText.textContent = "Psonn pa pedi";
@@ -1270,30 +1253,20 @@ function showEndedOverlay() {
     }
   }
   if (infoText) {
-    let message = "";
     if (reason === "quit_refund_before_opening") {
-      message = "Lot jw a kite parti a anvan duel la te louvri tout bon. Pesonn pa pedi miz la.";
+      infoText.textContent = "Lot jw a kite parti a anvan duel la te louvri tout bon. Pesonn pa pedi miz la.";
     } else if (reason === "timeout_refund") {
-      message = "Tan an fini anvan chak jw te gentan antre tout bon nan duel la. Pesonn pa pedi miz la.";
+      infoText.textContent = "Tan an fini anvan chak jw te gentan antre tout bon nan duel la. Pesonn pa pedi miz la.";
     } else if (reason === "quit") {
-      message = isWinner ? "Lot jw a kite parti a." : "Ou kite parti a.";
+      infoText.textContent = isWinner ? "Lot jw a kite parti a." : "Ou kite parti a.";
     } else if (reason === "timeout") {
-      message = isWinner ? "Lot jw a kite tan li fini." : "Tan pa ou fini.";
+      infoText.textContent = isWinner ? "Lot jw a kite tan li fini." : "Tan pa ou fini.";
     } else if (reason === "block") {
-      message = "Parti a fini sou blokaj.";
+      infoText.textContent = "Parti a fini sou blokaj.";
     } else {
-      message = "Parti a fini.";
+      infoText.textContent = "Parti a fini.";
     }
-    infoText.textContent = `${message} ${isFriendRoom ? "Ou ka mande revanj nan menm salon an." : "Ou ka rejouer nan gran chanm nan tout suite."}`;
   }
-  if (replayBtn) replayBtn.textContent = replayLabel;
-  if (backBtn) backBtn.textContent = "Retour accueil";
-  if (viewBtn) viewBtn.textContent = "Voir la table seulement";
-  if (actionsWrap) {
-    actionsWrap.classList.remove("hidden");
-    actionsWrap.classList.add("grid");
-  }
-  setGameEndReplayCtaVisible(false);
   overlay.classList.remove("hidden");
   overlay.classList.add("flex");
 }
@@ -1681,16 +1654,6 @@ async function requestFriendRematch() {
   }
 }
 
-async function replayFromGameEnd() {
-  setGameEndReplayCtaVisible(false);
-  if (currentRoomMode === "duel_v2_friends" && currentRoomId) {
-    void requestFriendRematch();
-    return;
-  }
-  await leaveCurrentRoom("replay");
-  window.location.href = "./jeu-duel-v2.html?entry=public";
-}
-
 function bindButtons() {
   if (searchCopyCodeBtn) {
     searchCopyCodeBtn.addEventListener("click", async () => {
@@ -1804,18 +1767,17 @@ function bindButtons() {
   const replayBtn = $("GameEndReplayBtn");
   if (replayBtn) {
     replayBtn.addEventListener("click", async () => {
-      await replayFromGameEnd();
+      if (currentRoomMode === "duel_v2_friends" && currentRoomId) {
+        void requestFriendRematch();
+        return;
+      }
+      await leaveCurrentRoom("replay");
+      window.location.href = "./jeu-duel-v2.html?entry=public";
     });
   }
   const viewBtn = $("GameEndViewTableBtn");
   if (viewBtn) {
-    viewBtn.addEventListener("click", () => hideEndedOverlay({ keepReplayCta: true }));
-  }
-  const goBtn = $("GameEndGoBtn");
-  if (goBtn) {
-    goBtn.addEventListener("click", async () => {
-      await replayFromGameEnd();
-    });
+    viewBtn.addEventListener("click", () => hideEndedOverlay());
   }
 
   const lotOpenBtn = $("LotModalOpenBtn");
