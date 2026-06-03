@@ -106,7 +106,7 @@ module.exports = async function handler(req, res) {
       const botDifficulty = normalizeBotDifficulty(
         currentWager.botDifficulty
         || payload.botDifficulty
-        || "expert"
+        || "dominov1"
       );
       const dominov1ThreeVsOne = botDifficulty === "dominov1";
       const normalizedRequestedWinner = (

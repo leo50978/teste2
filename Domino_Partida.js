@@ -130,10 +130,7 @@ var Domino_Partida = function() {
             if (this.EsAliadoBotLocal(SeatBot, this.LocalSeat) === true) return "dominov1_traitor";
             return "dominov1_hunter";
         }
-        if (Dificultad !== "ultra") return Dificultad;
-        if (SeatBot === this.LocalSeat) return "ultra";
-        if (this.EsAliadoBotLocal(SeatBot, this.LocalSeat) === true) return "ally_nerfed";
-        return "ultra";
+        return Dificultad;
     };
 
     this.ObtenerDelayBotLocalMs = function(EsApertura, Seat) {
@@ -162,7 +159,7 @@ var Domino_Partida = function() {
     this.NormalizarDificultadBotLocal = function(Valor) {
         var Nivel = String(Valor || "").trim().toLowerCase();
         if (Nivel === "dominov1" || Nivel === "v1") return "dominov1";
-        if (Nivel === "ultra" || Nivel === "expert") return "ultra";
+        if (Nivel === "ultra" || Nivel === "expert") return "dominov1";
         if (Nivel === "userpro" || Nivel === "amateur") return "userpro";
         return "userpro";
     };
