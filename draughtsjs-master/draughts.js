@@ -1241,13 +1241,7 @@ if (!Array.prototype.filter) {
             this[prop] = this.extend[prop];
         }
         
-        // Can use background image on CSS, but it fails on IE8, need hacks
-        var img = new Image();
-        img.src = 'Trollface.png';
-        var lastEl = piece.querySelectorAll('*');
-        // IE8 don't support pseudo selectors like :last
-        lastEl = lastEl[lastEl.length - 1];
-        lastEl.appendChild(img);
+        // Queen visual is now handled entirely in CSS with a crown overlay.
     }
     
     function DraughtsPieceQueenPrototype() {
