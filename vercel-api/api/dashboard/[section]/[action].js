@@ -3,6 +3,7 @@ const { handlePreflight, sendJson } = require("../../../lib/http");
 const ROUTES = Object.freeze({
   "acquisition/snapshot": require("../../../routes/dashboard/acquisition/snapshot"),
   "ai-advisor/snapshot": require("../../../routes/dashboard/ai-advisor/snapshot"),
+  "cashflow-htg/snapshot": require("../../../routes/dashboard/cashflow-htg/snapshot"),
   "deposits/resolve-review": require("../../../routes/dashboard/deposits/resolve-review"),
   "deposit-flow/snapshot": require("../../../routes/dashboard/deposit-flow/snapshot"),
   "approved-deposits/snapshot": require("../../../routes/dashboard/approved-deposits/snapshot"),

@@ -1452,6 +1452,445 @@ async function computeApprovedDepositsSnapshot(options = {}) {
   };
 }
 
+function getCashflowResolutionTimestampMs(record = {}) {
+  return (
+    safeSignedInt(record.approvedAtMs)
+    || safeSignedInt(record.reviewedAtMs)
+    || safeSignedInt(record.resolvedAtMs)
+    || safeSignedInt(record.updatedAtMs)
+    || safeSignedInt(record.createdAtMs)
+    || toMillis(record.updatedAt)
+    || toMillis(record.createdAt)
+    || 0
+  );
+}
+
+function getApprovedWithdrawalAmountHtg(withdrawal = {}) {
+  return Math.max(
+    0,
+    safeInt(
+      withdrawal.approvedAmountHtg
+      ?? withdrawal.requestedAmount
+      ?? withdrawal.amountHtg
+      ?? withdrawal.amount
+    )
+  );
+}
+
+async function fetchApprovedCashInRowsForRange(startMs = 0, endMs = 0) {
+  const fields = [
+    "amount",
+    "amountHtg",
+    "items",
+    "status",
+    "resolutionStatus",
+    "approvedAmountHtg",
+    "createdAtMs",
+    "createdAt",
+    "updatedAtMs",
+    "updatedAt",
+    "resolvedAtMs",
+    "reviewedAtMs",
+    "approvedAtMs",
+    "approvedAt",
+    "methodId",
+    "methodName",
+    "orderType",
+    "kind",
+    "customerName",
+    "customerEmail",
+    "customerPhone",
+    "uniqueCode",
+    "source",
+    "agentAssisted",
+    "creditedByAgentUid",
+    "creditedByAgentEmail",
+  ];
+
+  try {
+    const query = db.collectionGroup("orders")
+      .where("resolutionStatus", "==", "approved")
+      .where("reviewedAtMs", ">=", startMs)
+      .where("reviewedAtMs", "<=", endMs)
+      .orderBy("reviewedAtMs", "asc")
+      .select(...fields)
+      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT);
+
+    const snap = await query.get();
+    return {
+      rows: snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
+        ...(docSnap.data() || {}),
+      })),
+      truncated: snap.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
+      fallbackUsed: false,
+    };
+  } catch (error) {
+    if (!shouldFallbackOrderCollectionGroup(error)) {
+      throw error;
+    }
+    const fallback = await db.collectionGroup("orders")
+      .where("resolutionStatus", "==", "approved")
+      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT)
+      .get();
+    return {
+      rows: fallback.docs.map((docSnap) => ({
+        id: docSnap.id,
+        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
+        ...(docSnap.data() || {}),
+      })),
+      truncated: fallback.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
+      fallbackUsed: true,
+    };
+  }
+}
+
+async function fetchApprovedWithdrawalRowsForRange(startMs = 0, endMs = 0) {
+  const fields = [
+    "status",
+    "resolutionStatus",
+    "requestedAmount",
+    "amount",
+    "amountHtg",
+    "approvedAmountHtg",
+    "createdAtMs",
+    "createdAt",
+    "updatedAtMs",
+    "updatedAt",
+    "reviewedAtMs",
+    "resolvedAtMs",
+    "approvedAtMs",
+    "approvedAt",
+    "customerName",
+    "customerEmail",
+    "customerPhone",
+    "methodId",
+    "methodName",
+    "destinationType",
+    "destinationValue",
+    "clientUid",
+    "clientId",
+    "uid",
+  ];
+
+  try {
+    const query = db.collectionGroup("withdrawals")
+      .where("status", "==", "approved")
+      .where("reviewedAtMs", ">=", startMs)
+      .where("reviewedAtMs", "<=", endMs)
+      .orderBy("reviewedAtMs", "asc")
+      .select(...fields)
+      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT);
+    const snap = await query.get();
+    return {
+      rows: snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
+        ...(docSnap.data() || {}),
+      })),
+      truncated: snap.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
+      fallbackUsed: false,
+    };
+  } catch (error) {
+    const code = safeSignedInt(error?.code);
+    if (code !== 9 && !String(error?.message || "").includes("FAILED_PRECONDITION")) {
+      throw error;
+    }
+    const fallback = await db.collectionGroup("withdrawals")
+      .where("status", "==", "approved")
+      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT)
+      .get();
+    return {
+      rows: fallback.docs.map((docSnap) => ({
+        id: docSnap.id,
+        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
+        ...(docSnap.data() || {}),
+      })),
+      truncated: fallback.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
+      fallbackUsed: true,
+    };
+  }
+}
+
+function inferCashflowHumanCount(gameKey = "", result = {}) {
+  const explicit = safeInt(result.humanCount || result.humanPlayers || result.humanPlayerCount);
+  if (explicit > 0) return explicit;
+
+  const playerUids = Array.isArray(result.playerUids)
+    ? result.playerUids.map((value) => String(value || "").trim()).filter(Boolean)
+    : [];
+  const playerCount = playerUids.length;
+  const botCount = safeInt(result.botCount);
+  const roomMode = String(result.roomMode || result.gameMode || "").trim().toLowerCase();
+  const aiProfile = String(result.aiProfile || "").trim().toLowerCase();
+
+  if (gameKey === "domino_classic") return 1;
+  if (gameKey === "ludo") return roomMode === "ludo_friends" ? 2 : 1;
+  if (gameKey === "pong") {
+    if (botCount > 0 || aiProfile) return 1;
+    return Math.max(1, Math.min(2, playerCount || 1));
+  }
+  if (gameKey === "duel") {
+    if (botCount > 0 || aiProfile) return 1;
+    return Math.max(1, Math.min(2, playerCount || 2));
+  }
+  if (gameKey === "morpion" || gameKey === "dame") {
+    return Math.max(1, Math.min(2, playerCount || 2));
+  }
+  return Math.max(1, playerCount || 1);
+}
+
+function buildCashflowBucketSeed(startMs = 0, endMs = 0, granularity = "day") {
+  const bucketSizeMs = granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000);
+  const firstBucketStartMs = startMs - (startMs % bucketSizeMs);
+  const lastBucketStartMs = endMs - (endMs % bucketSizeMs);
+  const buckets = [];
+
+  for (let cursor = firstBucketStartMs; cursor <= lastBucketStartMs; cursor += bucketSizeMs) {
+    buckets.push({
+      startMs: cursor,
+      key: String(cursor),
+      label: formatTimelineBucketLabel(granularity, cursor),
+      approvedDepositsHtg: 0,
+      directApprovedDepositsHtg: 0,
+      agentApprovedDepositsHtg: 0,
+      approvedWithdrawalsHtg: 0,
+      usersStakeHtg: 0,
+      usersPayoutHtg: 0,
+      usersNetHtg: 0,
+      operatorGameEdgeHtg: 0,
+      netCashHtg: 0,
+      netBusinessHtg: 0,
+    });
+  }
+
+  return buckets;
+}
+
+async function computeHtgCashflowSnapshot(options = {}) {
+  const nowMs = safeSignedInt(options.nowMs) || Date.now();
+  const range = getTimelineAnalyticsRange(options, nowMs);
+  const rowLimit = Math.min(300, Math.max(25, safeInt(options.listLimit || options.limit || 120) || 120));
+  const bucketSeed = buildCashflowBucketSeed(range.startMs, range.endMs, range.granularity);
+  const bucketMap = new Map(bucketSeed.map((item) => [String(item.key), item]));
+
+  const [depositRowsResult, withdrawalRowsResult] = await Promise.all([
+    fetchApprovedCashInRowsForRange(range.startMs, range.endMs),
+    fetchApprovedWithdrawalRowsForRange(range.startMs, range.endMs),
+  ]);
+
+  const summary = {
+    approvedDepositsHtg: 0,
+    directApprovedDepositsHtg: 0,
+    agentApprovedDepositsHtg: 0,
+    approvedDepositsCount: 0,
+    approvedWithdrawalsHtg: 0,
+    approvedWithdrawalsCount: 0,
+    usersStakeHtg: 0,
+    usersPayoutHtg: 0,
+    usersNetHtg: 0,
+    operatorGameEdgeHtg: 0,
+    netCashHtg: 0,
+    netBusinessHtg: 0,
+  };
+
+  const recentDeposits = [];
+  const recentWithdrawals = [];
+  const recentGames = [];
+
+  depositRowsResult.rows.forEach((row) => {
+    if (isWelcomeBonusOrder(row)) return;
+    const resolutionStatus = getOrderResolutionStatus(row);
+    if (resolutionStatus !== "approved") return;
+    const resolvedAtMs = getCashflowResolutionTimestampMs(row);
+    if (resolvedAtMs < range.startMs || resolvedAtMs > range.endMs) return;
+    const approvedHtg = Math.max(0, getOrderApprovedRealAmountHtg(row));
+    if (approvedHtg <= 0) return;
+
+    const bucket = bucketMap.get(String(resolvedAtMs - (resolvedAtMs % (range.granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000)))));
+    const source = normalizeApprovedDepositSource(row);
+
+    summary.approvedDepositsHtg += approvedHtg;
+    summary.approvedDepositsCount += 1;
+    if (source === "agent") {
+      summary.agentApprovedDepositsHtg += approvedHtg;
+    } else {
+      summary.directApprovedDepositsHtg += approvedHtg;
+    }
+
+    if (bucket) {
+      bucket.approvedDepositsHtg += approvedHtg;
+      if (source === "agent") bucket.agentApprovedDepositsHtg += approvedHtg;
+      else bucket.directApprovedDepositsHtg += approvedHtg;
+    }
+
+    recentDeposits.push({
+      id: String(row.id || "").trim(),
+      kind: "deposit",
+      resolvedAtMs,
+      amountHtg: approvedHtg,
+      source,
+      sourceLabel: normalizeApprovedDepositSourceLabel(source, row),
+      methodName: String(row.methodName || row.methodId || "").trim(),
+      customerName: String(row.customerName || "").trim(),
+      customerEmail: String(row.customerEmail || "").trim(),
+      uniqueCode: String(row.uniqueCode || "").trim(),
+    });
+  });
+
+  withdrawalRowsResult.rows.forEach((row) => {
+    const status = String(row.status || row.resolutionStatus || "").trim().toLowerCase();
+    if (status !== "approved") return;
+    const resolvedAtMs = getCashflowResolutionTimestampMs(row);
+    if (resolvedAtMs < range.startMs || resolvedAtMs > range.endMs) return;
+    const approvedHtg = getApprovedWithdrawalAmountHtg(row);
+    if (approvedHtg <= 0) return;
+
+    const bucket = bucketMap.get(String(resolvedAtMs - (resolvedAtMs % (range.granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000)))));
+    summary.approvedWithdrawalsHtg += approvedHtg;
+    summary.approvedWithdrawalsCount += 1;
+    if (bucket) bucket.approvedWithdrawalsHtg += approvedHtg;
+
+    recentWithdrawals.push({
+      id: String(row.id || "").trim(),
+      kind: "withdrawal",
+      resolvedAtMs,
+      amountHtg: approvedHtg,
+      methodName: String(row.methodName || row.destinationType || row.methodId || "").trim(),
+      customerName: String(row.customerName || "").trim(),
+      customerEmail: String(row.customerEmail || "").trim(),
+      destinationValue: String(row.destinationValue || "").trim(),
+    });
+  });
+
+  const collections = [
+    { key: "domino_classic", label: "Domino classique", ref: db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION) },
+    { key: "duel", label: "Domino duel", ref: db.collection(DUEL_ROOM_RESULTS_COLLECTION) },
+    { key: "morpion", label: "Mopyon", ref: db.collection(MORPION_ROOM_RESULTS_COLLECTION) },
+    { key: "dame", label: "Dame", ref: db.collection(DAME_ROOM_RESULTS_COLLECTION) },
+    { key: "pong", label: "Pong", ref: db.collection(PONG_MATCH_RESULTS_COLLECTION) },
+    { key: "ludo", label: "Ludo", ref: db.collection(LUDO_MATCH_RESULTS_COLLECTION) },
+  ];
+
+  const gameSnaps = await Promise.all(collections.map(({ key, ref }) => {
+    let query = ref.orderBy("endedAtMs", "asc");
+    if (range.startMs > 0) query = query.where("endedAtMs", ">=", range.startMs);
+    if (range.endMs > 0) query = query.where("endedAtMs", "<=", range.endMs);
+    return safeAnalyticsQueryGet(query, ref, `${key}Cashflow`);
+  }));
+
+  gameSnaps.forEach((snap, index) => {
+    const collectionMeta = collections[index];
+    snap.docs.forEach((docSnap) => {
+      const row = docSnap.data() || {};
+      if (String(row.status || "").trim().toLowerCase() !== "ended") return;
+      const endedAtMs = safeSignedInt(row.endedAtMs);
+      if (endedAtMs < range.startMs || endedAtMs > range.endMs) return;
+      const stakeHtg = Math.max(0, safeInt(row.stakeHtg || row.entryCostHtg || doesToHtg(row.stakeDoes || row.entryCostDoes)));
+      if (stakeHtg <= 0) return;
+      const rewardGranted = row.rewardGranted === true || (!Object.prototype.hasOwnProperty.call(row, "rewardGranted") && safeInt(row.rewardAmountHtg) > 0);
+      const payoutHtg = rewardGranted ? Math.max(0, safeInt(row.rewardAmountHtg || row.rewardExpectedHtg)) : 0;
+      const humanCount = inferCashflowHumanCount(collectionMeta.key, row);
+      const usersStakeHtg = Math.max(0, stakeHtg * humanCount);
+      const usersNetHtg = payoutHtg - usersStakeHtg;
+      const operatorGameEdgeHtg = usersStakeHtg - payoutHtg;
+      const bucket = bucketMap.get(String(endedAtMs - (endedAtMs % (range.granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000)))));
+
+      summary.usersStakeHtg += usersStakeHtg;
+      summary.usersPayoutHtg += payoutHtg;
+      summary.usersNetHtg += usersNetHtg;
+      summary.operatorGameEdgeHtg += operatorGameEdgeHtg;
+
+      if (bucket) {
+        bucket.usersStakeHtg += usersStakeHtg;
+        bucket.usersPayoutHtg += payoutHtg;
+        bucket.usersNetHtg += usersNetHtg;
+        bucket.operatorGameEdgeHtg += operatorGameEdgeHtg;
+      }
+
+      recentGames.push({
+        id: String(docSnap.id || "").trim(),
+        kind: "game",
+        resolvedAtMs: endedAtMs,
+        gameLabel: collectionMeta.label,
+        stakeHtg,
+        usersStakeHtg,
+        payoutHtg,
+        usersNetHtg,
+        operatorGameEdgeHtg,
+        roomMode: String(row.roomMode || row.gameMode || "").trim(),
+      });
+    });
+  });
+
+  const buckets = bucketSeed.map((bucket) => {
+    const netCashHtg = safeSignedInt(bucket.approvedDepositsHtg - bucket.approvedWithdrawalsHtg);
+    const netBusinessHtg = safeSignedInt(netCashHtg + bucket.operatorGameEdgeHtg);
+    return {
+      startMs: safeSignedInt(bucket.startMs),
+      key: String(bucket.key || ""),
+      label: String(bucket.label || "-"),
+      approvedDepositsHtg: safeInt(bucket.approvedDepositsHtg),
+      directApprovedDepositsHtg: safeInt(bucket.directApprovedDepositsHtg),
+      agentApprovedDepositsHtg: safeInt(bucket.agentApprovedDepositsHtg),
+      approvedWithdrawalsHtg: safeInt(bucket.approvedWithdrawalsHtg),
+      usersStakeHtg: safeInt(bucket.usersStakeHtg),
+      usersPayoutHtg: safeInt(bucket.usersPayoutHtg),
+      usersNetHtg: safeSignedInt(bucket.usersNetHtg),
+      operatorGameEdgeHtg: safeSignedInt(bucket.operatorGameEdgeHtg),
+      netCashHtg,
+      netBusinessHtg,
+    };
+  });
+
+  summary.netCashHtg = safeSignedInt(summary.approvedDepositsHtg - summary.approvedWithdrawalsHtg);
+  summary.netBusinessHtg = safeSignedInt(summary.netCashHtg + summary.operatorGameEdgeHtg);
+
+  recentDeposits.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+  recentWithdrawals.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+  recentGames.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+
+  return {
+    ok: true,
+    generatedAtMs: nowMs,
+    timezone: PRESENCE_ANALYTICS_TIMEZONE,
+    range: {
+      startMs: range.startMs,
+      endMs: range.endMs,
+      granularity: range.granularity,
+      isGlobal: range.isGlobal === true,
+      windowKey: String(range.windowKey || ""),
+    },
+    snapshot: {
+      definitions: {
+        depositsRule: "Entrees HTG = depots approuves dans la periode, separes en depot direct et depot agent.",
+        withdrawalsRule: "Sorties HTG = retraits approuves dans la periode.",
+        gamesRule: "Net joueurs = payouts HTG aux utilisateurs moins total des mises HTG engagees par les humains.",
+        businessRule: "Resultat exploitation = net cash (entrees - sorties) + marge jeux (mises humaines - payouts joueurs).",
+      },
+      summary,
+      series: {
+        approvedDepositsHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedDepositsHtg })),
+        approvedWithdrawalsHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedWithdrawalsHtg })),
+        operatorGameEdgeHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.operatorGameEdgeHtg })),
+        netBusinessHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.netBusinessHtg })),
+      },
+      buckets,
+      recentApprovedDeposits: recentDeposits.slice(0, rowLimit),
+      recentApprovedWithdrawals: recentWithdrawals.slice(0, rowLimit),
+      recentGameEconomics: recentGames.slice(0, rowLimit),
+    },
+    scanned: {
+      approvedDepositDocs: safeInt(depositRowsResult.rows.length),
+      approvedWithdrawalDocs: safeInt(withdrawalRowsResult.rows.length),
+      approvedDepositFallbackUsed: depositRowsResult.fallbackUsed === true,
+      approvedWithdrawalFallbackUsed: withdrawalRowsResult.fallbackUsed === true,
+    },
+    truncated: depositRowsResult.truncated === true || withdrawalRowsResult.truncated === true,
+  };
+}
+
 function normalizeDuelAnalyticsWindow(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
   return normalized === "today" || normalized === "7d" || normalized === "30d" || normalized === "global"
@@ -2789,6 +3228,7 @@ async function computeAiAdvisorSnapshot(options = {}) {
 
 module.exports = {
   computeAiAdvisorSnapshot,
+  computeHtgCashflowSnapshot,
   computeClientAcquisitionSnapshot,
   computeApprovedDepositsSnapshot,
   computeDepositAnalyticsSnapshot,
