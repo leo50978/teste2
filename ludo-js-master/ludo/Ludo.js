@@ -23,7 +23,10 @@ export class Ludo {
     botDifficulty = 'weak';
     botLastDiceValue = 0;
     botConsecutiveSixes = 0;
-    botRecentDiceHistory = [];
+    botDiceHistory = [];
+    humanDiceHistory = [];
+    botMoveHistory = [];
+    humanNoMoveTurns = 0;
     localPlayerId = 'P1';
     botPlayers = new Set(['P2']);
     actionIntentHandler = null;
@@ -134,87 +137,6 @@ export class Ludo {
         this.botTurnRollDelayMs = 0;
     }
 
-    resetBotDiceMemory() {
-        this.botLastDiceValue = 0;
-        this.botConsecutiveSixes = 0;
-        this.botRecentDiceHistory = [];
-    }
-
-    recordBotDiceValue(diceValue) {
-        const safeDiceValue = Math.max(1, Math.min(6, Number(diceValue) || 1));
-        this.botConsecutiveSixes = safeDiceValue === 6 ? (this.botConsecutiveSixes + 1) : 0;
-        this.botLastDiceValue = safeDiceValue;
-        this.botRecentDiceHistory.push(safeDiceValue);
-        if (this.botRecentDiceHistory.length > 6) {
-            this.botRecentDiceHistory.shift();
-        }
-    }
-
-    getRecentDiceStreak(diceValue) {
-        let streak = 0;
-        for (let index = this.botRecentDiceHistory.length - 1; index >= 0; index -= 1) {
-            if (this.botRecentDiceHistory[index] !== diceValue) {
-                break;
-            }
-            streak += 1;
-        }
-        return streak;
-    }
-
-    getBotDicePatternPenalty(diceValue, options = {}) {
-        const safeDiceValue = Math.max(1, Math.min(6, Number(diceValue) || 1));
-        const sixIsHighLeverage = Boolean(options?.sixIsHighLeverage);
-        const streak = this.getRecentDiceStreak(safeDiceValue);
-        const recentSixes = this.botRecentDiceHistory.slice(-4).filter((value) => value === 6).length;
-        let penalty = 0;
-
-        if (streak >= 1) {
-            penalty += safeDiceValue === 6 ? (18 * streak) : (9 * streak);
-        }
-
-        if (streak >= 2) {
-            penalty += safeDiceValue === 6 ? 64 : 24;
-        }
-
-        if (safeDiceValue === this.botLastDiceValue) {
-            penalty += safeDiceValue === 6 ? 12 : 6;
-        }
-
-        if (safeDiceValue === 6) {
-            penalty += recentSixes * 22;
-            if (this.botConsecutiveSixes >= 1) {
-                penalty += sixIsHighLeverage ? (46 * this.botConsecutiveSixes) : (132 * this.botConsecutiveSixes);
-            }
-            if (!sixIsHighLeverage && streak >= 1) {
-                penalty += 40;
-            }
-        }
-
-        return penalty;
-    }
-
-    pickWeightedOption(options = [], getWeight = () => 1) {
-        if (!Array.isArray(options) || !options.length) {
-            return null;
-        }
-
-        const weighted = options.map((item) => ({
-            item,
-            weight: Math.max(1, Number(getWeight(item)) || 1),
-        }));
-        const totalWeight = weighted.reduce((sum, entry) => sum + entry.weight, 0);
-        let cursor = Math.random() * totalWeight;
-
-        for (const entry of weighted) {
-            cursor -= entry.weight;
-            if (cursor <= 0) {
-                return entry.item;
-            }
-        }
-
-        return weighted[weighted.length - 1]?.item || options[0];
-    }
-
     wait(ms = 0) {
         return new Promise((resolve) => {
             window.setTimeout(resolve, ms);
@@ -236,7 +158,178 @@ export class Ludo {
     }
 
     getRandomStartingTurn() {
+        if (this.botDifficulty === 'strong' && Math.random() < 0.72) {
+            return PLAYERS.indexOf('P2');
+        }
         return this.getRandomIntInclusive(0, PLAYERS.length - 1);
+    }
+
+    rememberDiceRoll(player, diceValue) {
+        const safeDiceValue = Number(diceValue) || 0;
+        const history = this.isBotPlayer(player) ? this.botDiceHistory : this.humanDiceHistory;
+        history.push(safeDiceValue);
+        while (history.length > 8) {
+            history.shift();
+        }
+    }
+
+    rememberBotMove(piece, meta = {}) {
+        this.botMoveHistory.push({
+            piece: Number(piece),
+            tag: String(meta?.tag || '').trim(),
+            capture: Number(meta?.captures || 0) > 0,
+            home: Boolean(meta?.reachesHome),
+            win: Boolean(meta?.wouldWin),
+        });
+        while (this.botMoveHistory.length > 6) {
+            this.botMoveHistory.shift();
+        }
+    }
+
+    countRecentDiceRepeats(history = [], diceValue = 0) {
+        const target = Number(diceValue) || 0;
+        let count = 0;
+        for (let index = history.length - 1; index >= 0; index -= 1) {
+            if (history[index] !== target) break;
+            count += 1;
+        }
+        return count;
+    }
+
+    getRecentDicePenalty(history = [], diceValue = 0, { sixPenalty = 18, repeatPenalty = 8 } = {}) {
+        const target = Number(diceValue) || 0;
+        const tail = Array.isArray(history) ? history.slice(-4) : [];
+        const repeats = tail.filter((value) => value === target).length;
+        const consecutive = this.countRecentDiceRepeats(history, target);
+        let penalty = repeats * repeatPenalty + consecutive * (repeatPenalty + 4);
+        if (target === 6) {
+            penalty += consecutive * sixPenalty;
+        }
+        return penalty;
+    }
+
+    getPlayerPressure(player) {
+        return this.currentPositions[player].reduce((total, position) => {
+            if (position === HOME_POSITIONS[player]) return total + 180;
+            if (BASE_POSITIONS[player].includes(position)) return total;
+            if (HOME_ENTRANCE[player].includes(position)) return total + 120 + ((position - HOME_ENTRANCE[player][0]) * 18);
+
+            const progress = this.getProgressDistance(player, position);
+            if (progress >= 44) return total + 88;
+            if (progress >= 32) return total + 52;
+            if (progress >= 18) return total + 24;
+            return total + 10;
+        }, 0);
+    }
+
+    countThreatsAgainstPosition(player, targetPosition) {
+        if (
+            targetPosition === HOME_POSITIONS[player]
+            || BASE_POSITIONS[player].includes(targetPosition)
+            || SAFE_POSITIONS.includes(targetPosition)
+        ) {
+            return 0;
+        }
+
+        const opponent = player === 'P1' ? 'P2' : 'P1';
+        let threats = 0;
+        for (let diceValue = 1; diceValue <= 6; diceValue += 1) {
+            const eligiblePieces = this.getEligiblePiecesForRoll(opponent, diceValue);
+            eligiblePieces.forEach((piece) => {
+                const projected = this.getProjectedPosition(opponent, piece, diceValue);
+                if (projected === targetPosition) {
+                    threats += 1;
+                }
+            });
+        }
+        return threats;
+    }
+
+    buildMoveProfile(player, piece, diceValue) {
+        const projectedPosition = this.getProjectedPosition(player, piece, diceValue);
+        const currentPosition = this.currentPositions[player][piece];
+        const opponent = player === 'P1' ? 'P2' : 'P1';
+        const leavesBase = BASE_POSITIONS[player].includes(currentPosition) && projectedPosition === START_POSITIONS[player];
+        const reachesHome = projectedPosition === HOME_POSITIONS[player];
+        const captures = this.countCapturesAtPosition(player, projectedPosition);
+        const wouldWin = this.wouldPlayerWinAfterMove(player, piece, diceValue);
+        const progress = this.getProgressDistance(player, projectedPosition);
+        const safeLanding = SAFE_POSITIONS.includes(projectedPosition);
+        const threatCount = this.countThreatsAgainstPosition(player, projectedPosition);
+        const currentlyThreatened = this.countThreatsAgainstPosition(player, currentPosition);
+        const escapesThreat = currentlyThreatened > 0 && threatCount === 0;
+        const playerPressure = this.getPlayerPressure(player);
+        const opponentPressure = this.getPlayerPressure(opponent);
+        const nearHome = progress >= 44 || HOME_ENTRANCE[player].includes(projectedPosition);
+        return {
+            piece,
+            diceValue,
+            projectedPosition,
+            currentPosition,
+            opponent,
+            leavesBase,
+            reachesHome,
+            captures,
+            wouldWin,
+            progress,
+            safeLanding,
+            threatCount,
+            currentlyThreatened,
+            escapesThreat,
+            playerPressure,
+            opponentPressure,
+            nearHome,
+            tag: reachesHome
+                ? 'home'
+                : captures > 0
+                    ? 'capture'
+                    : leavesBase
+                        ? 'leave-base'
+                        : nearHome
+                            ? 'near-home'
+                            : safeLanding
+                                ? 'safe'
+                                : 'track',
+        };
+    }
+
+    scoreHumanThreatMove(player, piece, diceValue) {
+        const profile = this.buildMoveProfile(player, piece, diceValue);
+        let score = profile.progress;
+        if (profile.leavesBase) score += 72;
+        if (profile.reachesHome) score += 260;
+        if (profile.captures > 0) score += 320 * profile.captures;
+        if (profile.safeLanding) score += 28;
+        if (profile.diceValue === 6) score += 52;
+        if (profile.wouldWin) score += 1900;
+        if (profile.nearHome) score += 54;
+        if (profile.escapesThreat) score += 90;
+        score += Math.floor(profile.playerPressure * 0.12);
+        return score;
+    }
+
+    shouldKeepHumanNaturalWindow(player) {
+        const botPlayer = PLAYERS.find((value) => this.isBotPlayer(value)) || 'P2';
+        const humanPressure = this.getPlayerPressure(player);
+        const botPressure = this.getPlayerPressure(botPlayer);
+        return botPressure - humanPressure >= 240;
+    }
+
+    getBotMoveRepetitionPenalty(piece, profile = {}) {
+        if (profile.captures > 0 || profile.reachesHome || profile.wouldWin) {
+            return 0;
+        }
+        const recent = this.botMoveHistory.slice(-3);
+        let penalty = 0;
+        if (recent[recent.length - 1]?.piece === Number(piece)) {
+            penalty += 12;
+        }
+        if (recent.length >= 2 && recent[recent.length - 1]?.piece === Number(piece) && recent[recent.length - 2]?.piece === Number(piece)) {
+            penalty += 18;
+        }
+        const sameTagCount = recent.filter((entry) => entry.tag === profile.tag).length;
+        penalty += sameTagCount * 4;
+        return penalty;
     }
 
     prepareBotTurnPlan() {
@@ -359,8 +452,13 @@ export class Ludo {
         console.log('reset game');
         this.clearBotAction();
         this.clearBotTurnPlan();
-        this.resetBotDiceMemory();
         this.lastExternalDiceActionSeq = -1;
+        this.botLastDiceValue = 0;
+        this.botConsecutiveSixes = 0;
+        this.botDiceHistory = [];
+        this.humanDiceHistory = [];
+        this.botMoveHistory = [];
+        this.humanNoMoveTurns = 0;
         UI.hideWinnerModal();
         UI.hideWaitTurnModal();
         UI.resetDiceFaces();
@@ -454,6 +552,7 @@ export class Ludo {
     handlePieceClick(player, piece) {
         console.log(player, piece);
         this.clearBotAction();
+        const moveProfile = this.buildMoveProfile(player, piece, this.diceValue);
         if (this.actionIntentHandler && !this.isBotPlayer(player)) {
             UI.unhighlightPieces();
             this.actionIntentHandler({
@@ -463,6 +562,9 @@ export class Ludo {
                 diceValue: this.diceValue,
             });
             return;
+        }
+        if (this.botDifficulty === 'strong' && this.isBotPlayer(player)) {
+            this.rememberBotMove(piece, moveProfile);
         }
         const currentPosition = this.currentPositions[player][piece];
         
@@ -477,21 +579,23 @@ export class Ludo {
     }
 
     rollDiceValue(player) {
-        if (this.botDifficulty === 'strong' && this.isBotPlayer(player)) {
-            if (this.areAllPiecesInBase(player)) {
-                return this.pickStrongOpeningBotDice(player);
+        if (this.botDifficulty === 'strong') {
+            if (player === 'P2') {
+                const diceValue = this.pickStrongBotDice(player);
+                this.rememberDiceRoll(player, diceValue);
+                this.botConsecutiveSixes = diceValue === 6 ? (this.botConsecutiveSixes + 1) : 0;
+                this.botLastDiceValue = diceValue;
+                return diceValue;
             }
-            return this.pickStrongBotDice(player);
+            const diceValue = this.pickRiggedHumanDice(player);
+            this.rememberDiceRoll(player, diceValue);
+            const hasPlayableMove = this.getEligiblePiecesForRoll(player, diceValue).length > 0;
+            this.humanNoMoveTurns = hasPlayableMove ? 0 : (this.humanNoMoveTurns + 1);
+            return diceValue;
         }
-
-        if (this.botDifficulty === 'strong' && !this.isBotPlayer(player) && this.botPlayers.size > 0) {
-            const naturalRoll = 1 + Math.floor(Math.random() * 6);
-            if (this.shouldDampenHumanRoll(player, naturalRoll)) {
-                return this.pickSoftenedHumanDice(player, naturalRoll);
-            }
-            return naturalRoll;
-        }
-        return 1 + Math.floor(Math.random() * 6);
+        const diceValue = 1 + Math.floor(Math.random() * 6);
+        this.rememberDiceRoll(player, diceValue);
+        return diceValue;
     }
 
     areAllPiecesInBase(player) {
@@ -512,31 +616,9 @@ export class Ludo {
         )).length;
     }
 
-    pickStrongOpeningBotDice(player) {
-        const openingPool = [
-            { diceValue: 6, score: 180 },
-            { diceValue: 5, score: 42 },
-            { diceValue: 4, score: 34 },
-            { diceValue: 3, score: 28 },
-            { diceValue: 2, score: 20 },
-            { diceValue: 1, score: 16 },
-        ].map((item) => ({
-            ...item,
-            adjustedScore: item.score - this.getBotDicePatternPenalty(item.diceValue, {
-                sixIsHighLeverage: item.diceValue === 6,
-            }),
-        })).sort((a, b) => b.adjustedScore - a.adjustedScore);
-
-        const bestAdjustedScore = openingPool[0]?.adjustedScore ?? 0;
-        const finalPool = openingPool.filter((item) => item.adjustedScore >= (bestAdjustedScore - 68));
-        const choice = this.pickWeightedOption(finalPool, (item) => item.adjustedScore + 24) || openingPool[0] || { diceValue: 6 };
-
-        this.recordBotDiceValue(choice.diceValue);
-        return choice.diceValue;
-    }
-
     pickStrongBotDice(player) {
         const rankedDice = [];
+        const allPiecesInBase = this.areAllPiecesInBase(player);
 
         for (let diceValue = 1; diceValue <= 6; diceValue += 1) {
             const eligiblePieces = this.getEligiblePiecesForRoll(player, diceValue);
@@ -548,25 +630,18 @@ export class Ludo {
                     captures: 0,
                     wouldWin: false,
                     leavesBase: false,
+                    nearHome: false,
                 });
                 continue;
             }
 
             const rankedMoves = eligiblePieces
                 .map((piece) => {
-                    const projectedPosition = this.getProjectedPosition(player, piece, diceValue);
-                    const currentPosition = this.currentPositions[player][piece];
-                    const leavesBase = BASE_POSITIONS[player].includes(currentPosition) && projectedPosition === START_POSITIONS[player];
-                    const reachesHome = projectedPosition === HOME_POSITIONS[player];
-                    const captures = this.countCapturesAtPosition(player, projectedPosition);
-                    const wouldWin = this.wouldPlayerWinAfterMove(player, piece, diceValue);
+                    const profile = this.buildMoveProfile(player, piece, diceValue);
                     return {
                         piece,
                         score: this.scoreStrongBotMove(player, piece, diceValue),
-                        leavesBase,
-                        reachesHome,
-                        captures,
-                        wouldWin,
+                        ...profile,
                     };
                 })
                 .sort((a, b) => b.score - a.score);
@@ -580,41 +655,43 @@ export class Ludo {
         rankedDice.sort((a, b) => b.score - a.score);
         const bestOption = rankedDice[0] || { diceValue: 6, score: -120 };
         const sixOption = rankedDice.find((item) => item.diceValue === 6) || null;
-        const sixCreatesLeverage = !!(
-            sixOption
-            && (
-                sixOption.wouldWin
-                || sixOption.captures > 0
-                || sixOption.reachesHome
-                || sixOption.leavesBase
-            )
-        );
         const sixIsMandatory = !!(
             sixOption
             && (
                 sixOption.wouldWin
                 || sixOption.captures > 0
                 || sixOption.reachesHome
+                || (allPiecesInBase && sixOption.leavesBase)
             )
             && (sixOption.score >= (bestOption.score - 18))
         );
 
-        let candidatePool = rankedDice.filter((item) => item.score >= (bestOption.score - 22));
+        let candidatePool = rankedDice.filter((item) => item.score >= (bestOption.score - 30));
         if (!sixIsMandatory) {
             candidatePool = candidatePool.filter((item) => item.diceValue !== 6);
         }
         if (!candidatePool.length) {
-            candidatePool = rankedDice.slice(0, 3);
+            candidatePool = rankedDice.slice(0, 2);
         }
 
         const softenedPool = candidatePool
             .map((item) => {
                 let adjustedScore = item.score;
-                adjustedScore -= this.getBotDicePatternPenalty(item.diceValue, {
-                    sixIsHighLeverage: sixCreatesLeverage || item.wouldWin || item.captures > 0 || item.reachesHome,
+                if (item.diceValue === 6 && !sixIsMandatory) {
+                    adjustedScore -= 34;
+                }
+                adjustedScore -= this.getRecentDicePenalty(this.botDiceHistory, item.diceValue, {
+                    sixPenalty: 22,
+                    repeatPenalty: 10,
                 });
-                if (item.diceValue === 6 && !sixIsMandatory && !sixCreatesLeverage) {
-                    adjustedScore -= 18;
+                if (item.diceValue === 6 && this.botConsecutiveSixes >= 1 && !item.wouldWin && item.captures <= 0 && !item.reachesHome) {
+                    adjustedScore -= 56 * this.botConsecutiveSixes;
+                }
+                if (allPiecesInBase && item.diceValue === 6) {
+                    adjustedScore += 95;
+                }
+                if (item.nearHome) {
+                    adjustedScore += 16;
                 }
                 return {
                     ...item,
@@ -623,38 +700,77 @@ export class Ludo {
             })
             .sort((a, b) => b.adjustedScore - a.adjustedScore);
 
-        const bestAdjustedScore = softenedPool[0]?.adjustedScore ?? -9999;
-        const finalPool = softenedPool.filter((item) => item.adjustedScore >= (bestAdjustedScore - 14));
-        const choice = this.pickWeightedOption(
-            finalPool,
-            (item) => Math.max(1, item.adjustedScore - bestAdjustedScore + 22),
-        ) || softenedPool[0] || bestOption;
-
-        this.recordBotDiceValue(choice.diceValue);
+        const finalPool = softenedPool.filter((item) => item.adjustedScore >= (softenedPool[0]?.adjustedScore ?? -9999) - 12);
+        const choice = finalPool.length <= 1
+            ? (finalPool[0] || softenedPool[0] || bestOption)
+            : (Math.random() < 0.78 ? finalPool[0] : finalPool[Math.floor(Math.random() * finalPool.length)]);
         return choice.diceValue;
     }
 
     pickRiggedHumanDice(player) {
-        let selectedDice = 1;
-        let lowestScore = Number.POSITIVE_INFINITY;
-
+        const allPiecesInBase = this.areAllPiecesInBase(player);
+        const rankedDice = [];
         for (let diceValue = 1; diceValue <= 6; diceValue += 1) {
             const eligiblePieces = this.getEligiblePiecesForRoll(player, diceValue);
-            const score = eligiblePieces.length
-                ? Math.max(...eligiblePieces.map((piece) => this.scoreHumanOpportunity(player, piece, diceValue)))
-                : -400;
+            const profiles = eligiblePieces.map((piece) => this.buildMoveProfile(player, piece, diceValue));
+            const topThreat = profiles.length
+                ? Math.max(...profiles.map((profile) => this.scoreHumanThreatMove(player, profile.piece, diceValue)))
+                : -80;
+            rankedDice.push({
+                diceValue,
+                score: topThreat,
+                wouldWin: profiles.some((profile) => profile.wouldWin),
+                captures: profiles.reduce((max, profile) => Math.max(max, profile.captures), 0),
+                reachesHome: profiles.some((profile) => profile.reachesHome),
+                leavesBase: profiles.some((profile) => profile.leavesBase),
+                playable: profiles.length > 0,
+            });
+        }
 
-            if (
-                score < lowestScore
-                || (score === lowestScore && diceValue !== 6 && selectedDice === 6)
-                || (score === lowestScore && eligiblePieces.length === 0)
-            ) {
-                lowestScore = score;
-                selectedDice = diceValue;
+        rankedDice.sort((a, b) => a.score - b.score);
+        const bestLow = rankedDice[0] || { diceValue: 1, score: -80 };
+        const criticalThreat = rankedDice.some((item) => item.wouldWin || item.captures > 0 || item.reachesHome);
+        const naturalWindow = this.shouldKeepHumanNaturalWindow(player);
+        let candidatePool = rankedDice.filter((item) => item.score <= (bestLow.score + (criticalThreat ? 14 : naturalWindow ? 42 : 26)));
+
+        if (allPiecesInBase && this.humanNoMoveTurns >= 2) {
+            const sixOption = rankedDice.find((item) => item.diceValue === 6);
+            if (sixOption) {
+                candidatePool.push(sixOption);
             }
         }
 
-        return selectedDice;
+        if (candidatePool.some((item) => item.diceValue !== 6)) {
+            candidatePool = candidatePool.filter((item) => item.diceValue !== 6 || item.wouldWin || item.captures > 0);
+        }
+
+        const softenedPool = candidatePool
+            .map((item) => {
+                let adjustedScore = item.score;
+                adjustedScore += this.getRecentDicePenalty(this.humanDiceHistory, item.diceValue, {
+                    sixPenalty: 28,
+                    repeatPenalty: 6,
+                });
+                if (item.diceValue === 6 && allPiecesInBase && this.humanNoMoveTurns < 2) {
+                    adjustedScore += 110;
+                }
+                if (item.wouldWin) adjustedScore += 500;
+                if (item.captures > 0) adjustedScore += 180 * item.captures;
+                if (item.reachesHome) adjustedScore += 120;
+                return {
+                    ...item,
+                    adjustedScore,
+                };
+            })
+            .sort((a, b) => a.adjustedScore - b.adjustedScore);
+
+        const finalPool = softenedPool.filter((item) => item.adjustedScore <= (softenedPool[0]?.adjustedScore ?? 9999) + (naturalWindow ? 18 : 10));
+        const choice = finalPool.length <= 1
+            ? (finalPool[0] || softenedPool[0] || bestLow)
+            : (Math.random() < (criticalThreat ? 0.82 : 0.68)
+                ? finalPool[0]
+                : finalPool[Math.floor(Math.random() * finalPool.length)]);
+        return choice.diceValue;
     }
 
     getEligiblePiecesForRoll(player, diceValue) {
@@ -705,169 +821,44 @@ export class Ludo {
         return score;
     }
 
-    isTrackPosition(position) {
-        return Number.isFinite(position) && position >= 0 && position <= 51;
-    }
-
-    getTrackDistanceForPlayer(player, fromPosition, targetPosition, maxSteps = 6) {
-        if (!this.isTrackPosition(fromPosition) || !this.isTrackPosition(targetPosition)) {
-            return null;
-        }
-
-        let currentPosition = fromPosition;
-        for (let step = 1; step <= maxSteps; step += 1) {
-            currentPosition = this.getIncrementedPositionFrom(player, currentPosition);
-            if (!this.isTrackPosition(currentPosition)) {
-                return null;
-            }
-            if (currentPosition === targetPosition) {
-                return step;
-            }
-        }
-        return null;
-    }
-
-    estimateImmediateCaptureRisk(player, targetPosition) {
-        if (!this.isTrackPosition(targetPosition) || SAFE_POSITIONS.includes(targetPosition)) {
-            return 0;
-        }
-
-        const opponent = player === 'P1' ? 'P2' : 'P1';
-        let risk = 0;
-        [0, 1, 2, 3].forEach((piece) => {
-            const opponentPosition = this.currentPositions[opponent][piece];
-            const distance = this.getTrackDistanceForPlayer(opponent, opponentPosition, targetPosition, 6);
-            if (distance == null) {
-                return;
-            }
-            risk += Math.max(0, 88 - (distance * 11));
-            if (distance <= 2) {
-                risk += 18;
-            }
-        });
-        return risk;
-    }
-
-    estimatePressureScore(player, targetPosition) {
-        if (!this.isTrackPosition(targetPosition)) {
-            return 0;
-        }
-
-        const opponent = player === 'P1' ? 'P2' : 'P1';
-        let pressure = 0;
-        [0, 1, 2, 3].forEach((piece) => {
-            const opponentPosition = this.currentPositions[opponent][piece];
-            if (!this.isTrackPosition(opponentPosition) || SAFE_POSITIONS.includes(opponentPosition)) {
-                return;
-            }
-            const distance = this.getTrackDistanceForPlayer(player, targetPosition, opponentPosition, 6);
-            if (distance == null) {
-                return;
-            }
-            pressure += Math.max(0, 46 - (distance * 6));
-        });
-        return pressure;
-    }
-
-    getHomeApproachBonus(player, targetPosition) {
-        const progress = this.getProgressDistance(player, targetPosition);
-        if (targetPosition === HOME_POSITIONS[player]) {
-            return 160;
-        }
-        if (HOME_ENTRANCE[player].includes(targetPosition)) {
-            return 72 + (progress - 200) * 20;
-        }
-        if (progress >= 44) {
-            return 18 + (progress - 44) * 4;
-        }
-        return 0;
-    }
-
-    getLeaderProgress(player) {
-        return [0, 1, 2, 3].reduce((best, piece) => (
-            Math.max(best, this.getProgressDistance(player, this.currentPositions[player][piece]))
-        ), 0);
-    }
-
-    shouldDampenHumanRoll(player, naturalRoll) {
-        const eligiblePieces = this.getEligiblePiecesForRoll(player, naturalRoll);
-        if (!eligiblePieces.length) {
-            return false;
-        }
-
-        const naturalScore = Math.max(...eligiblePieces.map((piece) => this.scoreHumanOpportunity(player, piece, naturalRoll)));
-        if (naturalScore < 240) {
-            return false;
-        }
-
-        const botPlayer = PLAYERS.find((candidate) => this.isBotPlayer(candidate)) || 'P2';
-        const botLead = this.getLeaderProgress(botPlayer) - this.getLeaderProgress(player);
-        let chance = naturalScore >= 900 ? 0.78 : (naturalScore >= 420 ? 0.56 : 0.32);
-
-        if (botLead >= 150) {
-            chance *= 0.52;
-        } else if (botLead >= 80) {
-            chance *= 0.7;
-        }
-
-        return Math.random() < chance;
-    }
-
-    pickSoftenedHumanDice(player, naturalRoll) {
-        const softenedDice = this.pickRiggedHumanDice(player);
-        if (softenedDice === naturalRoll) {
-            return naturalRoll;
-        }
-
-        const naturalEligiblePieces = this.getEligiblePiecesForRoll(player, naturalRoll);
-        const softenedEligiblePieces = this.getEligiblePiecesForRoll(player, softenedDice);
-        const naturalScore = naturalEligiblePieces.length
-            ? Math.max(...naturalEligiblePieces.map((piece) => this.scoreHumanOpportunity(player, piece, naturalRoll)))
-            : -400;
-        const softenedScore = softenedEligiblePieces.length
-            ? Math.max(...softenedEligiblePieces.map((piece) => this.scoreHumanOpportunity(player, piece, softenedDice)))
-            : -400;
-
-        if (softenedScore <= (naturalScore - 55)) {
-            return softenedDice;
-        }
-
-        return naturalRoll;
-    }
-
     scoreStrongBotMove(player, piece, diceValue) {
-        const projectedPosition = this.getProjectedPosition(player, piece, diceValue);
-        const currentPosition = this.currentPositions[player][piece];
-        const leavesBase = BASE_POSITIONS[player].includes(currentPosition) && projectedPosition === START_POSITIONS[player];
-        const reachesHome = projectedPosition === HOME_POSITIONS[player];
-        const captures = this.countCapturesAtPosition(player, projectedPosition);
-        const progress = this.getProgressDistance(player, projectedPosition);
-        const safeLanding = SAFE_POSITIONS.includes(projectedPosition);
-        const wouldWin = this.wouldPlayerWinAfterMove(player, piece, diceValue);
-        const opponent = player === 'P1' ? 'P2' : 'P1';
+        const profile = this.buildMoveProfile(player, piece, diceValue);
+        const {
+            leavesBase,
+            reachesHome,
+            captures,
+            progress,
+            safeLanding,
+            wouldWin,
+            opponent,
+            threatCount,
+            escapesThreat,
+            nearHome,
+            playerPressure,
+            opponentPressure,
+        } = profile;
         const opponentBestNextRoll = this.estimateBestScoreForAnyRoll(opponent);
-        const exposedPenalty = !safeLanding && captures === 0 && !reachesHome ? 18 : 0;
         const piecesInBase = this.countPiecesInBase(player);
         const piecesOnBoard = this.countPiecesOnBoard(player);
-        const immediateCaptureRisk = this.estimateImmediateCaptureRisk(player, projectedPosition);
-        const pressureScore = this.estimatePressureScore(player, projectedPosition);
-        const homeApproachBonus = this.getHomeApproachBonus(player, projectedPosition);
         const baseReleasePenalty = leavesBase && piecesOnBoard > 0 && captures === 0 && !reachesHome && !wouldWin
-            ? (70 + (piecesInBase >= 2 ? 26 : 0) + (this.botConsecutiveSixes >= 1 ? 48 : 0))
+            ? (90 + (piecesInBase >= 2 ? 34 : 0) + (this.botConsecutiveSixes >= 1 ? 54 : 0))
+            : 0;
+        const threatPenalty = !safeLanding && !reachesHome
+            ? (threatCount * (opponentPressure >= playerPressure ? 96 : 72))
             : 0;
 
-        let score = progress * 2.5;
-        if (leavesBase) score += piecesOnBoard === 0 ? 158 : 112;
-        if (reachesHome) score += 320;
-        if (captures > 0) score += 420 * captures;
-        if (safeLanding) score += 56;
+        let score = progress * 2.6;
+        if (leavesBase) score += 128;
+        if (reachesHome) score += 360;
+        if (captures > 0) score += 440 * captures;
+        if (safeLanding) score += 42;
         if (diceValue === 6) score += 10;
-        if (wouldWin) score += 2200;
-        score += pressureScore;
-        score += homeApproachBonus;
-        score -= Math.floor(opponentBestNextRoll * 0.46);
-        score -= Math.floor(immediateCaptureRisk * (safeLanding ? 0 : 1));
-        score -= exposedPenalty;
+        if (wouldWin) score += 2800;
+        if (escapesThreat) score += 150;
+        if (nearHome) score += 46;
+        score += Math.floor(playerPressure * 0.14);
+        score -= Math.floor(opponentBestNextRoll * 0.44);
+        score -= threatPenalty;
         score -= baseReleasePenalty;
         return score;
     }
@@ -890,17 +881,31 @@ export class Ludo {
 
         if (this.botDifficulty === 'strong') {
             const rankedStrongMoves = eligiblePieces
-                .map((piece) => ({
-                    piece,
-                    score: this.scoreStrongBotMove(player, piece, this.diceValue),
-                }))
+                .map((piece) => {
+                    const profile = this.buildMoveProfile(player, piece, this.diceValue);
+                    return {
+                        piece,
+                        profile,
+                        score: this.scoreStrongBotMove(player, piece, this.diceValue),
+                    };
+                })
                 .sort((a, b) => b.score - a.score);
-            const bestScore = rankedStrongMoves[0]?.score ?? 0;
-            const finalPool = rankedStrongMoves.filter((item) => item.score >= (bestScore - 14));
-            return this.pickWeightedOption(
-                finalPool,
-                (item) => Math.max(1, item.score - bestScore + 20),
-            )?.piece ?? rankedStrongMoves[0]?.piece ?? eligiblePieces[0];
+            const topMove = rankedStrongMoves[0];
+            if (!topMove) return eligiblePieces[0];
+            if (topMove.profile.wouldWin || topMove.profile.captures > 0 || topMove.profile.reachesHome) {
+                return topMove.piece;
+            }
+            const adjustedMoves = rankedStrongMoves
+                .map((entry) => ({
+                    ...entry,
+                    adjustedScore: entry.score - this.getBotMoveRepetitionPenalty(entry.piece, entry.profile),
+                }))
+                .sort((a, b) => b.adjustedScore - a.adjustedScore);
+            const pool = adjustedMoves.filter((entry) => entry.adjustedScore >= (adjustedMoves[0]?.adjustedScore ?? -9999) - 18);
+            const choice = pool.length <= 1
+                ? (pool[0] || adjustedMoves[0] || topMove)
+                : (Math.random() < 0.76 ? pool[0] : pool[Math.floor(Math.random() * pool.length)]);
+            return choice?.piece ?? eligiblePieces[0];
         }
 
         const rankedWeakMoves = eligiblePieces
