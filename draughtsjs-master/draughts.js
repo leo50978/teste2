@@ -201,6 +201,160 @@ if (!Array.prototype.filter) {
         return closestClassMatchElement(element, /player([0-9])/i);
     }
 
+    function isQueenType(type) {
+        return type === 3 || type === 4;
+    }
+
+    function ownerFromType(type) {
+        if (type === 1 || type === 3) {
+            return 0;
+        }
+        if (type === 2 || type === 4) {
+            return 1;
+        }
+        return -1;
+    }
+
+    function pieceTypeFromElement(piece) {
+        if (!piece || !piece.data) {
+            return 0;
+        }
+        var player = piece.data.player();
+        var queen = /(^|\s)queen(\s|$)/i.test(piece.className || '');
+        if (player === 0) {
+            return queen ? 3 : 1;
+        }
+        return queen ? 4 : 2;
+    }
+
+    function cloneBoardState(state) {
+        return state.map(function (row) {
+            return row.slice();
+        });
+    }
+
+    function buildBoardState(board) {
+        var size = board.size || 8;
+        var state = [];
+        for (var line = 0; line < size; line++) {
+            state[line] = [];
+            for (var column = 0; column < size; column++) {
+                state[line][column] = 0;
+            }
+        }
+
+        board.data.playerPieces(0).concat(board.data.playerPieces(1)).forEach(function (piece) {
+            if (!piece || !piece.parentElement || !piece.parentElement.data) {
+                return;
+            }
+            var line = piece.parentElement.data.line;
+            var column = piece.parentElement.data.column;
+            state[line][column] = pieceTypeFromElement(piece);
+        });
+
+        return state;
+    }
+
+    function insideBoard(state, line, column) {
+        return !!(state[line] && typeof state[line][column] !== 'undefined');
+    }
+
+    function collectPieceAttacksForState(state, line, column, type, options) {
+        var attacks = [];
+        var owner = ownerFromType(type);
+        if (owner === -1) {
+            return attacks;
+        }
+        var isQueen = isQueenType(type);
+        var directions = [
+            [1, -1],
+            [1, 1],
+            [-1, -1],
+            [-1, 1]
+        ];
+
+        if (!isQueen) {
+            directions.forEach(function (dir) {
+                var enemyLine = line + dir[0];
+                var enemyColumn = column + dir[1];
+                var landLine = line + (dir[0] * 2);
+                var landColumn = column + (dir[1] * 2);
+                if (!insideBoard(state, enemyLine, enemyColumn) || !insideBoard(state, landLine, landColumn)) {
+                    return;
+                }
+                var enemyType = state[enemyLine][enemyColumn];
+                if (!enemyType || ownerFromType(enemyType) === owner) {
+                    return;
+                }
+                if (state[landLine][landColumn] !== 0) {
+                    return;
+                }
+                attacks.push({
+                    toLine: landLine,
+                    toColumn: landColumn,
+                    capturedLine: enemyLine,
+                    capturedColumn: enemyColumn
+                });
+            });
+            return attacks;
+        }
+
+        directions.forEach(function (dir) {
+            var scanLine = line + dir[0];
+            var scanColumn = column + dir[1];
+            var encounteredEnemy = null;
+            while (insideBoard(state, scanLine, scanColumn)) {
+                var scanType = state[scanLine][scanColumn];
+                if (scanType === 0) {
+                    if (encounteredEnemy) {
+                        attacks.push({
+                            toLine: scanLine,
+                            toColumn: scanColumn,
+                            capturedLine: encounteredEnemy.line,
+                            capturedColumn: encounteredEnemy.column
+                        });
+                    }
+                    scanLine += dir[0];
+                    scanColumn += dir[1];
+                    continue;
+                }
+                if (ownerFromType(scanType) === owner) {
+                    break;
+                }
+                if (encounteredEnemy) {
+                    break;
+                }
+                encounteredEnemy = {
+                    line: scanLine,
+                    column: scanColumn
+                };
+                scanLine += dir[0];
+                scanColumn += dir[1];
+            }
+        });
+
+        return attacks;
+    }
+
+    function computeMaxCaptureCount(state, line, column, type, options) {
+        var attacks = collectPieceAttacksForState(state, line, column, type, options);
+        if (!attacks.length) {
+            return 0;
+        }
+        var best = 0;
+        attacks.forEach(function (attack) {
+            var nextState = cloneBoardState(state);
+            nextState[line][column] = 0;
+            nextState[attack.capturedLine][attack.capturedColumn] = 0;
+            nextState[attack.toLine][attack.toColumn] = type;
+            var value = 1 + computeMaxCaptureCount(nextState, attack.toLine, attack.toColumn, type, options);
+            if (value > best) {
+                best = value;
+            }
+        });
+        return best;
+    }
+
     function DraughtsBoard(opt) {
         // Data from a DraughtsBoard element
         //
@@ -498,21 +652,44 @@ if (!Array.prototype.filter) {
             // Store allowed attacks and moves
             var attacks = [];
             var moves = [];
+            var maxAttackDepth = 0;
+            var boardState = buildBoardState(this);
+            var maxAttackMap = [];
             
             // Check for allowed moviments
             pieces.forEach(function (piece) {
                 if (piece.data.allowedAttacks().length > 0) {
                     attacks.push(piece);
+                    var field = piece.parentElement;
+                    var depth = computeMaxCaptureCount(
+                        boardState,
+                        field.data.line,
+                        field.data.column,
+                        pieceTypeFromElement(piece),
+                        this
+                    );
+                    piece.data.maxAttackDepth = depth;
+                    maxAttackMap.push({
+                        piece: piece,
+                        depth: depth
+                    });
+                    if (depth > maxAttackDepth) {
+                        maxAttackDepth = depth;
+                    }
                 }
                 if (piece.data.allowedMoves().length > 0) {
                     moves.push(piece);
                 }
-            });
+            }.bind(this));
             
             if (attacks.length > 0) {
                 attacks.forEach(function (piece) {
+                    if (this.forceAttack && maxAttackDepth > 0 && (piece.data.maxAttackDepth || 0) < maxAttackDepth) {
+                        piece.data.denyMove();
+                        return;
+                    }
                     piece.data.allowMove();
-                });
+                }.bind(this));
                 // When forcing attacks it must not hit the default moves
                 if (this.forceAttack) {
                     return;
@@ -753,6 +930,30 @@ if (!Array.prototype.filter) {
             
             var attacks = piece.data.allowedAttacks();
             if (attacks.length > 0) {
+                var boardState = buildBoardState(this);
+                var pieceField = piece.parentElement;
+                var pieceType = pieceTypeFromElement(piece);
+                var bestAttackDepth = computeMaxCaptureCount(
+                    boardState,
+                    pieceField.data.line,
+                    pieceField.data.column,
+                    pieceType,
+                    this
+                );
+                attacks = attacks.filter(function (attack) {
+                    var nextState = cloneBoardState(boardState);
+                    nextState[pieceField.data.line][pieceField.data.column] = 0;
+                    nextState[attack.opponent.parentElement.data.line][attack.opponent.parentElement.data.column] = 0;
+                    nextState[attack.field.data.line][attack.field.data.column] = pieceType;
+                    var depth = 1 + computeMaxCaptureCount(
+                        nextState,
+                        attack.field.data.line,
+                        attack.field.data.column,
+                        pieceType,
+                        this
+                    );
+                    return depth === bestAttackDepth;
+                }.bind(this));
                 // add masks to allowed attacks fields
                 attacks.forEach(function (attack) {
                     attack.field.data.addMask({
@@ -850,6 +1051,10 @@ if (!Array.prototype.filter) {
             
             var piece = event.detail.piece;
             var toField = event.detail.toField;
+            var shouldChangeTurn = event.detail.changeTurn !== false;
+            if (!shouldChangeTurn) {
+                return;
+            }
             
             var bottomBorder = toField.data.line === this.size - 1;
             var topBorder = toField.data.line === 0;
