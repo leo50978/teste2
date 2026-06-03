@@ -196,6 +196,18 @@ export class Ludo {
         return count;
     }
 
+    countRollsSinceDice(history = [], diceValue = 0) {
+        const target = Number(diceValue) || 0;
+        let distance = 0;
+        for (let index = history.length - 1; index >= 0; index -= 1) {
+            if (history[index] === target) {
+                return distance;
+            }
+            distance += 1;
+        }
+        return history.length;
+    }
+
     getRecentDicePenalty(history = [], diceValue = 0, { sixPenalty = 18, repeatPenalty = 8 } = {}) {
         const target = Number(diceValue) || 0;
         const tail = Array.isArray(history) ? history.slice(-4) : [];
@@ -312,7 +324,28 @@ export class Ludo {
         const botPlayer = PLAYERS.find((value) => this.isBotPlayer(value)) || 'P2';
         const humanPressure = this.getPlayerPressure(player);
         const botPressure = this.getPlayerPressure(botPlayer);
-        return botPressure - humanPressure >= 240;
+        const sixDrought = this.countRollsSinceDice(this.humanDiceHistory, 6);
+        if (sixDrought >= 4) {
+            return true;
+        }
+        if (this.humanNoMoveTurns >= 2) {
+            return true;
+        }
+        return botPressure - humanPressure >= 170;
+    }
+
+    getHumanSixReliefBias(player) {
+        const sixDrought = this.countRollsSinceDice(this.humanDiceHistory, 6);
+        const allPiecesInBase = this.areAllPiecesInBase(player);
+        let bias = 0;
+        if (sixDrought >= 2) bias += 24;
+        if (sixDrought >= 3) bias += 42;
+        if (sixDrought >= 4) bias += 78;
+        if (sixDrought >= 5) bias += 120;
+        if (allPiecesInBase) bias += 36;
+        if (allPiecesInBase && this.humanNoMoveTurns >= 1) bias += 64;
+        if (this.humanNoMoveTurns >= 2) bias += 40;
+        return bias;
     }
 
     getBotMoveRepetitionPenalty(piece, profile = {}) {
@@ -731,7 +764,8 @@ export class Ludo {
         const bestLow = rankedDice[0] || { diceValue: 1, score: -80 };
         const criticalThreat = rankedDice.some((item) => item.wouldWin || item.captures > 0 || item.reachesHome);
         const naturalWindow = this.shouldKeepHumanNaturalWindow(player);
-        let candidatePool = rankedDice.filter((item) => item.score <= (bestLow.score + (criticalThreat ? 14 : naturalWindow ? 42 : 26)));
+        const sixReliefBias = this.getHumanSixReliefBias(player);
+        let candidatePool = rankedDice.filter((item) => item.score <= (bestLow.score + (criticalThreat ? 18 : naturalWindow ? 56 : 34)));
 
         if (allPiecesInBase && this.humanNoMoveTurns >= 2) {
             const sixOption = rankedDice.find((item) => item.diceValue === 6);
@@ -741,18 +775,27 @@ export class Ludo {
         }
 
         if (candidatePool.some((item) => item.diceValue !== 6)) {
-            candidatePool = candidatePool.filter((item) => item.diceValue !== 6 || item.wouldWin || item.captures > 0);
+            candidatePool = candidatePool.filter((item) => {
+                if (item.diceValue !== 6) return true;
+                if (item.wouldWin || item.captures > 0) return true;
+                if (sixReliefBias >= 42) return true;
+                if (allPiecesInBase) return true;
+                return false;
+            });
         }
 
         const softenedPool = candidatePool
             .map((item) => {
                 let adjustedScore = item.score;
                 adjustedScore += this.getRecentDicePenalty(this.humanDiceHistory, item.diceValue, {
-                    sixPenalty: 28,
+                    sixPenalty: 18,
                     repeatPenalty: 6,
                 });
+                if (item.diceValue === 6) {
+                    adjustedScore -= sixReliefBias;
+                }
                 if (item.diceValue === 6 && allPiecesInBase && this.humanNoMoveTurns < 2) {
-                    adjustedScore += 110;
+                    adjustedScore += 28;
                 }
                 if (item.wouldWin) adjustedScore += 500;
                 if (item.captures > 0) adjustedScore += 180 * item.captures;
@@ -764,10 +807,11 @@ export class Ludo {
             })
             .sort((a, b) => a.adjustedScore - b.adjustedScore);
 
-        const finalPool = softenedPool.filter((item) => item.adjustedScore <= (softenedPool[0]?.adjustedScore ?? 9999) + (naturalWindow ? 18 : 10));
+        const tolerance = naturalWindow ? 26 : (sixReliefBias >= 42 ? 22 : 12);
+        const finalPool = softenedPool.filter((item) => item.adjustedScore <= (softenedPool[0]?.adjustedScore ?? 9999) + tolerance);
         const choice = finalPool.length <= 1
             ? (finalPool[0] || softenedPool[0] || bestLow)
-            : (Math.random() < (criticalThreat ? 0.82 : 0.68)
+            : (Math.random() < (criticalThreat ? 0.74 : 0.58)
                 ? finalPool[0]
                 : finalPool[Math.floor(Math.random() * finalPool.length)]);
         return choice.diceValue;
