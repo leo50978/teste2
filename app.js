@@ -24,6 +24,7 @@ import {
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
+  createFriendLudoRoomSecure,
   createFriendDuelRoomV2Secure,
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
@@ -452,7 +453,7 @@ function ensureLudoStakeModal() {
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="create">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kreye</span>
           <span class="mt-2 block text-lg font-black text-[#18212b]">Nouvo salon prive</span>
-          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Paj Ludo a ap kreye room nan epi ba ou kod la.</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Nou ap kreye salon an la menm epi ba ou kod la anvan ou antre sou paj la.</span>
         </button>
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="join">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Antre</span>
@@ -479,6 +480,30 @@ function ensureLudoStakeModal() {
           </div>
           <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Joiner a ap suiv mise sa a. Li pap ka chanje li sou pa l.</p>
           <p class="mt-3 min-h-[20px] text-sm font-medium text-[#c05b5b]" data-kobposh-ludo-private-status></p>
+        </div>
+      </div>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="privateShare">
+        <div class="rounded-[22px] border border-[#d6ebe0] bg-[#eef8f1] px-5 py-5">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6f7f76]">Salon pare</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <p class="text-2xl font-black text-[#156437]">Kod la deja pare</p>
+            <span class="rounded-full border border-[#dce5df] bg-white px-3 py-1 text-[11px] font-semibold text-[#41514b]" data-kobposh-ludo-created-stake>25 HTG</span>
+          </div>
+          <p class="mt-3 text-sm leading-6 text-[#5f6f67]">Pataje kod sa a ak zanmi ou avan ou antre sou paj Ludo a. Konsa li ka prepare kod la tou san nou pa pedi tan apre sa.</p>
+        </div>
+        <div class="rounded-[22px] border border-[#dce5df] bg-white px-5 py-5">
+          <label class="block">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod salon prive a</span>
+            <div class="mt-3 flex items-center gap-3 rounded-[20px] border border-[#dce5df] bg-[#f7fbf8] px-4 py-4">
+              <p class="min-w-0 flex-1 text-[30px] font-black uppercase tracking-[0.24em] text-[#18212b]" data-kobposh-ludo-created-code>------</p>
+              <button type="button" class="rounded-full border border-[#dce5df] bg-white px-4 py-2 text-xs font-semibold text-[#42524c] transition hover:bg-[#f7fbf8]" data-kobposh-ludo-copy-code>
+                Kopye
+              </button>
+            </div>
+          </label>
+          <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Le ou peze kontinye, paj Ludo a ap louvri dirak sou salon sa a san li pa bezwen rekreye li.</p>
+          <p class="mt-3 min-h-[20px] text-sm font-medium text-[#156437]" data-kobposh-ludo-share-status></p>
         </div>
       </div>
 
@@ -517,6 +542,10 @@ function ensureLudoStakeModal() {
   const joinStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-join-status]");
   const publicStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-public-status]");
   const quickStakeButtons = Array.from(ludoStakeModal.querySelectorAll("[data-kobposh-ludo-stake-quick]"));
+  const createdCodeEl = ludoStakeModal.querySelector("[data-kobposh-ludo-created-code]");
+  const createdStakeEl = ludoStakeModal.querySelector("[data-kobposh-ludo-created-stake]");
+  const shareStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-share-status]");
+  const copyCodeBtn = ludoStakeModal.querySelector("[data-kobposh-ludo-copy-code]");
   const normalizeStakeHtg = (value, fallback = LUDO_PUBLIC_ENTRY_HTG) => {
     const parsed = Number.parseInt(String(value || ""), 10);
     return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
@@ -526,13 +555,16 @@ function ensureLudoStakeModal() {
     mode: { label: "Etap 1/3", nextLabel: "Suivant", showBack: false },
     public: { label: "Etap 2/2", nextLabel: "Antre nan gran chanm nan", showBack: true },
     private: { label: "Etap 2/3", nextLabel: "Suivant", showBack: true },
-    privateCreate: { label: "Etap 3/3", nextLabel: "Kontinye sou paj Ludo a", showBack: true },
+    privateCreate: { label: "Etap 3/3", nextLabel: "Kreye salon prive a", showBack: true },
+    privateShare: { label: "Etap 3/3", nextLabel: "Kontinye sou paj Ludo a", showBack: false },
     privateJoin: { label: "Etap 3/3", nextLabel: "Antre sou paj Ludo a", showBack: true },
   };
   let currentStep = "mode";
   let selectedMode = "";
   let selectedFriendAction = "";
   let privateStakeHtg = LUDO_PUBLIC_ENTRY_HTG;
+  let createdFriendRoomState = null;
+  let creatingFriendRoom = false;
 
   const setPublicStatus = (message = "") => {
     if (publicStatusEl) publicStatusEl.textContent = String(message || "");
@@ -542,6 +574,12 @@ function ensureLudoStakeModal() {
   };
   const setJoinStatus = (message = "") => {
     if (joinStatusEl) joinStatusEl.textContent = String(message || "");
+  };
+  const setShareStatus = (message = "", tone = "success") => {
+    if (!shareStatusEl) return;
+    shareStatusEl.textContent = String(message || "");
+    shareStatusEl.classList.toggle("text-[#156437]", tone !== "error");
+    shareStatusEl.classList.toggle("text-[#c05b5b]", tone === "error");
   };
   const validatePublic = () => {
     const balance = getCurrentHomeWalletTotalHtg();
@@ -577,18 +615,93 @@ function ensureLudoStakeModal() {
     setJoinStatus("");
     return true;
   };
+  const populateCreatedFriendRoom = () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    const roomStakeHtg = normalizeStakeHtg(createdFriendRoomState?.stakeHtg, privateStakeHtg || LUDO_PUBLIC_ENTRY_HTG);
+    if (createdCodeEl) createdCodeEl.textContent = inviteCode || "------";
+    if (createdStakeEl) createdStakeEl.textContent = `${roomStakeHtg} HTG`;
+  };
+  const copyCreatedFriendCode = async () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    if (!inviteCode) {
+      setShareStatus("Kod la poko pare pou kopye.", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setShareStatus("Kod la kopye. Ou ka voye li bay zanmi ou kounye a.");
+    } catch (_) {
+      setShareStatus(`Kopye kod sa a manyelman: ${inviteCode}`, "error");
+    }
+  };
   const renderStep = () => {
     stepPanels.forEach((panel) => {
       panel.classList.toggle("hidden", panel.getAttribute("data-kobposh-ludo-step-panel") !== currentStep);
     });
     const meta = STEP_META[currentStep] || STEP_META.mode;
     if (stepLabelEl) stepLabelEl.textContent = meta.label;
-    if (nextBtn) nextBtn.textContent = meta.nextLabel;
+    populateCreatedFriendRoom();
+    if (nextBtn) {
+      nextBtn.textContent = meta.nextLabel;
+      nextBtn.disabled = (currentStep === "mode" && !selectedMode)
+        || (currentStep === "private" && !selectedFriendAction)
+        || (currentStep === "privateCreate" && creatingFriendRoom)
+        || (currentStep === "privateShare" && (!createdFriendRoomState?.roomId || creatingFriendRoom));
+    }
     if (backBtn) backBtn.classList.toggle("hidden", !meta.showBack);
+  };
+  const resetFlow = () => {
+    currentStep = "mode";
+    selectedMode = "";
+    selectedFriendAction = "";
+    privateStakeHtg = LUDO_PUBLIC_ENTRY_HTG;
+    createdFriendRoomState = null;
+    creatingFriendRoom = false;
+    if (privateStakeInput) privateStakeInput.value = String(LUDO_PUBLIC_ENTRY_HTG);
+    if (joinCodeInput) joinCodeInput.value = "";
+    setPublicStatus("");
+    setPrivateStakeStatus("");
+    setJoinStatus("");
+    setShareStatus("");
+    renderStep();
   };
   const launch = (options = {}) => {
     closeLudoStakeModal();
     window.location.href = buildLudoEntryUrl(options);
+  };
+  const handleCreateFriendRoom = async () => {
+    if (!validatePrivateStake()) return;
+
+    creatingFriendRoom = true;
+    createdFriendRoomState = null;
+    setPrivateStakeStatus("M ap kreye salon prive a...");
+    setShareStatus("M ap kreye salon prive a...");
+    renderStep();
+    try {
+      const result = await createFriendLudoRoomSecure({ stakeHtg: privateStakeHtg });
+      createdFriendRoomState = {
+        roomId: String(result?.roomId || "").trim(),
+        inviteCode: normalizeInviteCode(result?.inviteCode || ""),
+        stakeHtg: normalizeStakeHtg(result?.stakeHtg, privateStakeHtg),
+        resumed: result?.resumed === true,
+      };
+      currentStep = "privateShare";
+      setShareStatus(
+        createdFriendRoomState.resumed
+          ? "Nou jwenn salon prive ou te deja genyen an. Ou ka pataje kod la oswa kontinye."
+          : "Salon prive a pare. Pataje kod la ak zanmi ou avan ou antre nan paj la."
+      );
+      setPrivateStakeStatus("");
+      renderStep();
+    } catch (error) {
+      createdFriendRoomState = null;
+      setShareStatus("");
+      setPrivateStakeStatus(error?.message || "Nou pa rive kreye salon prive a.");
+      renderStep();
+    } finally {
+      creatingFriendRoom = false;
+      renderStep();
+    }
   };
 
   ludoStakeModal.addEventListener("click", (event) => {
@@ -646,12 +759,21 @@ function ensureLudoStakeModal() {
         return;
       }
       if (currentStep === "privateCreate") {
-        if (!validatePrivateStake()) return;
+        void handleCreateFriendRoom();
+        return;
+      }
+      if (currentStep === "privateShare") {
+        if (!createdFriendRoomState?.roomId) {
+          renderStep();
+          return;
+        }
         launch({
           autostart: false,
           roomMode: "ludo_friends",
           friendAction: "create",
-          stakeHtg: privateStakeHtg,
+          inviteCode: normalizeInviteCode(createdFriendRoomState.inviteCode || ""),
+          roomId: String(createdFriendRoomState.roomId || "").trim(),
+          stakeHtg: normalizeStakeHtg(createdFriendRoomState.stakeHtg, privateStakeHtg),
         });
         return;
       }
@@ -665,6 +787,9 @@ function ensureLudoStakeModal() {
           stakeHtg: LUDO_PUBLIC_ENTRY_HTG,
         });
       }
+    }
+    if (target?.closest("[data-kobposh-ludo-copy-code]")) {
+      void copyCreatedFriendCode();
     }
   });
 
@@ -682,13 +807,17 @@ function ensureLudoStakeModal() {
     joinCodeInput.value = normalizeInviteCode(joinCodeInput.value || "");
     validateJoinCode();
   });
-  renderStep();
+  ludoStakeModal.__kobposhLudoResetFlow = resetFlow;
+  resetFlow();
 
   return ludoStakeModal;
 }
 
 function openLudoStakeModal() {
   const modal = ensureLudoStakeModal();
+  if (typeof modal.__kobposhLudoResetFlow === "function") {
+    modal.__kobposhLudoResetFlow();
+  }
   closeGamesModal();
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
