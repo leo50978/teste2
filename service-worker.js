@@ -1,4 +1,4 @@
-const KOBPOSH_CACHE = "kobposh-shell-v16";
+const KOBPOSH_CACHE = "kobposh-shell-v17";
 const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
@@ -10,6 +10,7 @@ const KOBPOSH_CORE_ASSETS = [
   "/web-app-manifest-192x192.png",
   "/web-app-manifest-512x512.png",
   "/assets/images/logokobpash.png",
+  "/assets/images/imagegroup.jpg",
 ];
 
 self.addEventListener("install", (event) => {
