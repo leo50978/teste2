@@ -25,7 +25,7 @@ let classicHudChromeHidden = false;
 function normalizeClassicBotDifficulty(value = "") {
   const level = String(value || "").trim().toLowerCase();
   if (level === "dominov1" || level === "v1") return "dominov1";
-  if (level === "ultra" || level === "expert") return "ultra";
+  if (level === "ultra" || level === "expert") return "dominov1";
   if (level === "userpro" || level === "amateur") return "userpro";
   return "userpro";
 }
@@ -33,7 +33,6 @@ function normalizeClassicBotDifficulty(value = "") {
 function getClassicOpponentHudLabel() {
   const normalized = normalizeClassicBotDifficulty(requestedBotDifficulty || "userpro");
   if (normalized === "dominov1") return "adves\u00E8 yo";
-  if (normalized === "ultra") return "3 advese yo";
   return "3 adves\u00E8 yo";
 }
 

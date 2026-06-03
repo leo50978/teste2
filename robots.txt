@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Disallow: /agent-dashboard.html
+Disallow: /auth.html
+Disallow: /Dchampionnat.html
+Disallow: /discussion-agent.html
+Disallow: /inedex.html
+Disallow: /jeu.html
+Disallow: /kobposh/profile.html
+Disallow: /profil.html
+
+Sitemap: https://kobpoch.com/sitemap.xml
