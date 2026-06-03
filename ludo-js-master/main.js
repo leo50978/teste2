@@ -13,7 +13,7 @@ import {
     touchLudoWagerHeartbeatSecure,
 } from '../secure-functions.js?v=20260515-ludo-searchpage1';
 import { PLAYERS, STATE } from './ludo/constants.js?v=20260523-ludo-frienddice2';
-import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo1';
+import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo2';
 import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
 
 const TURN_DURATION_SECONDS = 30;
