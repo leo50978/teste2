@@ -633,7 +633,7 @@
       function normalizeDominoClassicBotDifficulty(value = "") {
         const level = String(value || "").trim().toLowerCase();
         if (level === "dominov1" || level === "v1") return "dominov1";
-        if (level === "ultra" || level === "expert") return "ultra";
+        if (level === "ultra" || level === "expert") return "dominov1";
         if (level === "userpro" || level === "amateur") return "userpro";
         return "userpro";
       }
