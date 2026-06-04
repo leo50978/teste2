@@ -229,6 +229,7 @@ const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
+  dominoDuelPublicEnabled: true,
   ludoEnabled: true,
 });
 
@@ -242,6 +243,7 @@ function normalizePublicGameAvailability(raw = {}) {
   return {
     pongEnabled: source.pongEnabled !== false,
     dominoClassicEnabled: source.dominoClassicEnabled !== false,
+    dominoDuelPublicEnabled: source.dominoDuelPublicEnabled !== false,
     ludoEnabled: source.ludoEnabled !== false,
   };
 }
@@ -282,6 +284,7 @@ function getGameAvailabilityLabel(gameKey = "") {
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedKey === "pong") return "Pong";
   if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
+  if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") return "Domino duel gran chanm";
   if (normalizedKey === "ludo") return "Ludo";
   return "Jwet sa a";
 }
@@ -356,6 +359,8 @@ async function canLaunchPublicGame(gameKey = "") {
   let isEnabled = true;
   if (normalizedKey === "pong") {
     isEnabled = availability.pongEnabled !== false;
+  } else if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
+    isEnabled = availability.dominoDuelPublicEnabled !== false;
   } else if (normalizedKey === "ludo") {
     isEnabled = availability.ludoEnabled !== false;
   } else {
@@ -438,7 +443,7 @@ function ensureLudoStakeModal() {
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="public">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Piblik</span>
           <span class="mt-2 block text-lg font-black text-[#18212b]">Gran chanm</span>
-          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Jwe kont bot la ak antre piblik 25 HTG la.</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Antre dirak nan gran chanm piblik 25 HTG la.</span>
         </button>
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="friend">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Entre amis</span>
@@ -1453,7 +1458,7 @@ function ensureDominoDuelStakeModal() {
     }
     renderStep();
   };
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "mode") {
       if (!selectedMode) return;
       currentStep = selectedMode === "friend" ? "private" : "public";
@@ -1466,6 +1471,8 @@ function ensureDominoDuelStakeModal() {
         renderStep();
         return;
       }
+      const canLaunch = await canLaunchPublicGame("domino-duel");
+      if (!canLaunch) return;
       setJoinStatus("");
       launch({ stakeHtg: PUBLIC_DUEL_STAKE_HTG });
       return;
@@ -1505,7 +1512,9 @@ function ensureDominoDuelStakeModal() {
   });
   overlay.querySelector("[data-close-domino-duel-stake]")?.addEventListener("click", close);
   backBtn?.addEventListener("click", handleBack);
-  nextBtn?.addEventListener("click", handleNext);
+    nextBtn?.addEventListener("click", () => {
+      void handleNext();
+    });
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedMode = button.getAttribute("data-domino-duel-select-mode") === "friend" ? "friend" : "public";
@@ -4822,7 +4831,7 @@ function ensureChessStakeModal() {
       <p class="kobposh-forgot-modal__eyebrow">ECHEC</p>
       <h2 id="kobposhChessModeTitle" class="kobposh-forgot-modal__title">Chwazi mode jeu ou</h2>
       <p class="kobposh-forgot-modal__text">
-        Gran chanm nan se 25 HTG kont bot la. Salon prive a komanse depi 25 HTG ak kod envitasyon.
+        Gran chanm nan se 25 HTG fixe. Salon prive a komanse depi 25 HTG ak kod envitasyon.
       </p>
       <div class="mt-5 grid gap-3">
         <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-public>
@@ -5663,16 +5672,7 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       return;
     }
     if (game === "chess") {
-      if (!auth.currentUser) {
-        openAuthScreen("login");
-        return;
-      }
-      const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
-      if (currentBalanceHtg < CHESS_PUBLIC_ENTRY_HTG) {
-        openDameBlockedModal(CHESS_PUBLIC_ENTRY_HTG, currentBalanceHtg);
-        return;
-      }
-      ensureChessStakeModal().open();
+      openUpcomingGameModal("chess");
       return;
     }
   });

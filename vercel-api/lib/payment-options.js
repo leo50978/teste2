@@ -58,6 +58,7 @@ function normalizePublicAppSettings(rawData = {}) {
     provisionalDepositsEnabled: rawData.provisionalDepositsEnabled === true,
     pongEnabled: rawData.pongEnabled !== false,
     dominoClassicEnabled: rawData.dominoClassicEnabled !== false,
+    dominoDuelPublicEnabled: rawData.dominoDuelPublicEnabled !== false,
     ludoEnabled: rawData.ludoEnabled !== false,
   };
 }

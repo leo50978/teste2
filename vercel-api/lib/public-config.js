@@ -164,6 +164,7 @@ async function getPublicRuntimeConfigPayload() {
     provisionalDepositsEnabled: settings.provisionalDepositsEnabled === true,
     pongEnabled: settings.pongEnabled !== false,
     dominoClassicEnabled: settings.dominoClassicEnabled !== false,
+    dominoDuelPublicEnabled: settings.dominoDuelPublicEnabled !== false,
     ludoEnabled: settings.ludoEnabled !== false,
   };
 }

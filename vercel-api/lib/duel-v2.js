@@ -2,9 +2,10 @@ const crypto = require("crypto");
 
 const { admin, db } = require("./firebase-admin");
 const { buildRewardAmountHtg, buildStakeAmountHtg } = require("./domino-classic");
-const { getConfiguredDuelBotDifficulty } = require("./duel-bot-pilot");
+const { getConfiguredDuelBotDifficulty, getConfiguredDuelBotWaitMs } = require("./duel-bot-pilot");
 const { makeHttpError } = require("./http");
 const { walletRef, assertWalletNotFrozen } = require("./player-wallet");
+const { readPublicAppSettings } = require("./public-config");
 const { safeInt, safeSignedInt, sanitizeText } = require("./safe");
 const {
   RATE_HTG_TO_DOES,
@@ -383,6 +384,171 @@ function countMatchingEndsInDuelHand(hand = [], endValue = -1) {
   }, 0);
 }
 
+function countDuelHandDoubles(hand = []) {
+  return (Array.isArray(hand) ? hand : []).reduce((count, tileId) => {
+    const values = getTileValues(tileId);
+    return values && values[0] === values[1] ? count + 1 : count;
+  }, 0);
+}
+
+function sumDuelEndPressureForHand(hand = [], valuesToCheck = []) {
+  const targets = Array.from(new Set(
+    (Array.isArray(valuesToCheck) ? valuesToCheck : [])
+      .map((value) => safeSignedInt(value, -1))
+      .filter((value) => value >= 0)
+  ));
+  return targets.reduce((sum, value) => sum + countMatchingEndsInDuelHand(hand, value), 0);
+}
+
+function buildDuelKillProfile(state = {}, seat = 1) {
+  const liveState = normalizeDuelGameState(state);
+  const otherSeat = getOtherDuelSeat(seat);
+  const humanHand = Array.isArray(liveState.seatHands?.[otherSeat]) ? liveState.seatHands[otherSeat] : [];
+  const stockSize = Array.isArray(liveState.stockPile) ? liveState.stockPile.length : 0;
+  const humanCount = humanHand.length;
+  const humanLegal = getLegalMovesForDuelSeat(liveState, otherSeat).length;
+
+  let mode = "normal";
+  let pressureMultiplier = 1;
+  let searchBoost = 0;
+  let blockBonus = 0;
+
+  if (humanCount <= 2) {
+    mode = "kill";
+    pressureMultiplier = 2.2;
+    searchBoost = 2;
+    blockBonus = stockSize > 0 ? 260 : 1800;
+  } else if (humanCount === 3) {
+    mode = "panic";
+    pressureMultiplier = 1.7;
+    searchBoost = 1;
+    blockBonus = stockSize > 0 ? 180 : 1100;
+  } else if (humanCount === 4 && humanLegal <= 2) {
+    mode = "tight";
+    pressureMultiplier = 1.35;
+    searchBoost = 1;
+    blockBonus = stockSize > 0 ? 110 : 720;
+  }
+
+  return {
+    mode,
+    humanCount,
+    humanLegal,
+    stockSize,
+    pressureMultiplier,
+    searchBoost,
+    blockBonus,
+  };
+}
+
+function countPlayableTilesInStockForEnds(stockPile = [], leftEnd = -1, rightEnd = -1, limit = 0) {
+  const safeLimit = Math.max(0, safeInt(limit));
+  const stock = Array.isArray(stockPile) ? stockPile : [];
+  const slice = safeLimit > 0 ? stock.slice(0, safeLimit) : stock.slice(0);
+  return slice.reduce((count, tileId) => {
+    const values = getTileValues(tileId);
+    if (!values) return count;
+    if (
+      (leftEnd >= 0 && (values[0] === leftEnd || values[1] === leftEnd))
+      || (rightEnd >= 0 && (values[0] === rightEnd || values[1] === rightEnd))
+    ) {
+      return count + 1;
+    }
+    return count;
+  }, 0);
+}
+
+function buildDuelStockVisionProfile(state = {}, seat = 1) {
+  const liveState = normalizeDuelGameState(state);
+  const otherSeat = getOtherDuelSeat(seat);
+  const stockPile = Array.isArray(liveState.stockPile) ? liveState.stockPile : [];
+  const leftEnd = safeSignedInt(liveState.leftEnd, -1);
+  const rightEnd = safeSignedInt(liveState.rightEnd, -1);
+  const botHand = Array.isArray(liveState.seatHands?.[seat]) ? liveState.seatHands[seat] : [];
+  const humanHand = Array.isArray(liveState.seatHands?.[otherSeat]) ? liveState.seatHands[otherSeat] : [];
+  const topTileId = stockPile.length > 0 ? safeSignedInt(stockPile[0], -1) : -1;
+  const topValues = getTileValues(topTileId);
+  const topPlayableForBot = !!(topValues && (
+    (leftEnd >= 0 && (topValues[0] === leftEnd || topValues[1] === leftEnd))
+    || (rightEnd >= 0 && (topValues[0] === rightEnd || topValues[1] === rightEnd))
+  ));
+
+  return {
+    stockSize: stockPile.length,
+    topPlayableForBot,
+    playableTop3: countPlayableTilesInStockForEnds(stockPile, leftEnd, rightEnd, 3),
+    playableTop5: countPlayableTilesInStockForEnds(stockPile, leftEnd, rightEnd, 5),
+    playableAll: countPlayableTilesInStockForEnds(stockPile, leftEnd, rightEnd, stockPile.length),
+    botPressureOnEnds: sumDuelEndPressureForHand(botHand, [leftEnd, rightEnd]),
+    humanPressureOnEnds: sumDuelEndPressureForHand(humanHand, [leftEnd, rightEnd]),
+  };
+}
+
+function scoreDuelMovePressure(state = {}, room = {}, seat = 1, move = {}) {
+  const liveState = normalizeDuelGameState(state, room);
+  const otherSeat = getOtherDuelSeat(seat);
+  const killProfile = buildDuelKillProfile(liveState, seat);
+  const currentStockVision = buildDuelStockVisionProfile(liveState, seat);
+  const currentHumanHand = Array.isArray(liveState.seatHands?.[otherSeat]) ? liveState.seatHands[otherSeat] : [];
+  const currentBotHand = Array.isArray(liveState.seatHands?.[seat]) ? liveState.seatHands[seat] : [];
+  const applied = applyResolvedDuelMove(liveState, room, buildBotPlayMoveFromLegalMove(move, seat), "sim:bot-pressure");
+  const nextState = applied.state;
+  const nextStockVision = buildDuelStockVisionProfile(nextState, seat);
+  const nextHumanHand = Array.isArray(nextState.seatHands?.[otherSeat]) ? nextState.seatHands[otherSeat] : [];
+  const nextBotHand = Array.isArray(nextState.seatHands?.[seat]) ? nextState.seatHands[seat] : [];
+  const nextLeftEnd = safeSignedInt(nextState.leftEnd, -1);
+  const nextRightEnd = safeSignedInt(nextState.rightEnd, -1);
+  const tileValues = getTileValues(move.tileId) || [0, 0];
+
+  const currentHumanLegal = getLegalMovesForDuelSeat(liveState, otherSeat).length;
+  const nextHumanLegal = getLegalMovesForDuelSeat(nextState, otherSeat).length;
+  const nextBotLegal = getLegalMovesForDuelSeat(nextState, seat).length;
+  const currentHumanPressure = sumDuelEndPressureForHand(currentHumanHand, [liveState.leftEnd, liveState.rightEnd]);
+  const nextHumanPressure = sumDuelEndPressureForHand(nextHumanHand, [nextLeftEnd, nextRightEnd]);
+  const nextBotPressure = sumDuelEndPressureForHand(nextBotHand, [nextLeftEnd, nextRightEnd]);
+  const currentHumanDoubles = countDuelHandDoubles(currentHumanHand);
+  const nextHumanDoubles = countDuelHandDoubles(nextHumanHand);
+  const nextHumanPips = sumDuelSeatPips(nextState.seatHands, otherSeat);
+  const nextBotPips = sumDuelSeatPips(nextState.seatHands, seat);
+
+  let pressureScore = 0;
+  pressureScore += (currentHumanLegal - nextHumanLegal) * 145;
+  pressureScore += (currentHumanPressure - nextHumanPressure) * 52;
+  pressureScore += (nextBotPressure - nextHumanPressure) * 24;
+  pressureScore += (currentHumanDoubles - nextHumanDoubles) * 75;
+  pressureScore += (nextBotLegal - nextHumanLegal) * 38;
+  pressureScore += (nextHumanPips - nextBotPips) * 4;
+  pressureScore += (currentStockVision.playableTop5 - nextStockVision.playableTop5) * 16;
+  pressureScore += (currentStockVision.playableAll - nextStockVision.playableAll) * 5;
+
+  if (nextHumanLegal === 0) pressureScore += Array.isArray(nextState.stockPile) && nextState.stockPile.length > 0 ? 240 : 1250;
+  if (nextHumanLegal <= 1) pressureScore += 130;
+  if (nextBotLegal <= 1) pressureScore -= 115;
+  if (nextLeftEnd >= 0 && nextRightEnd >= 0 && nextLeftEnd === nextRightEnd) {
+    pressureScore += countMatchingEndsInDuelHand(nextBotHand, nextLeftEnd) * 28;
+    pressureScore -= countMatchingEndsInDuelHand(nextHumanHand, nextLeftEnd) * 44;
+  }
+  if (tileValues[0] === tileValues[1]) pressureScore -= 22;
+  if (
+    tileValues[0] !== tileValues[1]
+    && (
+      countMatchingEndsInDuelHand(currentHumanHand, tileValues[0]) > 0
+      || countMatchingEndsInDuelHand(currentHumanHand, tileValues[1]) > 0
+    )
+  ) {
+    pressureScore += 18;
+  }
+  if (killProfile.mode !== "normal") {
+    pressureScore += (currentHumanHand.length - nextHumanHand.length) * 40;
+    pressureScore += (killProfile.humanLegal - nextHumanLegal) * 70;
+    if (nextHumanLegal <= 1) pressureScore += 180 * killProfile.pressureMultiplier;
+    if (nextHumanLegal === 0) pressureScore += killProfile.blockBonus;
+    if (nextStockVision.topPlayableForBot === true) pressureScore += 35;
+    if (nextBotLegal >= 2) pressureScore += 45;
+  }
+  return pressureScore * killProfile.pressureMultiplier;
+}
+
 function buildBotPlayMoveFromLegalMove(move = {}, seat = 1) {
   return {
     type: "play",
@@ -398,6 +564,8 @@ function buildBotPlayMoveFromLegalMove(move = {}, seat = 1) {
 function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
   const liveState = normalizeDuelGameState(state, room);
   const humanSeat = getOtherDuelSeat(botSeat);
+  const killProfile = buildDuelKillProfile(liveState, botSeat);
+  const stockVision = buildDuelStockVisionProfile(liveState, botSeat);
   if (String(liveState.endedReason || "").trim()) {
     if (safeSignedInt(liveState.winnerSeat, -1) === botSeat) return 1000000;
     if (safeSignedInt(liveState.winnerSeat, -1) === humanSeat) return -1000000;
@@ -416,6 +584,8 @@ function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
   const botRightMatches = countMatchingEndsInDuelHand(botHand, rightEnd);
   const humanLeftMatches = countMatchingEndsInDuelHand(humanHand, leftEnd);
   const humanRightMatches = countMatchingEndsInDuelHand(humanHand, rightEnd);
+  const botDoubles = countDuelHandDoubles(botHand);
+  const humanDoubles = countDuelHandDoubles(humanHand);
   const stockSize = Array.isArray(liveState.stockPile) ? liveState.stockPile.length : 0;
 
   let score = 0;
@@ -423,10 +593,17 @@ function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
   score += (humanHand.length - botHand.length) * 48;
   score += (botLegal * 24) - (humanLegal * 34);
   score += ((botLeftMatches + botRightMatches) * 11) - ((humanLeftMatches + humanRightMatches) * 17);
+  score += (humanDoubles - botDoubles) * 34;
   score += safeSignedInt(liveState.currentPlayer, -1) === botSeat ? 10 : -8;
   if (leftEnd >= 0 && rightEnd >= 0 && leftEnd === rightEnd) {
     score += ((botLeftMatches + botRightMatches) - (humanLeftMatches + humanRightMatches)) * 9;
   }
+  if (leftEnd >= 0 && rightEnd >= 0) {
+    score += (sumDuelEndPressureForHand(botHand, [leftEnd, rightEnd]) - sumDuelEndPressureForHand(humanHand, [leftEnd, rightEnd])) * 12;
+  }
+  score += (stockVision.playableTop3 * 18) + (stockVision.playableTop5 * 10) + (stockVision.playableAll * 3);
+  score += (stockVision.botPressureOnEnds - stockVision.humanPressureOnEnds) * 4;
+  if (killProfile.mode === "normal" && stockVision.topPlayableForBot === true) score += 6;
   if (humanLegal <= 0) {
     if (stockSize <= 0) {
       const blockedWinnerSeat = computeBlockedWinnerSeatForDuel(liveState.seatHands);
@@ -441,6 +618,13 @@ function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
   }
   if (humanLegal <= 1) score += 120;
   if (botLegal <= 1) score -= 90;
+  if (killProfile.mode !== "normal") {
+    score += (5 - Math.min(killProfile.humanCount, 5)) * 90;
+    score += Math.max(0, 3 - humanLegal) * 85;
+    if (humanLegal === 0) score += killProfile.blockBonus;
+    if (botLegal >= 2) score += 60;
+    if (botPips <= humanPips) score += 55;
+  }
   return score;
 }
 
@@ -497,15 +681,23 @@ function evaluateDuelBotFuture(state = {}, room = {}, botSeat = 1, depth = 0, al
 }
 
 function pickDominov1BotMove(state = {}, room = {}, seat = 1, legalMoves = []) {
+  const killProfile = buildDuelKillProfile(state, seat);
   const scoredMoves = legalMoves.map((move) => {
     const playMove = buildBotPlayMoveFromLegalMove(move, seat);
     const applied = applyResolvedDuelMove(state, room, playMove, "sim:bot-play");
     const tileValues = getTileValues(move.tileId) || [0, 0];
-    const searchDepth = legalMoves.length <= 3 ? 5 : 4;
+    const searchDepthBase = legalMoves.length <= 2 ? 7 : (legalMoves.length <= 4 ? 6 : 5);
+    const searchDepth = searchDepthBase + killProfile.searchBoost;
     let score = evaluateDuelBotFuture(applied.state, room, seat, searchDepth);
     score += scoreDuelBotPosition(applied.state, room, seat) * 0.22;
-    score += (tileValues[0] + tileValues[1]) * 5;
-    if (tileValues[0] === tileValues[1]) score += 18;
+    score += scoreDuelMovePressure(state, room, seat, move);
+    score += (tileValues[0] + tileValues[1]) * 4;
+    if (tileValues[0] === tileValues[1]) score += 10;
+    if (killProfile.mode !== "normal") {
+      const nextHumanLegal = getLegalMovesForDuelSeat(applied.state, getOtherDuelSeat(seat)).length;
+      if (nextHumanLegal <= 1) score += 150 * killProfile.pressureMultiplier;
+      if (nextHumanLegal === 0) score += killProfile.blockBonus;
+    }
     return {
       move,
       score,
@@ -1223,9 +1415,10 @@ function resolveDuelV2WaitDeadlineMs(room = {}, nowMs = Date.now()) {
   const explicit = safeSignedInt(room.waitingDeadlineMs, 0);
   if (explicit > 0) return explicit;
   const createdAtMs = safeSignedInt(room.createdAtMs, 0);
+  const configuredPublicBotWaitMs = Math.max(1000, safeSignedInt(room.botWaitMs, safeSignedInt(room.botWaitSeconds, 0) * 1000));
   const duration = isFriendDuelV2Room(room)
     ? FRIEND_ROOM_WAIT_MS
-    : (isPublicBotOnlyDuelV2Room(room) ? PUBLIC_DUEL_BOT_WAIT_MS : ROOM_WAIT_MS);
+    : (isPublicBotOnlyDuelV2Room(room) ? (configuredPublicBotWaitMs || PUBLIC_DUEL_BOT_WAIT_MS) : ROOM_WAIT_MS);
   return createdAtMs > 0 ? createdAtMs + duration : nowMs + duration;
 }
 
@@ -1555,11 +1748,18 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
 }
 
 async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
+  const publicSettings = await readPublicAppSettings();
+  if (publicSettings.dominoDuelPublicEnabled === false) {
+    throw makeHttpError(503, "duel-v2-public-disabled", "Gran chanm Domino duel la pa disponib pou kounye a.", {
+      game: "domino-duel",
+    });
+  }
   const stakeHtg = PUBLIC_DUEL_V2_STAKE_HTG;
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
   const rewardAmountHtg = buildRewardAmountHtg(stakeDoes, rewardAmountDoes);
   const configuredBotDifficulty = await getConfiguredDuelBotDifficulty();
+  const configuredBotWaitMs = Math.max(1000, safeSignedInt(await getConfiguredDuelBotWaitMs(), PUBLIC_DUEL_BOT_WAIT_MS));
   const activeRoom = await findActiveDuelV2RoomForUser(uid);
   if (activeRoom) {
     const resolvedActiveRoom = await db.runTransaction(async (tx) => {
@@ -1603,7 +1803,7 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
       settlementStatus: "",
       settlementAppliedAtMs: 0,
       startRevealPending: false,
-      waitingDeadlineMs: nowMs + PUBLIC_DUEL_BOT_WAIT_MS,
+      waitingDeadlineMs: nowMs + configuredBotWaitMs,
       startedAtMs: 0,
       turnDeadlineMs: 0,
       stakeHtg,
@@ -1614,6 +1814,8 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
       entryFundingByUid: {},
       entryFundingCurrencyByUid: { [uid]: "htg" },
       allowBots: true,
+      botWaitMs: configuredBotWaitMs,
+      botWaitSeconds: Math.max(1, Math.round(configuredBotWaitMs / 1000)),
       botDifficulty: configuredBotDifficulty || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY,
       botProfileName: botName,
     };
