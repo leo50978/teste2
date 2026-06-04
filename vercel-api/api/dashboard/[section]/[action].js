@@ -3,6 +3,7 @@ const { handlePreflight, sendJson } = require("../../../lib/http");
 const ROUTES = Object.freeze({
   "acquisition/snapshot": require("../../../routes/dashboard/acquisition/snapshot"),
   "ai-advisor/snapshot": require("../../../routes/dashboard/ai-advisor/snapshot"),
+  "cashflow-htg/snapshot": require("../../../routes/dashboard/cashflow-htg/snapshot"),
   "deposits/resolve-review": require("../../../routes/dashboard/deposits/resolve-review"),
   "deposit-flow/snapshot": require("../../../routes/dashboard/deposit-flow/snapshot"),
   "approved-deposits/snapshot": require("../../../routes/dashboard/approved-deposits/snapshot"),
@@ -29,6 +30,8 @@ const ROUTES = Object.freeze({
   "transfers/analytics": require("../../../routes/dashboard/transfers/analytics"),
   "domino-classic-bot-pilot/snapshot": require("../../../routes/dashboard/domino-classic-bot-pilot/snapshot"),
   "domino-classic-bot-pilot/control": require("../../../routes/dashboard/domino-classic-bot-pilot/control"),
+  "duel-bot-pilot/snapshot": require("../../../routes/dashboard/duel-bot-pilot/snapshot"),
+  "duel-bot-pilot/control": require("../../../routes/dashboard/duel-bot-pilot/control"),
   "ludo-bot-pilot/snapshot": require("../../../routes/dashboard/ludo-bot-pilot/snapshot"),
   "ludo-bot-pilot/control": require("../../../routes/dashboard/ludo-bot-pilot/control"),
   "pong-bot-pilot/snapshot": require("../../../routes/dashboard/pong-bot-pilot/snapshot"),

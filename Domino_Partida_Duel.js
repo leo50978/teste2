@@ -1870,14 +1870,24 @@ var Domino_Partida = function() {
     this.PosibilidadesJugador = function(Seat) {
         var Posibilidades = [];
         if (this.TableroListo() === false) return Posibilidades;
+        if (
+            this.FichaIzquierda == null ||
+            typeof(this.FichaIzquierda.ValorLibre) !== "function" ||
+            this.FichaDerecha == null ||
+            typeof(this.FichaDerecha.ValorLibre) !== "function"
+        ) {
+            return Posibilidades;
+        }
         var Mano = this.ObtenerTileIdsManoSeat(Seat);
+        var ValorLibreIzquierda = this.FichaIzquierda.ValorLibre();
+        var ValorLibreDerecha = this.FichaDerecha.ValorLibre();
         for (var i = 0; i < Mano.length; i++) {
             var idx = this.ObtenerIndiceFichaPorTileId(Mano[i]);
             if (idx < 0 || typeof(this.Ficha[idx]) === "undefined" || this.Ficha[idx].Colocada === true) continue;
-            if (this.Ficha[idx].Valores[0] === this.FichaIzquierda.ValorLibre() || this.Ficha[idx].Valores[1] === this.FichaIzquierda.ValorLibre()) {
+            if (this.Ficha[idx].Valores[0] === ValorLibreIzquierda || this.Ficha[idx].Valores[1] === ValorLibreIzquierda) {
                 Posibilidades.push({ Pos : idx, Rama : "izquierda" });
             }
-            if (this.Ficha[idx].Valores[0] === this.FichaDerecha.ValorLibre() || this.Ficha[idx].Valores[1] === this.FichaDerecha.ValorLibre()) {
+            if (this.Ficha[idx].Valores[0] === ValorLibreDerecha || this.Ficha[idx].Valores[1] === ValorLibreDerecha) {
                 Posibilidades.push({ Pos : idx, Rama : "derecha" });
             }
         }

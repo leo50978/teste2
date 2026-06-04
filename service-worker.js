@@ -1,9 +1,9 @@
-const KOBPOSH_CACHE = "kobposh-shell-v17";
+const KOBPOSH_CACHE = "kobposh-shell-v19";
 const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js?v=20260601-welcome-championna1",
+  "/app.js?v=20260603-welcome-export1",
   "/site.webmanifest",
   "/apple-touch-icon.png",
   "/favicon-96x96.png",

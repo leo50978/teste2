@@ -2,6 +2,7 @@ const crypto = require("crypto");
 
 const { admin, db } = require("./firebase-admin");
 const { buildRewardAmountHtg, buildStakeAmountHtg } = require("./domino-classic");
+const { getConfiguredDuelBotDifficulty } = require("./duel-bot-pilot");
 const { makeHttpError } = require("./http");
 const { walletRef, assertWalletNotFrozen } = require("./player-wallet");
 const { safeInt, safeSignedInt, sanitizeText } = require("./safe");
@@ -25,7 +26,21 @@ const DUEL_PRESENCE_GRACE_MS = 30 * 1000;
 const FRIEND_ROOM_CODE_SIZE = 6;
 const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
+const PUBLIC_DUEL_BOT_WAIT_MS = 7 * 1000;
+const PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY = "dominov1";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const PUBLIC_DUEL_BOT_NAMES = Object.freeze([
+  "march56", "dexter5", "junior44", "leon73", "tiro45", "fega22", "marc456", "samy8", "jerry18", "nando51",
+  "louis22", "kendy7", "alpha39", "bravo14", "carlos88", "dede57", "eddy31", "fabio90", "guy62", "henry16",
+  "isaac40", "joel63", "kenzo12", "lester77", "mika24", "nixon53", "oscar11", "pablo69", "quentin5", "ricky34",
+  "steven27", "tony84", "ulysse19", "vlad28", "willy55", "xavier13", "yohan60", "zico25", "benson41", "clark52",
+  "damien17", "elvis64", "freddy29", "gilbert80", "harold33", "irvin71", "jordan26", "kevin58", "logan37", "mason86",
+  "nelson20", "orlando43", "pierrot32", "quentel66", "roby15", "samson70", "travis23", "ulrick81", "valdo36", "wesley10",
+  "xeno54", "yanick21", "zack72", "archer42", "bryan83", "cedric30", "dorian61", "emilio18", "franco79", "gerson24",
+  "hector56", "ivan35", "jules68", "kurt14", "lucas47", "mario92", "noah27", "olivier50", "paulin19", "quent55",
+  "rafael38", "silvio74", "thierry28", "uriel63", "victor16", "walter44", "xander57", "yves12", "zinedine82", "andre25",
+  "brad49", "cyril53", "denis11", "ethan67", "felix31", "gael76", "hugo22", "jaden59", "karl18", "milo65"
+]);
 
 const TILE_VALUES = Object.freeze([
   [0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6],
@@ -105,6 +120,11 @@ function randomCode(size = FRIEND_ROOM_CODE_SIZE) {
     out += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
   }
   return out;
+}
+
+function pickPublicDuelBotName() {
+  const randomIndex = crypto.randomInt(0, PUBLIC_DUEL_BOT_NAMES.length);
+  return String(PUBLIC_DUEL_BOT_NAMES[randomIndex] || "march56").trim() || "march56";
 }
 
 function getTileValues(tileId) {
@@ -347,6 +367,19 @@ function getOtherDuelSeat(seat) {
   return safeSignedInt(seat, 0) === 0 ? 1 : 0;
 }
 
+function isPublicBotOnlyDuelV2Room(room = {}) {
+  return (
+    String(room.roomMode || "").trim() === "duel_v2_public"
+    && room.allowBots === true
+    && safeInt(room.botCount, 0) > 0
+  );
+}
+
+function getDuelBotSeat(room = {}) {
+  if (!isPublicBotOnlyDuelV2Room(room)) return -1;
+  return 1;
+}
+
 function buildOpeningMoveForDuelState(state) {
   const seat = safeSignedInt(state?.openingSeat, safeSignedInt(state?.currentPlayer, 0));
   const tileId = safeSignedInt(state?.openingTileId, -1);
@@ -425,6 +458,54 @@ function buildDuelV2QuitState(state = {}, room = {}, leavingSeat = -1) {
     winnerUid,
     endedReason: "quit",
     currentPlayer: winnerSeat >= 0 ? winnerSeat : liveState.currentPlayer,
+  };
+}
+
+function buildServerBotDuelMove(state = {}, room = {}) {
+  const botSeat = getDuelBotSeat(room);
+  if (botSeat < 0 || safeSignedInt(state.currentPlayer, -1) !== botSeat) return null;
+  const legalMoves = getLegalMovesForDuelSeat(state, botSeat);
+  if (legalMoves.length > 0) {
+    const bestMove = legalMoves[0];
+    return {
+      type: "play",
+      player: botSeat,
+      tileId: bestMove.tileId,
+      tilePos: bestMove.tilePos,
+      tileLeft: bestMove.tileLeft,
+      tileRight: bestMove.tileRight,
+      branch: bestMove.branch,
+    };
+  }
+  if (Array.isArray(state.stockPile) && state.stockPile.length > 0) {
+    return buildDuelDrawMove(botSeat, state.stockPile[0]);
+  }
+  return buildDuelPassMove(botSeat);
+}
+
+function runPublicDuelBotTurns(state = {}, room = {}) {
+  if (!isPublicBotOnlyDuelV2Room(room)) {
+    return {
+      state: normalizeDuelGameState(state, room),
+      records: [],
+    };
+  }
+
+  let nextState = normalizeDuelGameState(state, room);
+  const records = [];
+  let guard = 0;
+  while (!String(nextState.endedReason || "").trim() && safeSignedInt(nextState.currentPlayer, -1) === getDuelBotSeat(room) && guard < 64) {
+    const botMove = buildServerBotDuelMove(nextState, room);
+    if (!botMove) break;
+    const applied = applyResolvedDuelMove(nextState, room, botMove, `bot:${String(room.botDifficulty || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY).trim() || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY}`);
+    nextState = applied.state;
+    records.push(applied.record);
+    guard += 1;
+  }
+
+  return {
+    state: nextState,
+    records,
   };
 }
 
@@ -840,14 +921,20 @@ function buildDuelV2RoomResultDoc(roomId = "", room = {}, roomUpdate = {}) {
     playerUids,
     playerNames,
     humanCount: Math.max(0, safeInt(snapshot.humanCount, playerUids.filter(Boolean).length)),
-    botCount: 0,
-    totalSeats: playerUids.filter(Boolean).length,
+    botCount: Math.max(0, safeInt(snapshot.botCount, 0)),
+    totalSeats: Math.max(
+      playerUids.filter(Boolean).length,
+      Math.max(0, safeInt(snapshot.humanCount, playerUids.filter(Boolean).length))
+      + Math.max(0, safeInt(snapshot.botCount, 0))
+    ),
     entryFundingByUid: snapshot.entryFundingByUid && typeof snapshot.entryFundingByUid === "object"
       ? snapshot.entryFundingByUid
       : {},
     winnerSeat,
     winnerUid,
-    winnerType: winnerUid ? "human" : "unknown",
+    winnerType: winnerUid
+      ? "human"
+      : (winnerSeat >= 0 && Math.max(0, safeInt(snapshot.botCount, 0)) > 0 ? "bot" : "unknown"),
     endedReason,
     stakeDoes,
     stakeHtg,
@@ -979,7 +1066,9 @@ function resolveDuelV2WaitDeadlineMs(room = {}, nowMs = Date.now()) {
   const explicit = safeSignedInt(room.waitingDeadlineMs, 0);
   if (explicit > 0) return explicit;
   const createdAtMs = safeSignedInt(room.createdAtMs, 0);
-  const duration = isFriendDuelV2Room(room) ? FRIEND_ROOM_WAIT_MS : ROOM_WAIT_MS;
+  const duration = isFriendDuelV2Room(room)
+    ? FRIEND_ROOM_WAIT_MS
+    : (isPublicBotOnlyDuelV2Room(room) ? PUBLIC_DUEL_BOT_WAIT_MS : ROOM_WAIT_MS);
   return createdAtMs > 0 ? createdAtMs + duration : nowMs + duration;
 }
 
@@ -1031,6 +1120,10 @@ async function findActiveDuelV2RoomForUser(uid) {
     if (status === "playing") return true;
     if (status !== "waiting") return false;
 
+    if (isPublicBotOnlyDuelV2Room(data)) {
+      return true;
+    }
+
     const humans = Array.isArray(data.playerUids)
       ? data.playerUids.map((item) => String(item || "").trim()).filter(Boolean).length
       : safeInt(data.humanCount);
@@ -1074,6 +1167,8 @@ function buildDuelV2PublicState(roomId, room = {}, uid = "", stateOverride = nul
     ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
     : ["", ""];
   const seatIndex = playerUids.findIndex((item) => item === uid);
+  const humanCount = Math.max(0, safeInt(room.humanCount, playerUids.filter(Boolean).length));
+  const botCount = Math.max(0, safeInt(room.botCount, 0));
   const state = stateOverride ? normalizeDuelGameState(stateOverride, room) : null;
   const privateDeckOrder = state && Array.isArray(state.deckOrder)
     ? state.deckOrder.slice(0, 28)
@@ -1098,13 +1193,15 @@ function buildDuelV2PublicState(roomId, room = {}, uid = "", stateOverride = nul
     winnerSeat: state ? safeSignedInt(state.winnerSeat, -1) : safeSignedInt(room.winnerSeat, -1),
     winnerUid: state ? String(state.winnerUid || "").trim() : String(room.winnerUid || "").trim(),
     endedReason: state ? String(state.endedReason || "").trim() : String(room.endedReason || "").trim(),
-    humanCount: playerUids.filter(Boolean).length,
+    humanCount,
+    botCount,
     startRevealPending: room.startRevealPending === true,
     waitingDeadlineMs: safeSignedInt(room.waitingDeadlineMs, 0),
     startedAtMs: safeSignedInt(room.startedAtMs, 0),
     turnDeadlineMs: safeSignedInt(room.turnDeadlineMs, 0),
     inviteCode: String(room.inviteCode || "").trim(),
     stakeHtg: safeInt(room.stakeHtg || 25),
+    botDifficulty: String(room.botDifficulty || "").trim(),
     rematchRequestUids,
     privateDeckOrder,
   };
@@ -1116,21 +1213,25 @@ function buildStartedDuelV2RoomTransaction(tx, roomRefDoc, room = {}, options = 
   const initialState = createInitialDuelGameState(room, deckOrder);
   const openingMove = buildOpeningMoveForDuelState(initialState);
   const openingApplied = applyResolvedDuelMove(initialState, room, openingMove, "server:opening");
-  const finalState = openingApplied.state;
+  const botProgress = runPublicDuelBotTurns(openingApplied.state, room);
+  const finalState = botProgress.state;
+  const records = [openingApplied.record, ...botProgress.records];
   tx.set(duelV2GameStateRef(roomRefDoc.id), buildDuelGameStateWrite(finalState), { merge: true });
-  tx.set(duelV2ActionRef(roomRefDoc.id, String(openingApplied.record.seq)), {
-    ...openingApplied.record,
-    roomId: roomRefDoc.id,
-    engineVersion: 2,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  }, { merge: true });
+  records.forEach((record) => {
+    tx.set(duelV2ActionRef(roomRefDoc.id, String(record.seq)), {
+      ...record,
+      roomId: roomRefDoc.id,
+      engineVersion: 2,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
 
   const updates = {
     playerUids: Array.isArray(room.playerUids) ? room.playerUids.slice(0, 2) : ["", ""],
     playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
     seats: room.seats && typeof room.seats === "object" ? { ...room.seats } : {},
-    humanCount: 2,
-    botCount: 0,
+    humanCount: Math.max(0, safeInt(room.humanCount, 2)),
+    botCount: Math.max(0, safeInt(room.botCount, 0)),
     status: finalState.endedReason ? "ended" : "playing",
     started: true,
     startRevealPending: false,
@@ -1142,12 +1243,13 @@ function buildStartedDuelV2RoomTransaction(tx, roomRefDoc, room = {}, options = 
     rematchRequestUids: admin.firestore.FieldValue.delete(),
     rematchRequestedAtMs: admin.firestore.FieldValue.delete(),
   };
-  Object.assign(updates, buildDuelRoomUpdateFromGameState(room, finalState, [openingApplied.record]));
+  Object.assign(updates, buildDuelRoomUpdateFromGameState(room, finalState, records));
   tx.set(roomRefDoc, updates, { merge: true });
 
   return {
     roomUpdate: updates,
     finalState,
+    actionRecords: records,
     privateDeckOrder: Array.isArray(finalState.deckOrder) ? finalState.deckOrder.slice(0, 28) : [],
   };
 }
@@ -1171,6 +1273,65 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
   const status = String(room.status || "").trim();
   const state = stateSnap.exists ? normalizeDuelGameState(stateSnap.data(), room) : null;
   if (status === "waiting") {
+    const waitingDeadlineMs = resolveDuelV2WaitDeadlineMs(room, nowMs);
+    if (isPublicBotOnlyDuelV2Room(room) && waitingDeadlineMs > 0 && nowMs >= waitingDeadlineMs) {
+      const stakeHtg = safeInt(room.stakeHtg || PUBLIC_DUEL_V2_STAKE_HTG);
+      const stakeDoes = safeInt(room.entryCostDoes || room.stakeDoes || (stakeHtg * RATE_HTG_TO_DOES));
+      const rewardAmountDoes = safeInt(room.rewardAmountDoes || Math.floor(stakeDoes * 1.85));
+      const rewardAmountHtg = safeInt(room.rewardAmountHtg || buildRewardAmountHtg(stakeDoes, rewardAmountDoes));
+      const nextFundingCurrencies = room.entryFundingCurrencyByUid && typeof room.entryFundingCurrencyByUid === "object"
+        ? { ...room.entryFundingCurrencyByUid }
+        : {};
+      if (safeUid) nextFundingCurrencies[safeUid] = normalizeFundingCurrency(nextFundingCurrencies[safeUid] || "htg");
+      const roomForCharge = {
+        ...room,
+        stakeHtg,
+        stakeDoes,
+        entryCostDoes: stakeDoes,
+        rewardAmountDoes,
+        rewardAmountHtg,
+        entryFundingCurrencyByUid: nextFundingCurrencies,
+        humanCount: 1,
+        botCount: Math.max(1, safeInt(room.botCount, 1)),
+        allowBots: true,
+      };
+      const chargeResult = await chargeRoomEntriesTx(tx, roomForCharge, [safeUid], stakeDoes);
+      const joinedRoom = {
+        ...roomForCharge,
+        entryFundingByUid: chargeResult.entryFundingByUid,
+        settlementStatus: "pending",
+        settlementAppliedAtMs: 0,
+        started: true,
+      };
+      tx.set(roomRefDoc, {
+        entryFundingByUid: chargeResult.entryFundingByUid,
+        entryFundingCurrencyByUid: nextFundingCurrencies,
+        humanCount: 1,
+        botCount: Math.max(1, safeInt(room.botCount, 1)),
+        settlementStatus: "pending",
+        settlementAppliedAtMs: 0,
+        started: true,
+        updatedAtMs: nowMs,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+      const started = buildStartedDuelV2RoomTransaction(tx, roomRefDoc, joinedRoom, { nowMs });
+      if (String(started.finalState?.endedReason || "").trim()) {
+        await settleDuelV2RoomTx(tx, roomRefDoc, {
+          ...joinedRoom,
+          ...started.roomUpdate,
+        }, started.finalState);
+        await writeDuelV2RoomResultIfEndedTx(tx, roomRefDoc, joinedRoom, started.roomUpdate);
+      }
+      return buildDuelV2PublicState(roomRefDoc.id, {
+        ...joinedRoom,
+        ...started.roomUpdate,
+        startedAtMs: safeSignedInt(started.roomUpdate.startedAtMs, nowMs),
+        openingSeat: safeSignedInt(started.finalState.openingSeat, -1),
+        openingTileId: safeSignedInt(started.finalState.openingTileId, -1),
+        openingReason: String(started.finalState.openingReason || "").trim(),
+        privateDeckOrder: started.privateDeckOrder,
+      }, safeUid, started.finalState);
+    }
     return buildDuelV2PublicState(roomRefDoc.id, {
       ...room,
       privateDeckOrder: state && Array.isArray(state.deckOrder) ? state.deckOrder.slice(0, 28) : [],
@@ -1201,6 +1362,35 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
     return buildDuelV2PublicState(roomRefDoc.id, { ...room, ...roomUpdate }, safeUid, nextState);
   }
 
+  if (isPublicBotOnlyDuelV2Room(room) && safeSignedInt(liveState.currentPlayer, -1) === getDuelBotSeat(room)) {
+    const botApplied = runPublicDuelBotTurns(liveState, room);
+    if (botApplied.records.length > 0 || String(botApplied.state.endedReason || "").trim()) {
+      const roomUpdate = buildDuelRoomUpdateFromGameState(room, botApplied.state, botApplied.records);
+      const settlementWalletSnaps = botApplied.state.endedReason
+        ? await preloadDuelSettlementWalletSnapsTx(tx, { ...room, ...roomUpdate }, botApplied.state)
+        : null;
+      tx.set(stateRef, buildDuelGameStateWrite(botApplied.state), { merge: true });
+      tx.set(roomRefDoc, roomUpdate, { merge: true });
+      botApplied.records.forEach((record) => {
+        tx.set(duelV2ActionRef(roomRefDoc.id, String(record.seq)), {
+          ...record,
+          roomId: roomRefDoc.id,
+          engineVersion: 2,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
+      if (botApplied.state.endedReason) {
+        await settleDuelV2RoomTx(tx, roomRefDoc, {
+          ...room,
+          ...roomUpdate,
+          __preloadedSettlementWalletSnaps: settlementWalletSnaps,
+        }, botApplied.state);
+        await writeDuelV2RoomResultIfEndedTx(tx, roomRefDoc, room, roomUpdate);
+      }
+      return buildDuelV2PublicState(roomRefDoc.id, { ...room, ...roomUpdate }, safeUid, botApplied.state);
+    }
+  }
+
   return buildDuelV2PublicState(roomRefDoc.id, {
     ...room,
     privateDeckOrder: Array.isArray(liveState.deckOrder) ? liveState.deckOrder.slice(0, 28) : [],
@@ -1212,6 +1402,7 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
   const rewardAmountHtg = buildRewardAmountHtg(stakeDoes, rewardAmountDoes);
+  const configuredBotDifficulty = await getConfiguredDuelBotDifficulty();
   const activeRoom = await findActiveDuelV2RoomForUser(uid);
   if (activeRoom) {
     const resolvedActiveRoom = await db.runTransaction(async (tx) => {
@@ -1225,165 +1416,14 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
     }
   }
 
-  const poolRef = duelV2MatchmakingPoolRef(`stake_${stakeHtg}`);
   return db.runTransaction(async (tx) => {
     const nowMs = Date.now();
-    const [poolSnap, walletSnap] = await Promise.all([
-      tx.get(poolRef),
-      tx.get(walletRef(uid)),
-    ]);
+    const walletSnap = await tx.get(walletRef(uid));
     const walletData = walletSnap.exists ? (walletSnap.data() || {}) : {};
     assertWalletNotFrozen(walletData);
 
-    const openRoomId = String(poolSnap.exists ? ((poolSnap.data() || {}).openRoomId || "") : "").trim();
-    if (openRoomId) {
-      const openRoomRef = duelV2RoomRef(openRoomId);
-      const openRoomSnap = await tx.get(openRoomRef);
-      if (openRoomSnap.exists) {
-        const room = openRoomSnap.data() || {};
-        const playerUids = Array.isArray(room.playerUids)
-          ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
-          : ["", ""];
-        const humans = playerUids.filter(Boolean).length;
-        const status = String(room.status || "").trim();
-        const openWaitingDeadlineMs = resolveDuelV2WaitDeadlineMs(room, nowMs);
-        if (
-          status === "waiting"
-          && humans < 2
-          && safeInt(room.stakeHtg || 25) === stakeHtg
-          && !(openWaitingDeadlineMs > 0 && nowMs >= openWaitingDeadlineMs)
-        ) {
-          const seatIndex = playerUids.findIndex((item) => !item);
-          if (seatIndex >= 0) {
-            const nextPlayerUids = playerUids.slice();
-            nextPlayerUids[seatIndex] = uid;
-            const nextPlayerNames = Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""];
-            nextPlayerNames[seatIndex] = sanitizePlayerLabel(email || uid, seatIndex);
-            const nextSeats = room.seats && typeof room.seats === "object" ? { ...room.seats } : {};
-            nextSeats[uid] = seatIndex;
-            const nextPresence = room.roomPresenceMs && typeof room.roomPresenceMs === "object"
-              ? { ...room.roomPresenceMs }
-              : {};
-            nextPresence[uid] = nowMs;
-            const currentFundingCurrencies = room.entryFundingCurrencyByUid && typeof room.entryFundingCurrencyByUid === "object"
-              ? { ...room.entryFundingCurrencyByUid }
-              : {};
-            nextPlayerUids.forEach((playerUid) => {
-              if (!playerUid) return;
-              currentFundingCurrencies[playerUid] = normalizeFundingCurrency(currentFundingCurrencies[playerUid] || "htg");
-            });
-
-            try {
-              const roomForCharge = {
-                ...room,
-                playerUids: nextPlayerUids,
-                playerNames: nextPlayerNames,
-                seats: nextSeats,
-                roomPresenceMs: nextPresence,
-                entryFundingCurrencyByUid: currentFundingCurrencies,
-                stakeHtg,
-                stakeDoes,
-                entryCostDoes: stakeDoes,
-                rewardAmountDoes,
-                rewardAmountHtg,
-              };
-              const chargeResult = await chargeRoomEntriesTx(tx, roomForCharge, nextPlayerUids, stakeDoes);
-              const joinedRoom = {
-                ...roomForCharge,
-                humanCount: 2,
-                botCount: 0,
-                started: true,
-                entryFundingByUid: chargeResult.entryFundingByUid,
-                settlementStatus: "pending",
-                settlementAppliedAtMs: 0,
-              };
-              tx.set(openRoomRef, {
-                playerUids: nextPlayerUids,
-                playerNames: nextPlayerNames,
-                seats: nextSeats,
-                roomPresenceMs: nextPresence,
-                humanCount: 2,
-                botCount: 0,
-                entryFundingByUid: chargeResult.entryFundingByUid,
-                entryFundingCurrencyByUid: currentFundingCurrencies,
-                stakeHtg,
-                stakeDoes,
-                entryCostDoes: stakeDoes,
-                rewardAmountDoes,
-                rewardAmountHtg,
-                settlementStatus: "pending",
-                settlementAppliedAtMs: 0,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAtMs: nowMs,
-              }, { merge: true });
-              const started = buildStartedDuelV2RoomTransaction(tx, openRoomRef, joinedRoom, { nowMs });
-              clearDuelV2MatchmakingPool(tx, poolRef);
-              if (String(started.finalState?.endedReason || "").trim()) {
-                await settleDuelV2RoomTx(tx, openRoomRef, {
-                  ...joinedRoom,
-                  ...started.roomUpdate,
-                }, started.finalState);
-                await writeDuelV2RoomResultIfEndedTx(tx, openRoomRef, joinedRoom, started.roomUpdate);
-              }
-
-              const publicRoomSnapshot = {
-                ...joinedRoom,
-                status: String(started.roomUpdate.status || joinedRoom.status || "playing").trim() || "playing",
-                currentPlayer: safeSignedInt(started.finalState.currentPlayer, -1),
-                openingSeat: safeSignedInt(started.finalState.openingSeat, -1),
-                openingTileId: safeSignedInt(started.finalState.openingTileId, -1),
-                openingReason: String(started.finalState.openingReason || "").trim(),
-                lastActionSeq: safeSignedInt(started.finalState.appliedActionSeq, -1),
-                turnActual: Math.max(0, safeInt(started.finalState.appliedActionSeq) + 1),
-                winnerSeat: safeSignedInt(started.finalState.winnerSeat, -1),
-                winnerUid: String(started.finalState.winnerUid || "").trim(),
-                endedReason: String(started.finalState.endedReason || "").trim(),
-                turnDeadlineMs: safeSignedInt(started.roomUpdate.turnDeadlineMs, 0),
-                startedAtMs: safeSignedInt(started.roomUpdate.startedAtMs, nowMs),
-                waitingDeadlineMs: 0,
-                startRevealPending: false,
-                privateDeckOrder: started.privateDeckOrder,
-              };
-
-              return {
-                ...buildDuelV2PublicState(openRoomRef.id, publicRoomSnapshot, uid, started.finalState),
-                resumed: false,
-                charged: true,
-                does: safeInt(chargeResult.afterDoesByUid[uid]),
-              };
-            } catch (error) {
-              if (String(error?.code || "") === "insufficient-funds") {
-                tx.set(openRoomRef, {
-                  status: "closed",
-                  endedReason: "stale_balance",
-                  endedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  endedAtMs: nowMs,
-                  waitingDeadlineMs: admin.firestore.FieldValue.delete(),
-                  updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                  updatedAtMs: nowMs,
-                }, { merge: true });
-                clearDuelV2MatchmakingPool(tx, poolRef);
-              } else {
-                console.error("[DUEL_V2_JOIN_PUBLIC_MATCHMAKING] failed_to_fill_open_room", {
-                  roomId: openRoomId,
-                  joinerUid: uid,
-                  ownerUid: String(room.ownerUid || "").trim(),
-                  humans,
-                  status,
-                  seatIndex,
-                  errorCode: String(error?.code || ""),
-                  errorMessage: String(error?.message || "unknown_error"),
-                });
-                throw error;
-              }
-            }
-          }
-        }
-      }
-      clearDuelV2MatchmakingPool(tx, poolRef);
-    }
-
     const roomRefDoc = duelV2RoomRef();
+    const botName = pickPublicDuelBotName();
     const roomData = {
       ownerUid: uid,
       roomMode: "duel_v2_public",
@@ -1394,11 +1434,11 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAtMs: nowMs,
       playerUids: [uid, ""],
-      playerNames: [sanitizePlayerLabel(email || uid, 0), ""],
+      playerNames: [sanitizePlayerLabel(email || uid, 0), botName],
       seats: { [uid]: 0 },
       roomPresenceMs: { [uid]: nowMs },
       humanCount: 1,
-      botCount: 0,
+      botCount: 1,
       currentPlayer: -1,
       winnerSeat: -1,
       winnerUid: "",
@@ -1406,7 +1446,7 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
       settlementStatus: "",
       settlementAppliedAtMs: 0,
       startRevealPending: false,
-      waitingDeadlineMs: nowMs + ROOM_WAIT_MS,
+      waitingDeadlineMs: nowMs + PUBLIC_DUEL_BOT_WAIT_MS,
       startedAtMs: 0,
       turnDeadlineMs: 0,
       stakeHtg,
@@ -1416,10 +1456,11 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
       rewardAmountHtg,
       entryFundingByUid: {},
       entryFundingCurrencyByUid: { [uid]: "htg" },
-      allowBots: false,
+      allowBots: true,
+      botDifficulty: configuredBotDifficulty || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY,
+      botProfileName: botName,
     };
     tx.set(roomRefDoc, roomData);
-    setDuelV2MatchmakingPoolOpen(tx, poolRef, roomRefDoc.id, stakeHtg);
     return {
       ...buildDuelV2PublicState(roomRefDoc.id, roomData, uid),
       resumed: false,
@@ -2078,26 +2119,33 @@ async function submitActionDuelV2({ uid, payload = {} }) {
 
     const resolvedMove = resolveRequestedDuelMove(currentState, localSeat, action);
     const applied = applyResolvedDuelMove(currentState, room, resolvedMove, uid);
-    const nextState = {
+    const postHumanState = {
       ...applied.state,
       idempotencyKeys: {
         ...(applied.state.idempotencyKeys && typeof applied.state.idempotencyKeys === "object" ? applied.state.idempotencyKeys : {}),
         [clientActionId]: true,
       },
     };
-    const roomUpdate = buildDuelRoomUpdateFromGameState(room, nextState, [applied.record]);
+    const botProgress = runPublicDuelBotTurns(postHumanState, room);
+    const nextState = botProgress.records.length > 0 || String(botProgress.state.endedReason || "").trim()
+      ? botProgress.state
+      : postHumanState;
+    const records = [applied.record, ...botProgress.records];
+    const roomUpdate = buildDuelRoomUpdateFromGameState(room, nextState, records);
     const settlementWalletSnaps = nextState.endedReason
       ? await preloadDuelSettlementWalletSnapsTx(tx, { ...room, ...roomUpdate }, nextState)
       : null;
 
     tx.set(duelV2GameStateRef(roomId), buildDuelGameStateWrite(nextState), { merge: true });
     tx.set(roomRefDoc, roomUpdate, { merge: true });
-    tx.set(duelV2ActionRef(roomId, String(applied.record.seq)), {
-      ...applied.record,
-      roomId,
-      engineVersion: 2,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    records.forEach((record) => {
+      tx.set(duelV2ActionRef(roomId, String(record.seq)), {
+        ...record,
+        roomId,
+        engineVersion: 2,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
 
     const settlement = nextState.endedReason
       ? await settleDuelV2RoomTx(tx, roomRefDoc, {
