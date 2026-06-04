@@ -321,17 +321,19 @@ function ensureGameUnavailableModal() {
   return gameUnavailableModal;
 }
 
-function openGameUnavailableModal(gameKey = "") {
+function openGameUnavailableModal(gameKey = "", options = {}) {
   const modal = ensureGameUnavailableModal();
   const label = getGameAvailabilityLabel(gameKey);
   const titleEl = modal.querySelector("[data-kobposh-game-unavailable-title]");
   const textEl = modal.querySelector("[data-kobposh-game-unavailable-text]");
+  const customTitle = String(options?.title || "").trim();
+  const customText = String(options?.text || "").trim();
 
   if (titleEl) {
-    titleEl.textContent = `${label} pa disponib pou kounye a`;
+    titleEl.textContent = customTitle || `${label} pa disponib pou kounye a`;
   }
   if (textEl) {
-    textEl.textContent = `Nou femen ${label} tanporèman. Tanpri tounen pita pou eseye anko.`;
+    textEl.textContent = customText || `Nou femen ${label} tanporèman. Tanpri tounen pita pou eseye anko.`;
   }
 
   closeGamesModal();
@@ -989,7 +991,10 @@ function ensureDominoModeModal() {
   continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
-      ensureDominoDuelStakeModal().open();
+      openGameUnavailableModal("domino-duel", {
+        title: "Domino duel la gen yon pwoblem teknik",
+        text: "Nou retire Domino duel tanporèman pandan nap regle yon pwoblem teknik. Sa ap ranje sou peu.",
+      });
       return;
     }
     close();
