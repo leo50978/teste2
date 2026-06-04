@@ -569,12 +569,17 @@ function setStatus(message = "") {
   if (text) text.textContent = String(message || "");
 }
 
+function isRoomActivelyPlaying(state = currentRoomData) {
+  const status = String(state?.status || "").trim().toLowerCase();
+  return status === "playing" || gameLaunched === true || actionsReady === true;
+}
+
 function setMatchLoading(visible, text = "") {
   const overlay = $("MatchLoadingOverlay");
   const textNode = $("MatchLoadingText");
   if (textNode && text) textNode.textContent = String(text);
   if (!overlay) return;
-  if (String(currentRoomData?.status || "") === "playing" && visible !== true) {
+  if (isRoomActivelyPlaying() && visible !== true) {
     overlay.classList.add("hidden");
     overlay.classList.remove("flex");
     return;
@@ -694,7 +699,7 @@ function renderWaitingExpired() {
 }
 
 async function resolvePublicBotMatchStart() {
-  if (publicBotTransitionRunning || currentRoomMode !== "duel_v2_public" || !currentRoomId) return;
+  if (publicBotTransitionRunning || currentRoomMode !== "duel_v2_public" || !currentRoomId || isRoomActivelyPlaying()) return;
   publicBotTransitionRunning = true;
   const title = $("MatchLoadingTitle");
   const text = $("MatchLoadingText");
@@ -708,6 +713,10 @@ async function resolvePublicBotMatchStart() {
     const room = await refreshFullRoomState();
     const status = String(room?.status || currentRoomData?.status || "").trim().toLowerCase();
     if (status === "playing") {
+      stopWaitingCycle();
+      waitDeadlineMs = 0;
+      roomWaitingDeadlineMs = 0;
+      setMatchLoading(false);
       return;
     }
     roomWaitingDeadlineMs = safeSignedInt(room?.waitingDeadlineMs, roomWaitingDeadlineMs);
@@ -734,6 +743,13 @@ async function resolvePublicBotMatchStart() {
 }
 
 function tickWaitingCycle() {
+  if (isRoomActivelyPlaying()) {
+    stopWaitingCycle();
+    waitDeadlineMs = 0;
+    roomWaitingDeadlineMs = 0;
+    setMatchLoading(false);
+    return;
+  }
   const remainingMs = Math.max(0, waitDeadlineMs - Date.now());
   const timerValue = $("MatchLoadingTimerValue");
   if (timerValue) timerValue.textContent = `${Math.max(0, Math.ceil(remainingMs / 1000))}s`;
@@ -747,6 +763,15 @@ function tickWaitingCycle() {
 }
 
 function renderWaitingSearch() {
+  if (isRoomActivelyPlaying()) {
+    stopWaitingCycle();
+    waitDeadlineMs = 0;
+    roomWaitingDeadlineMs = 0;
+    setWaitingTimerVisible(false);
+    configureWaitingActionButtons({ showRetry: false, showGroup: false, showHome: false });
+    setMatchLoading(false);
+    return;
+  }
   const title = $("MatchLoadingTitle");
   const text = $("MatchLoadingText");
   const stakeHtg = getStakeHtgValue();
@@ -798,6 +823,13 @@ function openFriendRematchWaitingState(
 }
 
 function startWaitingWindow(nextDeadlineMs = 0) {
+  if (isRoomActivelyPlaying()) {
+    stopWaitingCycle();
+    waitDeadlineMs = 0;
+    roomWaitingDeadlineMs = 0;
+    setMatchLoading(false);
+    return;
+  }
   roomWaitingDeadlineMs = safeSignedInt(nextDeadlineMs, roomWaitingDeadlineMs);
   publicBotTransitionRunning = false;
   stopWaitingCycle();
@@ -1437,7 +1469,7 @@ function launchLocalGame(roomData) {
     return;
   }
   if (gameLaunched) {
-    if (currentRoomData?.startRevealPending !== true && actionsReady) setMatchLoading(false);
+    setMatchLoading(false);
     if (window.UI && typeof window.UI.ActualizarBotonLucesJugadores === "function") {
       window.UI.ActualizarBotonLucesJugadores();
     }
@@ -1451,6 +1483,7 @@ function launchLocalGame(roomData) {
     window.UI.ActualizarBotonLucesJugadores();
   }
   syncLotUi();
+  setMatchLoading(false);
   watchActions(currentRoomId);
 }
 
@@ -1494,6 +1527,13 @@ function watchRoom(roomId) {
       }
       refreshOrientationGuardState();
       if (status === "waiting") {
+        if (isRoomActivelyPlaying(currentRoomData)) {
+          stopWaitingCycle();
+          waitDeadlineMs = 0;
+          roomWaitingDeadlineMs = 0;
+          setMatchLoading(false);
+          return;
+        }
         publicBotTransitionRunning = false;
         setLotModalOpen(false);
         hideEndedOverlay();
@@ -1515,8 +1555,8 @@ function watchRoom(roomId) {
           await refreshWallet();
         }
         launchLocalGame(currentRoomData);
+        setMatchLoading(false);
         if (actionsReady) {
-          setMatchLoading(false);
           scheduleTurnTimeout(currentRoomData);
         }
         syncLotUi();
@@ -1682,7 +1722,7 @@ async function pingPresence() {
       duelDeckOrder = room.privateDeckOrder.slice(0, 28);
     }
     renderWallet();
-    if (String(currentRoomData?.status || "") === "waiting") {
+    if (!isRoomActivelyPlaying() && String(currentRoomData?.status || "") === "waiting") {
       roomWaitingDeadlineMs = safeSignedInt(currentRoomData?.waitingDeadlineMs, roomWaitingDeadlineMs);
       renderWaitingSearch();
     }
