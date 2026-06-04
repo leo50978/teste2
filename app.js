@@ -14,7 +14,7 @@
   signInWithEmailAndPassword,
   where,
 } from "./firebase-init.js";
-import PaymentModal from "./payment.js";
+import PaymentModal from "./payment.js?v=20260603-welcome-export1";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
 import {
   buildHomeHeroImagePath,
@@ -24,6 +24,7 @@ import {
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
+  createFriendLudoRoomSecure,
   createFriendDuelRoomV2Secure,
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
@@ -216,6 +217,8 @@ const TOURNAMENT_REGISTER_COST_DOES = TOURNAMENT_REGISTER_COST_HTG * 20;
 
 const DAME_PUBLIC_ENTRY_HTG = 25;
 const LUDO_PUBLIC_ENTRY_HTG = 25;
+const CHESS_PUBLIC_ENTRY_HTG = 25;
+const CHESS_PRIVATE_MIN_STAKE_HTG = 25;
 const LUDO_PUBLIC_ENTRY_DOES = 500;
 const LUDO_FRIEND_STAKE_OPTIONS_HTG = Object.freeze([25, 50, 100, 250, 500]);
 const UPCOMING_GAME_LABELS = {
@@ -226,6 +229,7 @@ const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
+  dominoDuelPublicEnabled: true,
   ludoEnabled: true,
 });
 
@@ -239,6 +243,7 @@ function normalizePublicGameAvailability(raw = {}) {
   return {
     pongEnabled: source.pongEnabled !== false,
     dominoClassicEnabled: source.dominoClassicEnabled !== false,
+    dominoDuelPublicEnabled: source.dominoDuelPublicEnabled !== false,
     ludoEnabled: source.ludoEnabled !== false,
   };
 }
@@ -279,6 +284,7 @@ function getGameAvailabilityLabel(gameKey = "") {
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedKey === "pong") return "Pong";
   if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
+  if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") return "Domino duel gran chanm";
   if (normalizedKey === "ludo") return "Ludo";
   return "Jwet sa a";
 }
@@ -318,17 +324,19 @@ function ensureGameUnavailableModal() {
   return gameUnavailableModal;
 }
 
-function openGameUnavailableModal(gameKey = "") {
+function openGameUnavailableModal(gameKey = "", options = {}) {
   const modal = ensureGameUnavailableModal();
   const label = getGameAvailabilityLabel(gameKey);
   const titleEl = modal.querySelector("[data-kobposh-game-unavailable-title]");
   const textEl = modal.querySelector("[data-kobposh-game-unavailable-text]");
+  const customTitle = String(options?.title || "").trim();
+  const customText = String(options?.text || "").trim();
 
   if (titleEl) {
-    titleEl.textContent = `${label} pa disponib pou kounye a`;
+    titleEl.textContent = customTitle || `${label} pa disponib pou kounye a`;
   }
   if (textEl) {
-    textEl.textContent = `Nou femen ${label} tanporèman. Tanpri tounen pita pou eseye anko.`;
+    textEl.textContent = customText || `Nou femen ${label} tanporèman. Tanpri tounen pita pou eseye anko.`;
   }
 
   closeGamesModal();
@@ -351,6 +359,8 @@ async function canLaunchPublicGame(gameKey = "") {
   let isEnabled = true;
   if (normalizedKey === "pong") {
     isEnabled = availability.pongEnabled !== false;
+  } else if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
+    isEnabled = availability.dominoDuelPublicEnabled !== false;
   } else if (normalizedKey === "ludo") {
     isEnabled = availability.ludoEnabled !== false;
   } else {
@@ -387,13 +397,16 @@ function buildLudoEntryUrl({
   roomId = "",
   stakeHtg = LUDO_PUBLIC_ENTRY_HTG,
   autostart = true,
+  includeStake = true,
 } = {}) {
   const safeStakeHtg = Math.max(0, Math.trunc(Number(stakeHtg) || LUDO_PUBLIC_ENTRY_HTG));
   const params = new URLSearchParams({
-    stakeDoes: String(safeStakeHtg * 20),
     fundingCurrency: "htg",
-    stakeHtg: String(safeStakeHtg),
   });
+  if (includeStake) {
+    params.set("stakeDoes", String(safeStakeHtg * 20));
+    params.set("stakeHtg", String(safeStakeHtg));
+  }
   if (autostart) params.set("autostart", "1");
   if (roomMode) params.set("roomMode", String(roomMode || "").trim());
   if (friendAction) params.set("friendAction", String(friendAction || "").trim());
@@ -430,7 +443,7 @@ function ensureLudoStakeModal() {
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="public">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Piblik</span>
           <span class="mt-2 block text-lg font-black text-[#18212b]">Gran chanm</span>
-          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Jwe kont bot la ak antre piblik 25 HTG la.</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Antre dirak nan gran chanm piblik 25 HTG la.</span>
         </button>
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="friend">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Entre amis</span>
@@ -452,7 +465,7 @@ function ensureLudoStakeModal() {
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="create">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kreye</span>
           <span class="mt-2 block text-lg font-black text-[#18212b]">Nouvo salon prive</span>
-          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Paj Ludo a ap kreye room nan epi ba ou kod la.</span>
+          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Nou ap kreye salon an la menm epi ba ou kod la anvan ou antre sou paj la.</span>
         </button>
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-friend-action="join">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Antre</span>
@@ -479,6 +492,30 @@ function ensureLudoStakeModal() {
           </div>
           <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Joiner a ap suiv mise sa a. Li pap ka chanje li sou pa l.</p>
           <p class="mt-3 min-h-[20px] text-sm font-medium text-[#c05b5b]" data-kobposh-ludo-private-status></p>
+        </div>
+      </div>
+
+      <div class="mt-5 hidden space-y-4" data-kobposh-ludo-step-panel="privateShare">
+        <div class="rounded-[22px] border border-[#d6ebe0] bg-[#eef8f1] px-5 py-5">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6f7f76]">Salon pare</p>
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <p class="text-2xl font-black text-[#156437]">Kod la deja pare</p>
+            <span class="rounded-full border border-[#dce5df] bg-white px-3 py-1 text-[11px] font-semibold text-[#41514b]" data-kobposh-ludo-created-stake>25 HTG</span>
+          </div>
+          <p class="mt-3 text-sm leading-6 text-[#5f6f67]">Pataje kod sa a ak zanmi ou avan ou antre sou paj Ludo a. Konsa li ka prepare kod la tou san nou pa pedi tan apre sa.</p>
+        </div>
+        <div class="rounded-[22px] border border-[#dce5df] bg-white px-5 py-5">
+          <label class="block">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod salon prive a</span>
+            <div class="mt-3 flex items-center gap-3 rounded-[20px] border border-[#dce5df] bg-[#f7fbf8] px-4 py-4">
+              <p class="min-w-0 flex-1 text-[30px] font-black uppercase tracking-[0.24em] text-[#18212b]" data-kobposh-ludo-created-code>------</p>
+              <button type="button" class="rounded-full border border-[#dce5df] bg-white px-4 py-2 text-xs font-semibold text-[#42524c] transition hover:bg-[#f7fbf8]" data-kobposh-ludo-copy-code>
+                Kopye
+              </button>
+            </div>
+          </label>
+          <p class="mt-4 text-xs leading-5 text-[#6d7b74]">Le ou peze kontinye, paj Ludo a ap louvri dirak sou salon sa a san li pa bezwen rekreye li.</p>
+          <p class="mt-3 min-h-[20px] text-sm font-medium text-[#156437]" data-kobposh-ludo-share-status></p>
         </div>
       </div>
 
@@ -517,6 +554,10 @@ function ensureLudoStakeModal() {
   const joinStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-join-status]");
   const publicStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-public-status]");
   const quickStakeButtons = Array.from(ludoStakeModal.querySelectorAll("[data-kobposh-ludo-stake-quick]"));
+  const createdCodeEl = ludoStakeModal.querySelector("[data-kobposh-ludo-created-code]");
+  const createdStakeEl = ludoStakeModal.querySelector("[data-kobposh-ludo-created-stake]");
+  const shareStatusEl = ludoStakeModal.querySelector("[data-kobposh-ludo-share-status]");
+  const copyCodeBtn = ludoStakeModal.querySelector("[data-kobposh-ludo-copy-code]");
   const normalizeStakeHtg = (value, fallback = LUDO_PUBLIC_ENTRY_HTG) => {
     const parsed = Number.parseInt(String(value || ""), 10);
     return Number.isFinite(parsed) ? Math.max(0, parsed) : fallback;
@@ -526,13 +567,16 @@ function ensureLudoStakeModal() {
     mode: { label: "Etap 1/3", nextLabel: "Suivant", showBack: false },
     public: { label: "Etap 2/2", nextLabel: "Antre nan gran chanm nan", showBack: true },
     private: { label: "Etap 2/3", nextLabel: "Suivant", showBack: true },
-    privateCreate: { label: "Etap 3/3", nextLabel: "Kontinye sou paj Ludo a", showBack: true },
+    privateCreate: { label: "Etap 3/3", nextLabel: "Kreye salon prive a", showBack: true },
+    privateShare: { label: "Etap 3/3", nextLabel: "Kontinye sou paj Ludo a", showBack: false },
     privateJoin: { label: "Etap 3/3", nextLabel: "Antre sou paj Ludo a", showBack: true },
   };
   let currentStep = "mode";
   let selectedMode = "";
   let selectedFriendAction = "";
   let privateStakeHtg = LUDO_PUBLIC_ENTRY_HTG;
+  let createdFriendRoomState = null;
+  let creatingFriendRoom = false;
 
   const setPublicStatus = (message = "") => {
     if (publicStatusEl) publicStatusEl.textContent = String(message || "");
@@ -542,6 +586,12 @@ function ensureLudoStakeModal() {
   };
   const setJoinStatus = (message = "") => {
     if (joinStatusEl) joinStatusEl.textContent = String(message || "");
+  };
+  const setShareStatus = (message = "", tone = "success") => {
+    if (!shareStatusEl) return;
+    shareStatusEl.textContent = String(message || "");
+    shareStatusEl.classList.toggle("text-[#156437]", tone !== "error");
+    shareStatusEl.classList.toggle("text-[#c05b5b]", tone === "error");
   };
   const validatePublic = () => {
     const balance = getCurrentHomeWalletTotalHtg();
@@ -577,18 +627,93 @@ function ensureLudoStakeModal() {
     setJoinStatus("");
     return true;
   };
+  const populateCreatedFriendRoom = () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    const roomStakeHtg = normalizeStakeHtg(createdFriendRoomState?.stakeHtg, privateStakeHtg || LUDO_PUBLIC_ENTRY_HTG);
+    if (createdCodeEl) createdCodeEl.textContent = inviteCode || "------";
+    if (createdStakeEl) createdStakeEl.textContent = `${roomStakeHtg} HTG`;
+  };
+  const copyCreatedFriendCode = async () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    if (!inviteCode) {
+      setShareStatus("Kod la poko pare pou kopye.", "error");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setShareStatus("Kod la kopye. Ou ka voye li bay zanmi ou kounye a.");
+    } catch (_) {
+      setShareStatus(`Kopye kod sa a manyelman: ${inviteCode}`, "error");
+    }
+  };
   const renderStep = () => {
     stepPanels.forEach((panel) => {
       panel.classList.toggle("hidden", panel.getAttribute("data-kobposh-ludo-step-panel") !== currentStep);
     });
     const meta = STEP_META[currentStep] || STEP_META.mode;
     if (stepLabelEl) stepLabelEl.textContent = meta.label;
-    if (nextBtn) nextBtn.textContent = meta.nextLabel;
+    populateCreatedFriendRoom();
+    if (nextBtn) {
+      nextBtn.textContent = meta.nextLabel;
+      nextBtn.disabled = (currentStep === "mode" && !selectedMode)
+        || (currentStep === "private" && !selectedFriendAction)
+        || (currentStep === "privateCreate" && creatingFriendRoom)
+        || (currentStep === "privateShare" && (!createdFriendRoomState?.roomId || creatingFriendRoom));
+    }
     if (backBtn) backBtn.classList.toggle("hidden", !meta.showBack);
+  };
+  const resetFlow = () => {
+    currentStep = "mode";
+    selectedMode = "";
+    selectedFriendAction = "";
+    privateStakeHtg = LUDO_PUBLIC_ENTRY_HTG;
+    createdFriendRoomState = null;
+    creatingFriendRoom = false;
+    if (privateStakeInput) privateStakeInput.value = String(LUDO_PUBLIC_ENTRY_HTG);
+    if (joinCodeInput) joinCodeInput.value = "";
+    setPublicStatus("");
+    setPrivateStakeStatus("");
+    setJoinStatus("");
+    setShareStatus("");
+    renderStep();
   };
   const launch = (options = {}) => {
     closeLudoStakeModal();
     window.location.href = buildLudoEntryUrl(options);
+  };
+  const handleCreateFriendRoom = async () => {
+    if (!validatePrivateStake()) return;
+
+    creatingFriendRoom = true;
+    createdFriendRoomState = null;
+    setPrivateStakeStatus("M ap kreye salon prive a...");
+    setShareStatus("M ap kreye salon prive a...");
+    renderStep();
+    try {
+      const result = await createFriendLudoRoomSecure({ stakeHtg: privateStakeHtg });
+      createdFriendRoomState = {
+        roomId: String(result?.roomId || "").trim(),
+        inviteCode: normalizeInviteCode(result?.inviteCode || ""),
+        stakeHtg: normalizeStakeHtg(result?.stakeHtg, privateStakeHtg),
+        resumed: result?.resumed === true,
+      };
+      currentStep = "privateShare";
+      setShareStatus(
+        createdFriendRoomState.resumed
+          ? "Nou jwenn salon prive ou te deja genyen an. Ou ka pataje kod la oswa kontinye."
+          : "Salon prive a pare. Pataje kod la ak zanmi ou avan ou antre nan paj la."
+      );
+      setPrivateStakeStatus("");
+      renderStep();
+    } catch (error) {
+      createdFriendRoomState = null;
+      setShareStatus("");
+      setPrivateStakeStatus(error?.message || "Nou pa rive kreye salon prive a.");
+      renderStep();
+    } finally {
+      creatingFriendRoom = false;
+      renderStep();
+    }
   };
 
   ludoStakeModal.addEventListener("click", (event) => {
@@ -646,12 +771,21 @@ function ensureLudoStakeModal() {
         return;
       }
       if (currentStep === "privateCreate") {
-        if (!validatePrivateStake()) return;
+        void handleCreateFriendRoom();
+        return;
+      }
+      if (currentStep === "privateShare") {
+        if (!createdFriendRoomState?.roomId) {
+          renderStep();
+          return;
+        }
         launch({
           autostart: false,
           roomMode: "ludo_friends",
           friendAction: "create",
-          stakeHtg: privateStakeHtg,
+          inviteCode: normalizeInviteCode(createdFriendRoomState.inviteCode || ""),
+          roomId: String(createdFriendRoomState.roomId || "").trim(),
+          stakeHtg: normalizeStakeHtg(createdFriendRoomState.stakeHtg, privateStakeHtg),
         });
         return;
       }
@@ -662,9 +796,12 @@ function ensureLudoStakeModal() {
           roomMode: "ludo_friends",
           friendAction: "join",
           inviteCode: normalizeInviteCode(joinCodeInput?.value || ""),
-          stakeHtg: LUDO_PUBLIC_ENTRY_HTG,
+          includeStake: false,
         });
       }
+    }
+    if (target?.closest("[data-kobposh-ludo-copy-code]")) {
+      void copyCreatedFriendCode();
     }
   });
 
@@ -682,13 +819,17 @@ function ensureLudoStakeModal() {
     joinCodeInput.value = normalizeInviteCode(joinCodeInput.value || "");
     validateJoinCode();
   });
-  renderStep();
+  ludoStakeModal.__kobposhLudoResetFlow = resetFlow;
+  resetFlow();
 
   return ludoStakeModal;
 }
 
 function openLudoStakeModal() {
   const modal = ensureLudoStakeModal();
+  if (typeof modal.__kobposhLudoResetFlow === "function") {
+    modal.__kobposhLudoResetFlow();
+  }
   closeGamesModal();
   modal.classList.add("is-open");
   modal.setAttribute("aria-hidden", "false");
@@ -1317,7 +1458,7 @@ function ensureDominoDuelStakeModal() {
     }
     renderStep();
   };
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "mode") {
       if (!selectedMode) return;
       currentStep = selectedMode === "friend" ? "private" : "public";
@@ -1330,6 +1471,8 @@ function ensureDominoDuelStakeModal() {
         renderStep();
         return;
       }
+      const canLaunch = await canLaunchPublicGame("domino-duel");
+      if (!canLaunch) return;
       setJoinStatus("");
       launch({ stakeHtg: PUBLIC_DUEL_STAKE_HTG });
       return;
@@ -1369,7 +1512,9 @@ function ensureDominoDuelStakeModal() {
   });
   overlay.querySelector("[data-close-domino-duel-stake]")?.addEventListener("click", close);
   backBtn?.addEventListener("click", handleBack);
-  nextBtn?.addEventListener("click", handleNext);
+    nextBtn?.addEventListener("click", () => {
+      void handleNext();
+    });
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
       selectedMode = button.getAttribute("data-domino-duel-select-mode") === "friend" ? "friend" : "public";
@@ -4650,6 +4795,208 @@ function closeDameBlockedModal() {
   document.body.classList.remove("is-modal-open");
 }
 
+let chessStakeModal = null;
+
+function buildChessUrl({
+  roomMode = "",
+  friendAction = "",
+  inviteCode = "",
+  stakeHtg = CHESS_PUBLIC_ENTRY_HTG,
+  roomId = "",
+  botDifficulty = "fo",
+} = {}) {
+  const safeStakeHtg = Math.max(0, Math.trunc(Number(stakeHtg) || CHESS_PUBLIC_ENTRY_HTG));
+  const params = new URLSearchParams({
+    stakeHtg: String(safeStakeHtg),
+    roomMode: String(roomMode || "chess_public_bot").trim() || "chess_public_bot",
+    botDifficulty: String(botDifficulty || "fo").trim().toLowerCase() || "fo",
+  });
+  if (friendAction) params.set("friendAction", String(friendAction || "").trim().toLowerCase());
+  if (inviteCode) params.set("inviteCode", String(inviteCode || "").trim().toUpperCase());
+  if (roomId) params.set("friendChessRoomId", String(roomId || "").trim());
+  return `./JS-Chess-Stockfish-Puzzles-main/kobposh-chess.html?${params.toString()}`;
+}
+
+function ensureChessStakeModal() {
+  if (chessStakeModal) return chessStakeModal;
+
+  const modal = document.createElement("section");
+  modal.className = "kobposh-forgot-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhChessModeTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-chess-mode-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">ECHEC</p>
+      <h2 id="kobposhChessModeTitle" class="kobposh-forgot-modal__title">Chwazi mode jeu ou</h2>
+      <p class="kobposh-forgot-modal__text">
+        Gran chanm nan se 25 HTG fixe. Salon prive a komanse depi 25 HTG ak kod envitasyon.
+      </p>
+      <div class="mt-5 grid gap-3">
+        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-public>
+          Antre nan gran chanm nan
+        </button>
+        <button class="kobposh-forgot-modal__secondary" type="button" data-kobposh-chess-private-toggle>
+          Ouvri salon prive a
+        </button>
+      </div>
+      <div class="mt-5 hidden rounded-[24px] border border-[#dce5df] bg-[#f8fcf9] p-4 text-left" data-kobposh-chess-private-panel>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="create">
+            <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Create</span>
+            <span class="mt-2 block text-lg font-black text-[#18212b]">Nouvo salon prive</span>
+          </button>
+          <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="join">
+            <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Join</span>
+            <span class="mt-2 block text-lg font-black text-[#18212b]">Antre ak kod la</span>
+          </button>
+        </div>
+        <div class="mt-4 space-y-3" data-kobposh-chess-private-create-panel>
+          <label class="block text-sm font-semibold text-[#30443a]" for="kobposhChessPrivateStake">Montan salon prive a</label>
+          <input id="kobposhChessPrivateStake" class="w-full rounded-[18px] border border-[#dce5df] bg-white px-4 py-3 text-base font-semibold text-[#18212b] outline-none" type="number" min="${CHESS_PRIVATE_MIN_STAKE_HTG}" step="25" value="${CHESS_PRIVATE_MIN_STAKE_HTG}">
+          <p class="text-sm text-[#5f6f67]" data-kobposh-chess-private-status></p>
+          <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-private-create-submit>
+            Kreye salon prive a
+          </button>
+        </div>
+        <div class="mt-4 hidden space-y-3" data-kobposh-chess-private-join-panel>
+          <label class="block text-sm font-semibold text-[#30443a]" for="kobposhChessInviteCode">Kod salon prive a</label>
+          <input id="kobposhChessInviteCode" class="w-full rounded-[18px] border border-[#dce5df] bg-white px-4 py-3 text-base font-semibold uppercase tracking-[0.12em] text-[#18212b] outline-none" type="text" maxlength="12" placeholder="ABCD12">
+          <p class="text-sm text-[#5f6f67]" data-kobposh-chess-join-status></p>
+          <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-private-join-submit>
+            Antre nan salon an
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  try {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons({ icons: window.lucide.icons, attrs: { class: "icon" } });
+    }
+  } catch (_) {
+  }
+
+  const privatePanel = modal.querySelector("[data-kobposh-chess-private-panel]");
+  const createPanel = modal.querySelector("[data-kobposh-chess-private-create-panel]");
+  const joinPanel = modal.querySelector("[data-kobposh-chess-private-join-panel]");
+  const privateStatusEl = modal.querySelector("[data-kobposh-chess-private-status]");
+  const joinStatusEl = modal.querySelector("[data-kobposh-chess-join-status]");
+  const privateStakeInput = modal.querySelector("#kobposhChessPrivateStake");
+  const inviteInput = modal.querySelector("#kobposhChessInviteCode");
+
+  const close = () => {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-modal-open");
+  };
+
+  const open = () => {
+    if (privatePanel) privatePanel.classList.add("hidden");
+    if (createPanel) createPanel.classList.remove("hidden");
+    if (joinPanel) joinPanel.classList.add("hidden");
+    if (privateStatusEl) privateStatusEl.textContent = "";
+    if (joinStatusEl) joinStatusEl.textContent = "";
+    if (privateStakeInput) privateStakeInput.value = String(CHESS_PRIVATE_MIN_STAKE_HTG);
+    if (inviteInput) inviteInput.value = "";
+    closeGamesModal();
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-modal-open");
+  };
+
+  const validatePrivateStake = () => {
+    const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+    const stakeHtg = Math.max(
+      CHESS_PRIVATE_MIN_STAKE_HTG,
+      Math.trunc(Number(privateStakeInput?.value || CHESS_PRIVATE_MIN_STAKE_HTG) || CHESS_PRIVATE_MIN_STAKE_HTG)
+    );
+    if (privateStakeInput) privateStakeInput.value = String(stakeHtg);
+    if (currentBalanceHtg < stakeHtg) {
+      if (privateStatusEl) {
+        privateStatusEl.textContent = `Ou bezwen ${formatHtg(Math.max(0, stakeHtg - currentBalanceHtg))} anplis pou salon sa a.`;
+      }
+      return { valid: false, stakeHtg };
+    }
+    if (privateStatusEl) privateStatusEl.textContent = "";
+    return { valid: true, stakeHtg };
+  };
+
+  const normalizeInviteCode = (value = "") => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target === modal || target.closest("[data-kobposh-chess-mode-close]")) {
+      close();
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-public]")) {
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_public_bot",
+        stakeHtg: CHESS_PUBLIC_ENTRY_HTG,
+        botDifficulty: "fo",
+      });
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-toggle]")) {
+      privatePanel?.classList.remove("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-action=\"create\"]")) {
+      createPanel?.classList.remove("hidden");
+      joinPanel?.classList.add("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-action=\"join\"]")) {
+      createPanel?.classList.add("hidden");
+      joinPanel?.classList.remove("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-create-submit]")) {
+      const stakeState = validatePrivateStake();
+      if (!stakeState.valid) return;
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_friends",
+        friendAction: "create",
+        stakeHtg: stakeState.stakeHtg,
+        botDifficulty: "fo",
+      });
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-join-submit]")) {
+      const inviteCode = normalizeInviteCode(inviteInput?.value || "");
+      if (inviteInput) inviteInput.value = inviteCode;
+      if (!inviteCode) {
+        if (joinStatusEl) joinStatusEl.textContent = "Mete kod salon prive a anvan ou kontinye.";
+        return;
+      }
+      if (joinStatusEl) joinStatusEl.textContent = "";
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_friends",
+        friendAction: "join",
+        inviteCode,
+        stakeHtg: CHESS_PRIVATE_MIN_STAKE_HTG,
+        botDifficulty: "fo",
+      });
+    }
+  });
+
+  privateStakeInput?.addEventListener("input", validatePrivateStake);
+  inviteInput?.addEventListener("input", () => {
+    if (joinStatusEl) joinStatusEl.textContent = "";
+  });
+
+  chessStakeModal = { open, close };
+  return chessStakeModal;
+}
+
 function ensureUpcomingGameModal() {
   if (upcomingGameModal) return upcomingGameModal;
 
@@ -5325,7 +5672,7 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       return;
     }
     if (game === "chess") {
-      openUpcomingGameModal(game);
+      openUpcomingGameModal("chess");
       return;
     }
   });
