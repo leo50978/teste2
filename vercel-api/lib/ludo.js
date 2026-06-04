@@ -20,7 +20,7 @@ const {
   readApprovedHtg,
   readProvisionalHtg,
 } = require("./wallet-htg");
-const { doesToHtg } = require("./wallet-htg");
+const { doesToHtg, htgToDoes } = require("./wallet-htg");
 
 const BOOTSTRAP_DOC_ID = "dpayment_admin_bootstrap";
 const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
@@ -91,12 +91,17 @@ function isFriendLudoRoom(room = {}) {
   return String(room?.roomMode || "").trim() === "ludo_friends";
 }
 
-function resolveLudoFriendStakeDoes(value) {
+function resolveLudoFriendStakeDoes(value, payload = {}) {
   const stakeDoes = safeInt(value);
-  if (!LUDO_FRIEND_ALLOWED_STAKES.has(stakeDoes)) {
-    throw makeHttpError(400, "ludo-friend-invalid-stake", "Miz salon prive Ludo a pa valab.");
+  if (LUDO_FRIEND_ALLOWED_STAKES.has(stakeDoes)) {
+    return stakeDoes;
   }
-  return stakeDoes;
+  const stakeHtg = safeInt(payload.stakeHtg ?? payload.amountHtg ?? payload.entryCostHtg);
+  const convertedDoes = htgToDoes(stakeHtg);
+  if (LUDO_FRIEND_ALLOWED_STAKES.has(convertedDoes)) {
+    return convertedDoes;
+  }
+  throw makeHttpError(400, "ludo-friend-invalid-stake", "Miz salon prive Ludo a pa valab.");
 }
 
 function assertHtgFundingRequest(payload = {}, stakeDoes = 0) {
@@ -1113,7 +1118,7 @@ async function finalizeFriendLudoOutcomeTx(tx, {
 }
 
 async function createFriendLudoRoom({ uid, email, payload = {} }) {
-  const stakeDoes = resolveLudoFriendStakeDoes(payload.stakeDoes ?? payload.amountDoes ?? payload.amount);
+  const stakeDoes = resolveLudoFriendStakeDoes(payload.stakeDoes ?? payload.amountDoes ?? payload.amount, payload);
   const fundingRequest = assertHtgFundingRequest(payload, stakeDoes);
   const stakeHtg = buildStakeAmountHtg(stakeDoes);
   const activeRoom = await resolveBlockingFriendLudoRoomForCreate(uid, {
@@ -1276,7 +1281,19 @@ async function joinFriendLudoRoomByCode({ uid, email, payload = {} }) {
     const stakeDoes = safeInt(room.stakeDoes || room.entryCostDoes);
     const stakeHtg = resolveLudoFriendStakeHtg(room);
 
-    assertHtgFundingRequest(payload, stakeDoes);
+    try {
+      assertHtgFundingRequest(payload, stakeDoes);
+    } catch (error) {
+      if (error?.status === 400 || error?.httpStatus === 400 || error?.code === "stake-amount-mismatch") {
+        throw makeHttpError(
+          400,
+          "ludo-friend-stake-mismatch",
+          `Miz salon prive sa a se ${stakeHtg} HTG. Antre ak menm mise a oswa mande moun ki kreye salon an voye kod la anko.`,
+          { stakeHtg }
+        );
+      }
+      throw error;
+    }
 
     if (playerUids[0] === uid) {
       return buildFriendRoomSummary(room, {

@@ -608,8 +608,6 @@ async function bootFriendRoomFlow() {
     hideMatchmakingModal();
 
     const basePayload = {
-        stakeDoes: REQUESTED_STAKE_DOES,
-        stakeHtg: REQUESTED_STAKE_HTG,
         fundingCurrency: REQUESTED_FUNDING_CURRENCY,
     };
 
@@ -618,7 +616,11 @@ async function bootFriendRoomFlow() {
         if (REQUESTED_FRIEND_ROOM_ID) {
             result = await resumeFriendLudoRoomSecure({ roomId: REQUESTED_FRIEND_ROOM_ID });
         } else if (REQUESTED_FRIEND_ACTION === 'create') {
-            result = await createFriendLudoRoomSecure(basePayload);
+            result = await createFriendLudoRoomSecure({
+                ...basePayload,
+                stakeDoes: REQUESTED_STAKE_DOES,
+                stakeHtg: REQUESTED_STAKE_HTG,
+            });
         } else if (REQUESTED_FRIEND_ACTION === 'join') {
             result = await joinFriendLudoRoomByCodeSecure({
                 ...basePayload,

@@ -14,7 +14,7 @@
   signInWithEmailAndPassword,
   where,
 } from "./firebase-init.js";
-import PaymentModal from "./payment.js";
+import PaymentModal from "./payment.js?v=20260603-welcome-export1";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
 import {
   buildHomeHeroImagePath,
@@ -217,6 +217,8 @@ const TOURNAMENT_REGISTER_COST_DOES = TOURNAMENT_REGISTER_COST_HTG * 20;
 
 const DAME_PUBLIC_ENTRY_HTG = 25;
 const LUDO_PUBLIC_ENTRY_HTG = 25;
+const CHESS_PUBLIC_ENTRY_HTG = 25;
+const CHESS_PRIVATE_MIN_STAKE_HTG = 25;
 const LUDO_PUBLIC_ENTRY_DOES = 500;
 const LUDO_FRIEND_STAKE_OPTIONS_HTG = Object.freeze([25, 50, 100, 250, 500]);
 const UPCOMING_GAME_LABELS = {
@@ -388,13 +390,16 @@ function buildLudoEntryUrl({
   roomId = "",
   stakeHtg = LUDO_PUBLIC_ENTRY_HTG,
   autostart = true,
+  includeStake = true,
 } = {}) {
   const safeStakeHtg = Math.max(0, Math.trunc(Number(stakeHtg) || LUDO_PUBLIC_ENTRY_HTG));
   const params = new URLSearchParams({
-    stakeDoes: String(safeStakeHtg * 20),
     fundingCurrency: "htg",
-    stakeHtg: String(safeStakeHtg),
   });
+  if (includeStake) {
+    params.set("stakeDoes", String(safeStakeHtg * 20));
+    params.set("stakeHtg", String(safeStakeHtg));
+  }
   if (autostart) params.set("autostart", "1");
   if (roomMode) params.set("roomMode", String(roomMode || "").trim());
   if (friendAction) params.set("friendAction", String(friendAction || "").trim());
@@ -784,7 +789,7 @@ function ensureLudoStakeModal() {
           roomMode: "ludo_friends",
           friendAction: "join",
           inviteCode: normalizeInviteCode(joinCodeInput?.value || ""),
-          stakeHtg: LUDO_PUBLIC_ENTRY_HTG,
+          includeStake: false,
         });
       }
     }
@@ -4779,6 +4784,208 @@ function closeDameBlockedModal() {
   document.body.classList.remove("is-modal-open");
 }
 
+let chessStakeModal = null;
+
+function buildChessUrl({
+  roomMode = "",
+  friendAction = "",
+  inviteCode = "",
+  stakeHtg = CHESS_PUBLIC_ENTRY_HTG,
+  roomId = "",
+  botDifficulty = "fo",
+} = {}) {
+  const safeStakeHtg = Math.max(0, Math.trunc(Number(stakeHtg) || CHESS_PUBLIC_ENTRY_HTG));
+  const params = new URLSearchParams({
+    stakeHtg: String(safeStakeHtg),
+    roomMode: String(roomMode || "chess_public_bot").trim() || "chess_public_bot",
+    botDifficulty: String(botDifficulty || "fo").trim().toLowerCase() || "fo",
+  });
+  if (friendAction) params.set("friendAction", String(friendAction || "").trim().toLowerCase());
+  if (inviteCode) params.set("inviteCode", String(inviteCode || "").trim().toUpperCase());
+  if (roomId) params.set("friendChessRoomId", String(roomId || "").trim());
+  return `./JS-Chess-Stockfish-Puzzles-main/kobposh-chess.html?${params.toString()}`;
+}
+
+function ensureChessStakeModal() {
+  if (chessStakeModal) return chessStakeModal;
+
+  const modal = document.createElement("section");
+  modal.className = "kobposh-forgot-modal";
+  modal.setAttribute("aria-hidden", "true");
+  modal.innerHTML = `
+    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhChessModeTitle">
+      <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-chess-mode-close>
+        <i data-lucide="x" class="icon" aria-hidden="true"></i>
+      </button>
+      <p class="kobposh-forgot-modal__eyebrow">ECHEC</p>
+      <h2 id="kobposhChessModeTitle" class="kobposh-forgot-modal__title">Chwazi mode jeu ou</h2>
+      <p class="kobposh-forgot-modal__text">
+        Gran chanm nan se 25 HTG kont bot la. Salon prive a komanse depi 25 HTG ak kod envitasyon.
+      </p>
+      <div class="mt-5 grid gap-3">
+        <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-public>
+          Antre nan gran chanm nan
+        </button>
+        <button class="kobposh-forgot-modal__secondary" type="button" data-kobposh-chess-private-toggle>
+          Ouvri salon prive a
+        </button>
+      </div>
+      <div class="mt-5 hidden rounded-[24px] border border-[#dce5df] bg-[#f8fcf9] p-4 text-left" data-kobposh-chess-private-panel>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="create">
+            <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Create</span>
+            <span class="mt-2 block text-lg font-black text-[#18212b]">Nouvo salon prive</span>
+          </button>
+          <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="join">
+            <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Join</span>
+            <span class="mt-2 block text-lg font-black text-[#18212b]">Antre ak kod la</span>
+          </button>
+        </div>
+        <div class="mt-4 space-y-3" data-kobposh-chess-private-create-panel>
+          <label class="block text-sm font-semibold text-[#30443a]" for="kobposhChessPrivateStake">Montan salon prive a</label>
+          <input id="kobposhChessPrivateStake" class="w-full rounded-[18px] border border-[#dce5df] bg-white px-4 py-3 text-base font-semibold text-[#18212b] outline-none" type="number" min="${CHESS_PRIVATE_MIN_STAKE_HTG}" step="25" value="${CHESS_PRIVATE_MIN_STAKE_HTG}">
+          <p class="text-sm text-[#5f6f67]" data-kobposh-chess-private-status></p>
+          <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-private-create-submit>
+            Kreye salon prive a
+          </button>
+        </div>
+        <div class="mt-4 hidden space-y-3" data-kobposh-chess-private-join-panel>
+          <label class="block text-sm font-semibold text-[#30443a]" for="kobposhChessInviteCode">Kod salon prive a</label>
+          <input id="kobposhChessInviteCode" class="w-full rounded-[18px] border border-[#dce5df] bg-white px-4 py-3 text-base font-semibold uppercase tracking-[0.12em] text-[#18212b] outline-none" type="text" maxlength="12" placeholder="ABCD12">
+          <p class="text-sm text-[#5f6f67]" data-kobposh-chess-join-status></p>
+          <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-private-join-submit>
+            Antre nan salon an
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+  try {
+    if (window.lucide && typeof window.lucide.createIcons === "function") {
+      window.lucide.createIcons({ icons: window.lucide.icons, attrs: { class: "icon" } });
+    }
+  } catch (_) {
+  }
+
+  const privatePanel = modal.querySelector("[data-kobposh-chess-private-panel]");
+  const createPanel = modal.querySelector("[data-kobposh-chess-private-create-panel]");
+  const joinPanel = modal.querySelector("[data-kobposh-chess-private-join-panel]");
+  const privateStatusEl = modal.querySelector("[data-kobposh-chess-private-status]");
+  const joinStatusEl = modal.querySelector("[data-kobposh-chess-join-status]");
+  const privateStakeInput = modal.querySelector("#kobposhChessPrivateStake");
+  const inviteInput = modal.querySelector("#kobposhChessInviteCode");
+
+  const close = () => {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("is-modal-open");
+  };
+
+  const open = () => {
+    if (privatePanel) privatePanel.classList.add("hidden");
+    if (createPanel) createPanel.classList.remove("hidden");
+    if (joinPanel) joinPanel.classList.add("hidden");
+    if (privateStatusEl) privateStatusEl.textContent = "";
+    if (joinStatusEl) joinStatusEl.textContent = "";
+    if (privateStakeInput) privateStakeInput.value = String(CHESS_PRIVATE_MIN_STAKE_HTG);
+    if (inviteInput) inviteInput.value = "";
+    closeGamesModal();
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("is-modal-open");
+  };
+
+  const validatePrivateStake = () => {
+    const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+    const stakeHtg = Math.max(
+      CHESS_PRIVATE_MIN_STAKE_HTG,
+      Math.trunc(Number(privateStakeInput?.value || CHESS_PRIVATE_MIN_STAKE_HTG) || CHESS_PRIVATE_MIN_STAKE_HTG)
+    );
+    if (privateStakeInput) privateStakeInput.value = String(stakeHtg);
+    if (currentBalanceHtg < stakeHtg) {
+      if (privateStatusEl) {
+        privateStatusEl.textContent = `Ou bezwen ${formatHtg(Math.max(0, stakeHtg - currentBalanceHtg))} anplis pou salon sa a.`;
+      }
+      return { valid: false, stakeHtg };
+    }
+    if (privateStatusEl) privateStatusEl.textContent = "";
+    return { valid: true, stakeHtg };
+  };
+
+  const normalizeInviteCode = (value = "") => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+
+  modal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target === modal || target.closest("[data-kobposh-chess-mode-close]")) {
+      close();
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-public]")) {
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_public_bot",
+        stakeHtg: CHESS_PUBLIC_ENTRY_HTG,
+        botDifficulty: "fo",
+      });
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-toggle]")) {
+      privatePanel?.classList.remove("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-action=\"create\"]")) {
+      createPanel?.classList.remove("hidden");
+      joinPanel?.classList.add("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-action=\"join\"]")) {
+      createPanel?.classList.add("hidden");
+      joinPanel?.classList.remove("hidden");
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-create-submit]")) {
+      const stakeState = validatePrivateStake();
+      if (!stakeState.valid) return;
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_friends",
+        friendAction: "create",
+        stakeHtg: stakeState.stakeHtg,
+        botDifficulty: "fo",
+      });
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-private-join-submit]")) {
+      const inviteCode = normalizeInviteCode(inviteInput?.value || "");
+      if (inviteInput) inviteInput.value = inviteCode;
+      if (!inviteCode) {
+        if (joinStatusEl) joinStatusEl.textContent = "Mete kod salon prive a anvan ou kontinye.";
+        return;
+      }
+      if (joinStatusEl) joinStatusEl.textContent = "";
+      close();
+      window.location.href = buildChessUrl({
+        roomMode: "chess_friends",
+        friendAction: "join",
+        inviteCode,
+        stakeHtg: CHESS_PRIVATE_MIN_STAKE_HTG,
+        botDifficulty: "fo",
+      });
+    }
+  });
+
+  privateStakeInput?.addEventListener("input", validatePrivateStake);
+  inviteInput?.addEventListener("input", () => {
+    if (joinStatusEl) joinStatusEl.textContent = "";
+  });
+
+  chessStakeModal = { open, close };
+  return chessStakeModal;
+}
+
 function ensureUpcomingGameModal() {
   if (upcomingGameModal) return upcomingGameModal;
 
@@ -5454,7 +5661,16 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       return;
     }
     if (game === "chess") {
-      openUpcomingGameModal(game);
+      if (!auth.currentUser) {
+        openAuthScreen("login");
+        return;
+      }
+      const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+      if (currentBalanceHtg < CHESS_PUBLIC_ENTRY_HTG) {
+        openDameBlockedModal(CHESS_PUBLIC_ENTRY_HTG, currentBalanceHtg);
+        return;
+      }
+      ensureChessStakeModal().open();
       return;
     }
   });

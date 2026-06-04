@@ -367,6 +367,160 @@ function getOtherDuelSeat(seat) {
   return safeSignedInt(seat, 0) === 0 ? 1 : 0;
 }
 
+function normalizeDuelBotDifficultyLevel(value = "") {
+  const level = String(value || "").trim().toLowerCase();
+  if (level === "dominov1" || level === "v1" || level === "expert" || level === "ultra") return "dominov1";
+  if (level === "userpro" || level === "amateur") return "userpro";
+  return PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY;
+}
+
+function countMatchingEndsInDuelHand(hand = [], endValue = -1) {
+  const safeEnd = safeSignedInt(endValue, -1);
+  if (safeEnd < 0) return 0;
+  return (Array.isArray(hand) ? hand : []).reduce((count, tileId) => {
+    const values = getTileValues(tileId);
+    return values && (values[0] === safeEnd || values[1] === safeEnd) ? count + 1 : count;
+  }, 0);
+}
+
+function buildBotPlayMoveFromLegalMove(move = {}, seat = 1) {
+  return {
+    type: "play",
+    player: safeSignedInt(seat, 1),
+    tileId: safeSignedInt(move.tileId, -1),
+    tilePos: safeSignedInt(move.tilePos, -1),
+    tileLeft: safeSignedInt(move.tileLeft, -1),
+    tileRight: safeSignedInt(move.tileRight, -1),
+    branch: String(move.branch || "").trim(),
+  };
+}
+
+function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
+  const liveState = normalizeDuelGameState(state, room);
+  const humanSeat = getOtherDuelSeat(botSeat);
+  if (String(liveState.endedReason || "").trim()) {
+    if (safeSignedInt(liveState.winnerSeat, -1) === botSeat) return 1000000;
+    if (safeSignedInt(liveState.winnerSeat, -1) === humanSeat) return -1000000;
+    return -25000;
+  }
+
+  const botHand = Array.isArray(liveState.seatHands?.[botSeat]) ? liveState.seatHands[botSeat] : [];
+  const humanHand = Array.isArray(liveState.seatHands?.[humanSeat]) ? liveState.seatHands[humanSeat] : [];
+  const botPips = sumDuelSeatPips(liveState.seatHands, botSeat);
+  const humanPips = sumDuelSeatPips(liveState.seatHands, humanSeat);
+  const botLegal = getLegalMovesForDuelSeat(liveState, botSeat).length;
+  const humanLegal = getLegalMovesForDuelSeat(liveState, humanSeat).length;
+  const leftEnd = safeSignedInt(liveState.leftEnd, -1);
+  const rightEnd = safeSignedInt(liveState.rightEnd, -1);
+  const botLeftMatches = countMatchingEndsInDuelHand(botHand, leftEnd);
+  const botRightMatches = countMatchingEndsInDuelHand(botHand, rightEnd);
+  const humanLeftMatches = countMatchingEndsInDuelHand(humanHand, leftEnd);
+  const humanRightMatches = countMatchingEndsInDuelHand(humanHand, rightEnd);
+  const stockSize = Array.isArray(liveState.stockPile) ? liveState.stockPile.length : 0;
+
+  let score = 0;
+  score += (humanPips - botPips) * 12;
+  score += (humanHand.length - botHand.length) * 48;
+  score += (botLegal * 24) - (humanLegal * 34);
+  score += ((botLeftMatches + botRightMatches) * 11) - ((humanLeftMatches + humanRightMatches) * 17);
+  score += safeSignedInt(liveState.currentPlayer, -1) === botSeat ? 10 : -8;
+  if (leftEnd >= 0 && rightEnd >= 0 && leftEnd === rightEnd) {
+    score += ((botLeftMatches + botRightMatches) - (humanLeftMatches + humanRightMatches)) * 9;
+  }
+  if (humanLegal <= 0) {
+    if (stockSize <= 0) {
+      const blockedWinnerSeat = computeBlockedWinnerSeatForDuel(liveState.seatHands);
+      score += blockedWinnerSeat === botSeat ? 3200 : -3200;
+    } else {
+      score += 180;
+    }
+  }
+  if (stockSize <= 0) {
+    const blockedWinnerSeat = computeBlockedWinnerSeatForDuel(liveState.seatHands);
+    score += blockedWinnerSeat === botSeat ? 640 : -640;
+  }
+  if (humanLegal <= 1) score += 120;
+  if (botLegal <= 1) score -= 90;
+  return score;
+}
+
+function listDuelTurnCandidates(state = {}, room = {}, seat = 0) {
+  const safeSeat = safeSignedInt(seat, -1);
+  const liveState = normalizeDuelGameState(state, room);
+  const legalMoves = getLegalMovesForDuelSeat(liveState, safeSeat);
+  if (legalMoves.length > 0) {
+    return legalMoves.map((move) => buildBotPlayMoveFromLegalMove(move, safeSeat));
+  }
+  if (Array.isArray(liveState.stockPile) && liveState.stockPile.length > 0) {
+    return [buildDuelDrawMove(safeSeat, liveState.stockPile[0])];
+  }
+  return [buildDuelPassMove(safeSeat)];
+}
+
+function evaluateDuelBotFuture(state = {}, room = {}, botSeat = 1, depth = 0, alpha = Number.NEGATIVE_INFINITY, beta = Number.POSITIVE_INFINITY) {
+  const liveState = normalizeDuelGameState(state, room);
+  if (depth <= 0 || String(liveState.endedReason || "").trim()) {
+    return scoreDuelBotPosition(liveState, room, botSeat);
+  }
+
+  const actorSeat = safeSignedInt(liveState.currentPlayer, -1);
+  if (actorSeat < 0) {
+    return scoreDuelBotPosition(liveState, room, botSeat);
+  }
+  const candidates = listDuelTurnCandidates(liveState, room, actorSeat);
+  if (candidates.length <= 0) {
+    return scoreDuelBotPosition(liveState, room, botSeat);
+  }
+
+  const maximizing = actorSeat === botSeat;
+  let bestScore = maximizing ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+
+  for (const move of candidates) {
+    const simulated = applyResolvedDuelMove(
+      liveState,
+      room,
+      move,
+      maximizing ? "sim:bot-search" : "sim:human-search"
+    );
+    const nextScore = evaluateDuelBotFuture(simulated.state, room, botSeat, depth - 1, alpha, beta);
+    if (maximizing) {
+      if (nextScore > bestScore) bestScore = nextScore;
+      if (nextScore > alpha) alpha = nextScore;
+    } else {
+      if (nextScore < bestScore) bestScore = nextScore;
+      if (nextScore < beta) beta = nextScore;
+    }
+    if (beta <= alpha) break;
+  }
+
+  return Number.isFinite(bestScore) ? bestScore : scoreDuelBotPosition(liveState, room, botSeat);
+}
+
+function pickDominov1BotMove(state = {}, room = {}, seat = 1, legalMoves = []) {
+  const scoredMoves = legalMoves.map((move) => {
+    const playMove = buildBotPlayMoveFromLegalMove(move, seat);
+    const applied = applyResolvedDuelMove(state, room, playMove, "sim:bot-play");
+    const tileValues = getTileValues(move.tileId) || [0, 0];
+    const searchDepth = legalMoves.length <= 3 ? 5 : 4;
+    let score = evaluateDuelBotFuture(applied.state, room, seat, searchDepth);
+    score += scoreDuelBotPosition(applied.state, room, seat) * 0.22;
+    score += (tileValues[0] + tileValues[1]) * 5;
+    if (tileValues[0] === tileValues[1]) score += 18;
+    return {
+      move,
+      score,
+      tie: crypto.randomInt(0, 1000),
+    };
+  });
+
+  scoredMoves.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    return right.tie - left.tie;
+  });
+
+  return scoredMoves.length > 0 ? scoredMoves[0].move : null;
+}
+
 function isPublicBotOnlyDuelV2Room(room = {}) {
   return (
     String(room.roomMode || "").trim() === "duel_v2_public"
@@ -466,7 +620,10 @@ function buildServerBotDuelMove(state = {}, room = {}) {
   if (botSeat < 0 || safeSignedInt(state.currentPlayer, -1) !== botSeat) return null;
   const legalMoves = getLegalMovesForDuelSeat(state, botSeat);
   if (legalMoves.length > 0) {
-    const bestMove = legalMoves[0];
+    const difficulty = normalizeDuelBotDifficultyLevel(room.botDifficulty || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY);
+    const bestMove = difficulty === "dominov1"
+      ? (pickDominov1BotMove(state, room, botSeat, legalMoves) || legalMoves[0])
+      : legalMoves[0];
     return {
       type: "play",
       player: botSeat,
