@@ -991,10 +991,7 @@ function ensureDominoModeModal() {
   continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
-      openGameUnavailableModal("domino-duel", {
-        title: "Domino duel la gen yon pwoblem teknik",
-        text: "Nou retire Domino duel tanporèman pandan nap regle yon pwoblem teknik. Sa ap ranje sou peu.",
-      });
+      ensureDominoDuelStakeModal().open();
       return;
     }
     close();
