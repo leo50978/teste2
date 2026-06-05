@@ -282,6 +282,118 @@ function resolveDuelOpeningConfig(seatHands = [[], []]) {
   };
 }
 
+function buildDuelHandProfile(hand = []) {
+  const tiles = Array.isArray(hand) ? hand : [];
+  const valueCounts = new Map();
+  let pips = 0;
+  let doubles = 0;
+  let strongTiles = 0;
+  tiles.forEach((tileId) => {
+    const values = getTileValues(tileId);
+    if (!values) return;
+    pips += values[0] + values[1];
+    if (values[0] === values[1]) doubles += 1;
+    if ((values[0] + values[1]) >= 9) strongTiles += 1;
+    valueCounts.set(values[0], (valueCounts.get(values[0]) || 0) + 1);
+    if (values[1] !== values[0]) {
+      valueCounts.set(values[1], (valueCounts.get(values[1]) || 0) + 1);
+    }
+  });
+  const distinctValues = valueCounts.size;
+  const maxValueFrequency = Array.from(valueCounts.values()).reduce((max, count) => Math.max(max, count), 0);
+  return {
+    size: tiles.length,
+    pips,
+    doubles,
+    strongTiles,
+    distinctValues,
+    maxValueFrequency,
+  };
+}
+
+function isCredibleRiggedHumanHand(profile = {}) {
+  return (
+    safeInt(profile.size) === 7
+    && safeInt(profile.distinctValues) >= 4
+    && safeInt(profile.maxValueFrequency) <= 5
+    && safeInt(profile.pips) >= 30
+    && safeInt(profile.pips) <= 54
+    && safeInt(profile.doubles) <= 3
+  );
+}
+
+function scoreRiggedHumanHandNormality(profile = {}, targetDoubles = 1) {
+  let score = 0;
+  score -= Math.abs(safeInt(profile.pips) - 42) * 7;
+  score -= Math.abs(safeInt(profile.distinctValues) - 5) * 26;
+  score -= Math.abs(safeInt(profile.maxValueFrequency) - 3) * 18;
+  score -= Math.abs(safeInt(profile.doubles) - safeInt(targetDoubles, 1)) * 34;
+  return score;
+}
+
+function buildRiggedPublicBotDeckOrder(room = {}) {
+  const botSeat = getDuelBotSeat(room);
+  const humanSeat = getOtherDuelSeat(botSeat);
+  const preferHumanOpening = crypto.randomInt(0, 100) < 32;
+  const targetHumanDoubles = crypto.randomInt(0, 100) < 58 ? 1 : 2;
+  let bestDeck = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (let attempt = 0; attempt < 72; attempt += 1) {
+    const candidateDeck = makeDeckOrder();
+    const initialState = createInitialDuelGameState(room, candidateDeck);
+    const humanHand = Array.isArray(initialState.seatHands?.[humanSeat]) ? initialState.seatHands[humanSeat] : [];
+    const botHand = Array.isArray(initialState.seatHands?.[botSeat]) ? initialState.seatHands[botSeat] : [];
+    const humanProfile = buildDuelHandProfile(humanHand);
+    const botProfile = buildDuelHandProfile(botHand);
+    if (!isCredibleRiggedHumanHand(humanProfile)) continue;
+
+    const openingConfig = resolveDuelOpeningConfig(initialState.seatHands);
+    const openingMove = buildOpeningMoveForDuelState(initialState);
+    const openingApplied = applyResolvedDuelMove(initialState, room, openingMove, "rig:opening");
+    const botProgress = runPublicDuelBotTurns(openingApplied.state, room);
+    const postOpeningState = botProgress.state;
+    const stockVision = buildDuelStockVisionProfile(postOpeningState, botSeat);
+    const postOpeningScore = scoreDuelBotPosition(postOpeningState, room, botSeat);
+    const pipDelta = safeInt(humanProfile.pips) - safeInt(botProfile.pips);
+
+    let candidateScore = 0;
+    candidateScore += postOpeningScore;
+    candidateScore += pipDelta * 18;
+    candidateScore += (safeInt(botProfile.strongTiles) - safeInt(humanProfile.strongTiles)) * 34;
+    candidateScore += scoreRiggedHumanHandNormality(humanProfile, targetHumanDoubles);
+    candidateScore += stockVision.playableTop5 * 28;
+    candidateScore += stockVision.playableAll * 5;
+    candidateScore += stockVision.humanPressureOnEnds <= stockVision.botPressureOnEnds ? 70 : -70;
+    candidateScore += openingConfig.seat === humanSeat
+      ? (preferHumanOpening ? 180 : -35)
+      : (preferHumanOpening ? -120 : 90);
+
+    if (pipDelta < 4) candidateScore -= 260;
+    if (pipDelta > 22) candidateScore -= 180;
+    if (safeInt(botProfile.doubles) >= 4) candidateScore -= 110;
+    if (safeInt(botProfile.maxValueFrequency) >= 6) candidateScore -= 90;
+    if (safeInt(humanProfile.doubles) === 0) candidateScore -= 55;
+    if (openingConfig.seat === botSeat && compareDuelOpeningTiles(openingConfig.tileId, 27) >= 0) {
+      candidateScore -= 60;
+    }
+
+    if (candidateScore > bestScore || !bestDeck) {
+      bestScore = candidateScore;
+      bestDeck = candidateDeck;
+    }
+  }
+
+  return bestDeck || makeDeckOrder();
+}
+
+function makeDeckOrderForRoom(room = {}) {
+  if (!isPublicBotOnlyDuelV2Room(room)) return makeDeckOrder();
+  const difficulty = normalizeDuelBotDifficultyLevel(room.botDifficulty || PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY);
+  if (difficulty !== "dominov1") return makeDeckOrder();
+  return buildRiggedPublicBotDeckOrder(room);
+}
+
 function getLegalMovesForDuelSeat(state, seat) {
   const safeSeat = safeSignedInt(seat, -1);
   const hand = Array.isArray(state?.seatHands?.[safeSeat]) ? state.seatHands[safeSeat] : [];
@@ -1569,7 +1681,7 @@ function buildDuelV2PublicState(roomId, room = {}, uid = "", stateOverride = nul
 
 function buildStartedDuelV2RoomTransaction(tx, roomRefDoc, room = {}, options = {}) {
   const nowMs = safeSignedInt(options.nowMs, Date.now()) || Date.now();
-  const deckOrder = makeDeckOrder();
+  const deckOrder = makeDeckOrderForRoom(room);
   const initialState = createInitialDuelGameState(room, deckOrder);
   const openingMove = buildOpeningMoveForDuelState(initialState);
   const openingApplied = applyResolvedDuelMove(initialState, room, openingMove, "server:opening");
