@@ -227,6 +227,42 @@ export async function updateChampionnaMatchScoreSecure(payload = {}) {
   });
 }
 
+export async function getChessBotPilotSnapshotSecure(payload = {}) {
+  const fallbackError = "Impossible de charger le pilotage Echec.";
+  return invokeBackendHttp("/api/dashboard/chess-bot-pilot/snapshot", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
+export async function setChessBotPilotControlSecure(payload = {}) {
+  const fallbackError = "Impossible de mettre a jour le pilotage Echec.";
+  return invokeBackendHttp("/api/dashboard/chess-bot-pilot/control", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
+export async function getDuelBotPilotSnapshotSecure(payload = {}) {
+  const fallbackError = "Impossible de charger le pilotage Duel.";
+  return invokeBackendHttp("/api/dashboard/duel-bot-pilot/snapshot", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
+export async function setDuelBotPilotControlSecure(payload = {}) {
+  const fallbackError = "Impossible de mettre a jour le pilotage Duel.";
+  return invokeBackendHttp("/api/dashboard/duel-bot-pilot/control", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
 export async function createOrderSecure(payload = {}) {
   const fallbackError = "Impossible de creer la commande.";
   if (getConfiguredApiBaseUrl()) {
@@ -313,6 +349,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
         provisionalDepositsEnabled: settings.provisionalDepositsEnabled === true,
         pongEnabled: settings.pongEnabled !== false,
         dominoClassicEnabled: settings.dominoClassicEnabled !== false,
+        dominoDuelPublicEnabled: settings.dominoDuelPublicEnabled !== false,
         ludoEnabled: settings.ludoEnabled !== false,
       };
     } catch (_) {
@@ -323,6 +360,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
         provisionalDepositsEnabled: false,
         pongEnabled: true,
         dominoClassicEnabled: true,
+        dominoDuelPublicEnabled: true,
         ludoEnabled: true,
       };
     }
@@ -333,6 +371,7 @@ export async function getPublicRuntimeConfigSecure(payload = {}) {
     provisionalDepositsEnabled: backendData?.provisionalDepositsEnabled === true,
     pongEnabled: backendData?.pongEnabled !== false,
     dominoClassicEnabled: backendData?.dominoClassicEnabled !== false,
+    dominoDuelPublicEnabled: backendData?.dominoDuelPublicEnabled !== false,
     ludoEnabled: backendData?.ludoEnabled !== false,
   };
 }
@@ -839,6 +878,17 @@ function buildDuelV2BackendUnavailableError(fallbackError = "Impossible de rejoi
   }, fallbackError, 503);
 }
 
+function buildChessBackendUnavailableError(fallbackError = "Impossible de rejoindre Echec.") {
+  return buildHttpBackendError({
+    code: "chess-backend-unavailable",
+    message: "Backend Echec poko disponib sou anviwonman sa a.",
+    details: {
+      actionable: true,
+      nextStep: "deploy-or-migrate-chess-backend",
+    },
+  }, fallbackError, 503);
+}
+
 async function invokeDuelV2HttpOnly(path, payload = {}, fallbackError = "Erreur Duel V2") {
   if (!getConfiguredApiBaseUrl()) {
     throw buildDuelV2BackendUnavailableError(fallbackError);
@@ -860,6 +910,32 @@ async function invokeDuelV2HttpOnly(path, payload = {}, fallbackError = "Erreur 
       || code === "http-backend-not-configured"
     ) {
       throw buildDuelV2BackendUnavailableError(fallbackError);
+    }
+    throw error;
+  }
+}
+
+async function invokeChessHttpOnly(path, payload = {}, fallbackError = "Erreur Echec") {
+  if (!getConfiguredApiBaseUrl()) {
+    throw buildChessBackendUnavailableError(fallbackError);
+  }
+
+  try {
+    return await invokeBackendHttp(path, {
+      payload,
+      requireAuth: true,
+      fallbackError,
+    });
+  } catch (error) {
+    const status = Number(error?.httpStatus || 0);
+    const code = String(error?.code || "").trim().toLowerCase();
+    if (
+      status === 404
+      || code === "route-not-found"
+      || code === "http-request-failed"
+      || code === "http-backend-not-configured"
+    ) {
+      throw buildChessBackendUnavailableError(fallbackError);
     }
     throw error;
   }
@@ -934,6 +1010,78 @@ export async function submitActionDuelV2Secure(payload = {}) {
     "/api/games/duel-v2/submit-action",
     payload,
     "Impossible d'envoyer l'action Duel V2."
+  );
+}
+
+export async function joinMatchmakingChessSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/join-matchmaking",
+    payload,
+    "Impossible de rejoindre une partie de Echec."
+  );
+}
+
+export async function createFriendChessRoomSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/create-friend-room",
+    payload,
+    "Impossible de kreye salon prive Echec la."
+  );
+}
+
+export async function joinFriendChessRoomByCodeSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/join-friend-room",
+    payload,
+    "Impossible de antre nan salon prive Echec la."
+  );
+}
+
+export async function resumeFriendChessRoomSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/resume-friend-room",
+    payload,
+    "Impossible de reprann salon prive Echec la."
+  );
+}
+
+export async function getChessRoomStateSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/get-room-state",
+    payload,
+    "Impossible de charger la salle Echec."
+  );
+}
+
+export async function touchRoomPresenceChessSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/touch-presence",
+    payload,
+    "Impossible de mettre a jour la presence Echec."
+  );
+}
+
+export async function leaveRoomChessSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/leave-room",
+    payload,
+    "Impossible de quitter la salle Echec."
+  );
+}
+
+export async function submitActionChessSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/submit-action",
+    payload,
+    "Impossible d'envoyer l'action Echec."
+  );
+}
+
+export async function recordChessMatchResultSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/record-result",
+    payload,
+    "Impossible d'enregistrer le resultat Echec."
   );
 }
 export async function getMyGameHistorySecure(payload = {}) {

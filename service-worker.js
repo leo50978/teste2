@@ -1,9 +1,9 @@
-const KOBPOSH_CACHE = "kobposh-shell-v27";
+const KOBPOSH_CACHE = "kobposh-shell-v28";
 const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js?v=20260605-duel-dashboard-debug1",
+  "/app.js?v=20260605-duel-dashboard-debug2",
   "/site.webmanifest",
   "/apple-touch-icon.png",
   "/favicon-96x96.png",

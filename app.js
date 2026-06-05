@@ -30,7 +30,7 @@ import {
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
   walletMutateSecure,
-} from "./secure-functions.js";
+} from "./secure-functions.js?v=20260605-duel-dashboard-fallback1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
