@@ -226,6 +226,7 @@ const UPCOMING_GAME_LABELS = {
   chess: "Echec",
 };
 const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
+const DEBUG_DUEL_AVAILABILITY = true;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
@@ -237,6 +238,14 @@ let publicGameAvailabilityCache = { ...DEFAULT_PUBLIC_GAME_AVAILABILITY };
 let publicGameAvailabilityUpdatedAtMs = 0;
 let publicGameAvailabilityPromise = null;
 let gameUnavailableModal = null;
+
+function logDuelAvailabilityDebug(eventName, payload = null) {
+  if (!DEBUG_DUEL_AVAILABILITY) return;
+  try {
+    console.log("[DUEL_AVAILABILITY_DEBUG]", eventName, payload ?? {});
+  } catch (_) {
+  }
+}
 
 function normalizePublicGameAvailability(raw = {}) {
   const source = raw && typeof raw === "object" ? raw : {};
@@ -255,9 +264,17 @@ async function readPublicGameAvailability(force = false) {
     && publicGameAvailabilityUpdatedAtMs > 0
     && (nowMs - publicGameAvailabilityUpdatedAtMs) < PUBLIC_GAME_AVAILABILITY_TTL_MS;
   if (shouldUseCache) {
+    logDuelAvailabilityDebug("readPublicGameAvailability:cache-hit", {
+      force,
+      cache: publicGameAvailabilityCache,
+      updatedAtMs: publicGameAvailabilityUpdatedAtMs,
+    });
     return { ...publicGameAvailabilityCache };
   }
   if (publicGameAvailabilityPromise) {
+    logDuelAvailabilityDebug("readPublicGameAvailability:promise-reuse", {
+      force,
+    });
     return publicGameAvailabilityPromise;
   }
 
@@ -266,8 +283,18 @@ async function readPublicGameAvailability(force = false) {
       const payload = await getPublicRuntimeConfigSecure();
       publicGameAvailabilityCache = normalizePublicGameAvailability(payload);
       publicGameAvailabilityUpdatedAtMs = Date.now();
+      logDuelAvailabilityDebug("readPublicGameAvailability:fetched", {
+        force,
+        payload,
+        normalized: publicGameAvailabilityCache,
+      });
     } catch (error) {
       console.warn("[KOBPOSH_V2] public game availability refresh failed", error);
+      logDuelAvailabilityDebug("readPublicGameAvailability:error", {
+        force,
+        message: String(error?.message || error || "unknown"),
+        cacheBeforeFallback: publicGameAvailabilityCache,
+      });
       if (!publicGameAvailabilityCache || typeof publicGameAvailabilityCache !== "object") {
         publicGameAvailabilityCache = { ...DEFAULT_PUBLIC_GAME_AVAILABILITY };
       }
@@ -365,6 +392,15 @@ async function canLaunchPublicGame(gameKey = "") {
     isEnabled = availability.ludoEnabled !== false;
   } else {
     isEnabled = availability.dominoClassicEnabled !== false;
+  }
+
+  if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
+    logDuelAvailabilityDebug("canLaunchPublicGame:duel-decision", {
+      gameKey,
+      normalizedKey,
+      availability,
+      isEnabled,
+    });
   }
 
   if (!isEnabled) {
@@ -1003,6 +1039,9 @@ function ensureDominoModeModal() {
   continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
+      logDuelAvailabilityDebug("dominoModeModal:continue-duel", {
+        selectedMode,
+      });
       const canLaunch = await canLaunchPublicGame("domino-duel");
       if (!canLaunch) return;
       ensureDominoDuelStakeModal().open();
@@ -1282,6 +1321,11 @@ function ensureDominoDuelStakeModal() {
   };
   const applyPublicModeAvailability = (enabled) => {
     isPublicDuelEnabled = enabled !== false;
+    logDuelAvailabilityDebug("dominoDuelModal:applyPublicModeAvailability", {
+      enabled: isPublicDuelEnabled,
+      currentStep,
+      selectedMode,
+    });
     if (publicModeButton) {
       publicModeButton.disabled = !isPublicDuelEnabled;
       publicModeButton.classList.toggle("opacity-55", !isPublicDuelEnabled);
@@ -1351,8 +1395,12 @@ function ensureDominoDuelStakeModal() {
     try {
       const availability = await readPublicGameAvailability(true);
       applyPublicModeAvailability(availability.dominoDuelPublicEnabled !== false);
+      logDuelAvailabilityDebug("dominoDuelModal:refreshStakeValidation", {
+        availability,
+      });
     } catch (_) {
       applyPublicModeAvailability(true);
+      logDuelAvailabilityDebug("dominoDuelModal:refreshStakeValidation:fallback-open", {});
     }
     return {
       publicState: validatePublicEntry(),
