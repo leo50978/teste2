@@ -21,6 +21,7 @@ import {
   DEFAULT_HOME_HERO_SLIDES,
   refreshHomeHeroSlides,
 } from "./home-hero-config.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
@@ -41,6 +42,10 @@ const WELCOME_COORDINATOR_MODAL_DELAY_MS = 700;
 const CHAMPIONNA_COORDINATOR_WHATSAPP = "50943160977";
 const pageParams = new URLSearchParams(window.location.search);
 let heroRotationTimer = null;
+const homeNetworkQualityIndicator = mountNetworkQualityIndicator({
+  position: "top-left",
+  debugLabel: "HOME_NETWORK_QUALITY",
+});
 
 function initHeroRotation() {
   const slides = Array.from(document.querySelectorAll("[data-kobposh-hero-slide]"));

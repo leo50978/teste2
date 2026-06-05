@@ -20,6 +20,7 @@ import {
   touchRoomPresenceDuelV2Secure,
 } from "./secure-functions.js";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
 
 const DUEL_V2_ROOMS = "duelRoomsV2";
 const PUBLIC_DUEL_STAKE_HTG = 25;
@@ -77,6 +78,10 @@ let duelLotLightsReady = false;
 let duelLotTileEntries = [];
 let duelLotRaycaster = null;
 let duelLotPointer = null;
+const duelNetworkQualityIndicator = mountNetworkQualityIndicator({
+  position: "top-left",
+  debugLabel: "DUEL_NETWORK_QUALITY",
+});
 
 const DUEL_LOT_COLUMNS = 7;
 const DUEL_LOT_TILE_SCALE = 1.34;

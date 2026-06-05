@@ -25,8 +25,14 @@ import {
   updateClientProfileSecure,
 } from "./secure-functions.js";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
 
 const urlParams = new URLSearchParams(window.location.search);
+const dameNetworkQualityIndicator = mountNetworkQualityIndicator({
+  mountSelector: ".game-topbar-actions",
+  inline: true,
+  debugLabel: "DAME_NETWORK_QUALITY",
+});
 
 function safeInt(value, fallback = 0) {
   const parsed = Number.parseInt(String(value ?? ""), 10);

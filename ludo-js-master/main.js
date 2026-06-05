@@ -15,6 +15,7 @@ import {
 import { PLAYERS, STATE } from './ludo/constants.js?v=20260523-ludo-frienddice2';
 import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo2';
 import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
+import { mountNetworkQualityIndicator } from '../network-quality-indicator.js';
 
 const TURN_DURATION_SECONDS = 30;
 const LUDO_PUBLIC_STAKE_HTG = 25;
@@ -81,6 +82,12 @@ const dom = {
         P2: document.getElementById('ludoPlayerLabelP2'),
     },
 };
+
+const ludoNetworkQualityIndicator = mountNetworkQualityIndicator({
+    mountSelector: '.center-stack',
+    inline: true,
+    debugLabel: 'LUDO_NETWORK_QUALITY',
+});
 
 let activeTurnPlayer = 'P1';
 let activeState = STATE.DICE_NOT_ROLLED;
