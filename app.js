@@ -1058,7 +1058,7 @@ function ensureDominoDuelStakeModal() {
               <div class="min-w-0 flex-1">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Piblik</p>
                 <p class="mt-2 text-[22px] font-black text-[#18212b]">Gran chanm</p>
-                <p class="mt-2 text-sm leading-6 text-[#697670]">Le sistem nan jwenn yon advese, duel la komanse otomatikman.</p>
+                <p class="mt-2 text-sm leading-6 text-[#697670]" data-domino-duel-public-mode-copy>Le sistem nan jwenn yon advese, duel la komanse otomatikman.</p>
               </div>
               <span class="mt-1 h-3.5 w-3.5 rounded-full bg-slate-200 transition" data-domino-duel-mode-indicator="public"></span>
             </div>
@@ -1200,6 +1200,8 @@ function ensureDominoDuelStakeModal() {
   const nextBtn = overlay.querySelector("[data-domino-duel-step-next]");
   const stepPanels = Array.from(overlay.querySelectorAll("[data-domino-duel-step-panel]"));
   const modeButtons = Array.from(overlay.querySelectorAll("[data-domino-duel-select-mode]"));
+  const publicModeButton = overlay.querySelector("[data-domino-duel-select-mode='public']");
+  const publicModeCopyEl = overlay.querySelector("[data-domino-duel-public-mode-copy]");
   const friendActionButtons = Array.from(overlay.querySelectorAll("[data-domino-duel-select-friend-action]"));
   const joinCodeInput = overlay.querySelector("[data-domino-duel-join-code]");
   const joinStatusEl = overlay.querySelector("[data-domino-duel-join-status]");
@@ -1230,6 +1232,7 @@ function ensureDominoDuelStakeModal() {
   let privateStakeHtg = MIN_PRIVATE_DUEL_STAKE_HTG;
   let createdFriendRoomState = null;
   let creatingFriendRoom = false;
+  let isPublicDuelEnabled = true;
 
   const buildDuelUrl = ({ roomMode = "", friendAction = "", inviteCode = "", roomId = "", stakeHtg = PUBLIC_DUEL_STAKE_HTG } = {}) => {
     const safeStakeHtg = Math.max(0, normalizeStakeHtg(stakeHtg, PUBLIC_DUEL_STAKE_HTG));
@@ -1268,8 +1271,33 @@ function ensureDominoDuelStakeModal() {
     shareStatusEl.classList.toggle("text-[#156437]", tone !== "error");
     shareStatusEl.classList.toggle("text-[#c05b5b]", tone === "error");
   };
+  const applyPublicModeAvailability = (enabled) => {
+    isPublicDuelEnabled = enabled !== false;
+    if (publicModeButton) {
+      publicModeButton.disabled = !isPublicDuelEnabled;
+      publicModeButton.classList.toggle("opacity-55", !isPublicDuelEnabled);
+      publicModeButton.classList.toggle("cursor-not-allowed", !isPublicDuelEnabled);
+      publicModeButton.classList.toggle("border-[#f0d3d3]", !isPublicDuelEnabled);
+      publicModeButton.classList.toggle("bg-[#fff7f7]", !isPublicDuelEnabled);
+    }
+    if (publicModeCopyEl) {
+      publicModeCopyEl.textContent = isPublicDuelEnabled
+        ? "Le sistem nan jwenn yon advese, duel la komanse otomatikman."
+        : "Gran chanm nan femen tanporeman. Ou ka toujou itilize salon prive a.";
+      publicModeCopyEl.classList.toggle("text-[#697670]", isPublicDuelEnabled);
+      publicModeCopyEl.classList.toggle("text-[#b05555]", !isPublicDuelEnabled);
+    }
+    if (!isPublicDuelEnabled && selectedMode === "public") {
+      selectedMode = "";
+      if (currentStep === "public") currentStep = "mode";
+    }
+  };
   const validatePublicEntry = () => {
     const balance = getCurrentHomeWalletTotalHtg();
+    if (!isPublicDuelEnabled) {
+      setPublicStatus("Gran chanm Domino duel la femen pou kounye a. Salon prive toujou disponib.");
+      return { canAfford: false, balance, disabledByAvailability: true };
+    }
     const canAfford = balance >= PUBLIC_DUEL_STAKE_HTG;
     if (!canAfford) {
       const missing = Math.max(0, PUBLIC_DUEL_STAKE_HTG - balance);
@@ -1310,6 +1338,12 @@ function ensureDominoDuelStakeModal() {
         await ensureXchangeState(uid);
       }
     } catch (_) {
+    }
+    try {
+      const availability = await readPublicGameAvailability(true);
+      applyPublicModeAvailability(availability.dominoDuelPublicEnabled !== false);
+    } catch (_) {
+      applyPublicModeAvailability(true);
     }
     return {
       publicState: validatePublicEntry(),
@@ -1517,7 +1551,14 @@ function ensureDominoDuelStakeModal() {
     });
   modeButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      selectedMode = button.getAttribute("data-domino-duel-select-mode") === "friend" ? "friend" : "public";
+      const nextMode = button.getAttribute("data-domino-duel-select-mode") === "friend" ? "friend" : "public";
+      if (nextMode === "public" && !isPublicDuelEnabled) {
+        openGameUnavailableModal("domino-duel", {
+          text: "Gran chanm Domino duel la pa disponib pou kounye a. Salon prive toujou disponib pou jwe ak yon zanmi.",
+        });
+        return;
+      }
+      selectedMode = nextMode;
       if (selectedMode !== "friend") selectedFriendAction = "";
       setJoinStatus("");
       renderStep();
