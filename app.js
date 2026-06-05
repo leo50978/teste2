@@ -284,7 +284,7 @@ function getGameAvailabilityLabel(gameKey = "") {
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedKey === "pong") return "Pong";
   if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
-  if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") return "Domino duel gran chanm";
+  if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") return "Domino duel";
   if (normalizedKey === "ludo") return "Ludo";
   return "Jwet sa a";
 }
@@ -368,7 +368,14 @@ async function canLaunchPublicGame(gameKey = "") {
   }
 
   if (!isEnabled) {
-    openGameUnavailableModal(normalizedKey);
+    if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
+      openGameUnavailableModal("domino-duel", {
+        title: "Domino duel la gen yon pwoblem teknik",
+        text: "Nou femen Domino duel tanporeman pandan nap regle yon pwoblem teknik. Sa ap ranje sou peu.",
+      });
+    } else {
+      openGameUnavailableModal(normalizedKey);
+    }
     return false;
   }
   return true;
@@ -915,13 +922,6 @@ function openLudoBlockedModal(requiredHtg = LUDO_PUBLIC_ENTRY_HTG, currentHtg = 
 function ensureDominoModeModal() {
   if (dominoModeModal) return dominoModeModal;
 
-  const openDuelTemporarilyDisabledModal = () => {
-    openGameUnavailableModal("domino-duel", {
-      title: "Domino duel la gen yon pwoblem teknik",
-      text: "Nou femen Domino duel tanporeman pandan nap regle yon pwoblem teknik. Sa ap ranje sou peu.",
-    });
-  };
-
   const overlay = document.createElement("div");
   overlay.className = "fixed inset-0 z-[4200] hidden items-stretch justify-stretch overflow-hidden bg-[rgba(239,246,241,0.82)] backdrop-blur-sm";
   overlay.setAttribute("data-kobposh-domino-mode-modal", "");
@@ -1003,7 +1003,9 @@ function ensureDominoModeModal() {
   continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
-      openDuelTemporarilyDisabledModal();
+      const canLaunch = await canLaunchPublicGame("domino-duel");
+      if (!canLaunch) return;
+      ensureDominoDuelStakeModal().open();
       return;
     }
     close();

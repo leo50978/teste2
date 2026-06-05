@@ -29,14 +29,15 @@ const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
 const PUBLIC_DUEL_BOT_WAIT_MS = 7 * 1000;
 const PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY = "dominov1";
-const DUEL_V2_TEMP_DISABLED = true;
-const DUEL_V2_TEMP_DISABLED_MESSAGE = "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.";
 
-function assertDuelV2TemporarilyAvailable() {
-  if (!DUEL_V2_TEMP_DISABLED) return;
-  throw makeHttpError(503, "duel-v2-temporarily-disabled", DUEL_V2_TEMP_DISABLED_MESSAGE, {
-    game: "domino-duel",
-  });
+async function assertDuelV2Available() {
+  const publicSettings = await readPublicAppSettings();
+  if (publicSettings.dominoDuelPublicEnabled === false) {
+    throw makeHttpError(503, "duel-v2-temporarily-disabled", "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.", {
+      game: "domino-duel",
+    });
+  }
+  return publicSettings;
 }
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const PUBLIC_DUEL_BOT_NAMES = Object.freeze([
@@ -1757,13 +1758,7 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
 }
 
 async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
-  assertDuelV2TemporarilyAvailable();
-  const publicSettings = await readPublicAppSettings();
-  if (publicSettings.dominoDuelPublicEnabled === false) {
-    throw makeHttpError(503, "duel-v2-public-disabled", "Gran chanm Domino duel la pa disponib pou kounye a.", {
-      game: "domino-duel",
-    });
-  }
+  await assertDuelV2Available();
   const stakeHtg = PUBLIC_DUEL_V2_STAKE_HTG;
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
@@ -1839,7 +1834,7 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
 }
 
 async function createFriendDuelRoomV2({ uid, email, payload = {} }) {
-  assertDuelV2TemporarilyAvailable();
+  await assertDuelV2Available();
   const stakeHtg = assertPrivateDuelV2StakeHtg(payload);
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
@@ -1921,7 +1916,7 @@ async function createFriendDuelRoomV2({ uid, email, payload = {} }) {
 }
 
 async function resumeFriendDuelRoomV2({ uid, payload = {} }) {
-  assertDuelV2TemporarilyAvailable();
+  await assertDuelV2Available();
   const roomId = String(payload.roomId || "").trim();
   if (!roomId) {
     throw new HttpsError("invalid-argument", "roomId requis.");
@@ -1950,7 +1945,7 @@ async function resumeFriendDuelRoomV2({ uid, payload = {} }) {
 }
 
 async function joinFriendDuelRoomByCodeV2({ uid, email, payload = {} }) {
-  assertDuelV2TemporarilyAvailable();
+  await assertDuelV2Available();
   const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
   if (!inviteCodeNormalized) {
     throw new HttpsError("invalid-argument", "Kod salon an obligatwa.");
