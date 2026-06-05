@@ -227,6 +227,7 @@ const UPCOMING_GAME_LABELS = {
 };
 const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEBUG_DUEL_AVAILABILITY = true;
+const HARD_DISABLE_DOMINO_DUEL = true;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
@@ -387,7 +388,7 @@ async function canLaunchPublicGame(gameKey = "") {
   if (normalizedKey === "pong") {
     isEnabled = availability.pongEnabled !== false;
   } else if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
-    isEnabled = availability.dominoDuelPublicEnabled !== false;
+    isEnabled = HARD_DISABLE_DOMINO_DUEL ? false : (availability.dominoDuelPublicEnabled !== false);
   } else if (normalizedKey === "ludo") {
     isEnabled = availability.ludoEnabled !== false;
   } else {
@@ -400,6 +401,7 @@ async function canLaunchPublicGame(gameKey = "") {
       normalizedKey,
       availability,
       isEnabled,
+      hardDisabled: HARD_DISABLE_DOMINO_DUEL,
     });
   }
 

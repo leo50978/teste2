@@ -29,8 +29,15 @@ const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
 const PUBLIC_DUEL_BOT_WAIT_MS = 7 * 1000;
 const PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY = "dominov1";
+const HARD_DISABLE_DOMINO_DUEL = true;
 
 async function assertDuelV2Available() {
+  if (HARD_DISABLE_DOMINO_DUEL) {
+    throw makeHttpError(503, "duel-v2-temporarily-disabled", "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.", {
+      game: "domino-duel",
+      hardDisabled: true,
+    });
+  }
   const publicSettings = await readPublicAppSettings();
   if (publicSettings.dominoDuelPublicEnabled === false) {
     throw makeHttpError(503, "duel-v2-temporarily-disabled", "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.", {
@@ -331,6 +338,128 @@ function scoreRiggedHumanHandNormality(profile = {}, targetDoubles = 1) {
   return score;
 }
 
+function canDuelTilePlayOnEnds(tileId, leftEnd = -1, rightEnd = -1) {
+  const values = getTileValues(tileId);
+  if (!values) return false;
+  return (
+    safeSignedInt(leftEnd, -1) < 0
+    || safeSignedInt(rightEnd, -1) < 0
+    || values[0] === leftEnd
+    || values[1] === leftEnd
+    || values[0] === rightEnd
+    || values[1] === rightEnd
+  );
+}
+
+function buildDuelHandValueCounts(hand = []) {
+  const counts = new Map();
+  const tiles = Array.isArray(hand) ? hand : [];
+  tiles.forEach((tileId) => {
+    const values = getTileValues(tileId);
+    if (!values) return;
+    counts.set(values[0], (counts.get(values[0]) || 0) + 1);
+    counts.set(values[1], (counts.get(values[1]) || 0) + 1);
+  });
+  return counts;
+}
+
+function scoreRiggedStockTile(tileId, context = {}) {
+  const values = getTileValues(tileId) || [0, 0];
+  const leftEnd = safeSignedInt(context.leftEnd, -1);
+  const rightEnd = safeSignedInt(context.rightEnd, -1);
+  const currentSeat = safeSignedInt(context.currentSeat, -1);
+  const forcedDrawSeat = safeSignedInt(context.forcedDrawSeat, -1);
+  const botSeat = safeSignedInt(context.botSeat, -1);
+  const humanSeat = safeSignedInt(context.humanSeat, -1);
+  const botCounts = context.botValueCounts instanceof Map ? context.botValueCounts : new Map();
+  const humanCounts = context.humanValueCounts instanceof Map ? context.humanValueCounts : new Map();
+  const playableNow = canDuelTilePlayOnEnds(tileId, leftEnd, rightEnd);
+  const botSynergy = (botCounts.get(values[0]) || 0) + (botCounts.get(values[1]) || 0);
+  const humanSynergy = (humanCounts.get(values[0]) || 0) + (humanCounts.get(values[1]) || 0);
+  const pipSum = values[0] + values[1];
+
+  let score = 0;
+  score += (botSynergy - humanSynergy) * 28;
+  score += pipSum * 3;
+  if (values[0] === values[1]) score += 12;
+  if (playableNow) {
+    score += currentSeat === botSeat ? 26 : -22;
+    if (forcedDrawSeat === botSeat) score += 260;
+    if (forcedDrawSeat === humanSeat) score -= 220;
+  } else {
+    score += currentSeat === humanSeat ? 16 : -8;
+    if (forcedDrawSeat === humanSeat) score += 170;
+    if (forcedDrawSeat === botSeat) score -= 140;
+  }
+  return {
+    tileId,
+    score,
+    playableNow,
+    botSynergy,
+    humanSynergy,
+    pipSum,
+    tie: crypto.randomInt(0, 1000),
+  };
+}
+
+function reorderRiggedStockForDominov1(stockPile = [], liveState = {}, room = {}) {
+  const stock = Array.isArray(stockPile) ? stockPile.slice() : [];
+  if (stock.length <= 1) return stock;
+
+  const botSeat = getDuelBotSeat(room);
+  const humanSeat = getOtherDuelSeat(botSeat);
+  const currentSeat = safeSignedInt(liveState.currentPlayer, humanSeat);
+  const forcedDrawSeat = getLegalMovesForDuelSeat(liveState, currentSeat).length <= 0 ? currentSeat : -1;
+  const context = {
+    leftEnd: liveState.leftEnd,
+    rightEnd: liveState.rightEnd,
+    currentSeat,
+    forcedDrawSeat,
+    botSeat,
+    humanSeat,
+    botValueCounts: buildDuelHandValueCounts(liveState.seatHands?.[botSeat]),
+    humanValueCounts: buildDuelHandValueCounts(liveState.seatHands?.[humanSeat]),
+  };
+
+  const ranked = stock.map((tileId) => scoreRiggedStockTile(tileId, context));
+  ranked.sort((left, right) => {
+    if (right.score !== left.score) return right.score - left.score;
+    return right.tie - left.tie;
+  });
+
+  if (forcedDrawSeat === humanSeat) {
+    const dead = ranked.filter((item) => !item.playableNow);
+    const live = ranked.filter((item) => item.playableNow)
+      .sort((left, right) => {
+        const leftPenalty = (left.humanSynergy * 30) - (left.botSynergy * 18) + left.pipSum;
+        const rightPenalty = (right.humanSynergy * 30) - (right.botSynergy * 18) + right.pipSum;
+        if (leftPenalty !== rightPenalty) return leftPenalty - rightPenalty;
+        return left.tie - right.tie;
+      });
+    const topDeadCount = dead.length > 0 ? Math.min(dead.length, crypto.randomInt(1, Math.min(3, dead.length) + 1)) : 0;
+    const front = [];
+    front.push(...dead.slice(0, topDeadCount));
+    if (live.length > 0) front.push(live[0]);
+    const used = new Set(front.map((item) => item.tileId));
+    const rest = ranked.filter((item) => !used.has(item.tileId));
+    return front.concat(rest).map((item) => item.tileId);
+  }
+
+  if (forcedDrawSeat === botSeat) {
+    const live = ranked.filter((item) => item.playableNow);
+    const dead = ranked.filter((item) => !item.playableNow);
+    const topLiveCount = live.length > 0 ? Math.min(live.length, crypto.randomInt(1, Math.min(3, live.length) + 1)) : 0;
+    const front = [];
+    front.push(...live.slice(0, topLiveCount));
+    if (dead.length > 0) front.push(dead[0]);
+    const used = new Set(front.map((item) => item.tileId));
+    const rest = ranked.filter((item) => !used.has(item.tileId));
+    return front.concat(rest).map((item) => item.tileId);
+  }
+
+  return ranked.map((item) => item.tileId);
+}
+
 function buildRiggedPublicBotDeckOrder(room = {}) {
   const botSeat = getDuelBotSeat(room);
   const humanSeat = getOtherDuelSeat(botSeat);
@@ -380,7 +509,11 @@ function buildRiggedPublicBotDeckOrder(room = {}) {
 
     if (candidateScore > bestScore || !bestDeck) {
       bestScore = candidateScore;
-      bestDeck = candidateDeck;
+      bestDeck = [
+        ...initialState.seatHands[0],
+        ...initialState.seatHands[1],
+        ...reorderRiggedStockForDominov1(initialState.stockPile, postOpeningState, room),
+      ];
     }
   }
 
