@@ -915,6 +915,13 @@ function openLudoBlockedModal(requiredHtg = LUDO_PUBLIC_ENTRY_HTG, currentHtg = 
 function ensureDominoModeModal() {
   if (dominoModeModal) return dominoModeModal;
 
+  const openDuelTemporarilyDisabledModal = () => {
+    openGameUnavailableModal("domino-duel", {
+      title: "Domino duel la gen yon pwoblem teknik",
+      text: "Nou femen Domino duel tanporeman pandan nap regle yon pwoblem teknik. Sa ap ranje sou peu.",
+    });
+  };
+
   const overlay = document.createElement("div");
   overlay.className = "fixed inset-0 z-[4200] hidden items-stretch justify-stretch overflow-hidden bg-[rgba(239,246,241,0.82)] backdrop-blur-sm";
   overlay.setAttribute("data-kobposh-domino-mode-modal", "");
@@ -996,7 +1003,7 @@ function ensureDominoModeModal() {
   continueBtn?.addEventListener("click", async () => {
     if (selectedMode === "duel") {
       close();
-      ensureDominoDuelStakeModal().open();
+      openDuelTemporarilyDisabledModal();
       return;
     }
     close();
