@@ -29,7 +29,7 @@ const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
 const PUBLIC_DUEL_BOT_WAIT_MS = 7 * 1000;
 const PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY = "dominov1";
-const HARD_DISABLE_DOMINO_DUEL = true;
+const HARD_DISABLE_DOMINO_DUEL = false;
 
 async function assertDuelV2Available() {
   if (HARD_DISABLE_DOMINO_DUEL) {
@@ -463,12 +463,12 @@ function reorderRiggedStockForDominov1(stockPile = [], liveState = {}, room = {}
 function buildRiggedPublicBotDeckOrder(room = {}) {
   const botSeat = getDuelBotSeat(room);
   const humanSeat = getOtherDuelSeat(botSeat);
-  const preferHumanOpening = crypto.randomInt(0, 100) < 32;
+  const preferHumanOpening = crypto.randomInt(0, 100) < 14;
   const targetHumanDoubles = crypto.randomInt(0, 100) < 58 ? 1 : 2;
   let bestDeck = null;
   let bestScore = Number.NEGATIVE_INFINITY;
 
-  for (let attempt = 0; attempt < 72; attempt += 1) {
+  for (let attempt = 0; attempt < 180; attempt += 1) {
     const candidateDeck = makeDeckOrder();
     const initialState = createInitialDuelGameState(room, candidateDeck);
     const humanHand = Array.isArray(initialState.seatHands?.[humanSeat]) ? initialState.seatHands[humanSeat] : [];
@@ -484,6 +484,8 @@ function buildRiggedPublicBotDeckOrder(room = {}) {
     const postOpeningState = botProgress.state;
     const stockVision = buildDuelStockVisionProfile(postOpeningState, botSeat);
     const postOpeningScore = scoreDuelBotPosition(postOpeningState, room, botSeat);
+    const botThreat = countImmediateWinningMovesForDuelSeat(postOpeningState, room, botSeat);
+    const humanThreat = countImmediateWinningMovesForDuelSeat(postOpeningState, room, humanSeat);
     const pipDelta = safeInt(humanProfile.pips) - safeInt(botProfile.pips);
 
     let candidateScore = 0;
@@ -494,6 +496,8 @@ function buildRiggedPublicBotDeckOrder(room = {}) {
     candidateScore += stockVision.playableTop5 * 28;
     candidateScore += stockVision.playableAll * 5;
     candidateScore += stockVision.humanPressureOnEnds <= stockVision.botPressureOnEnds ? 70 : -70;
+    candidateScore += (botThreat.winCount * 160) + (botThreat.blockCount * 85);
+    candidateScore -= (humanThreat.winCount * 210) + (humanThreat.blockCount * 120);
     candidateScore += openingConfig.seat === humanSeat
       ? (preferHumanOpening ? 180 : -35)
       : (preferHumanOpening ? -120 : 90);
@@ -739,6 +743,43 @@ function buildDuelStockVisionProfile(state = {}, seat = 1) {
   };
 }
 
+function countImmediateWinningMovesForDuelSeat(state = {}, room = {}, seat = 0) {
+  const safeSeat = safeSignedInt(seat, -1);
+  const liveState = normalizeDuelGameState(state, room);
+  if (safeSeat < 0) {
+    return { winCount: 0, blockCount: 0, legalCount: 0 };
+  }
+
+  const legalMoves = getLegalMovesForDuelSeat(liveState, safeSeat);
+  if (legalMoves.length <= 0) {
+    return { winCount: 0, blockCount: 0, legalCount: 0 };
+  }
+
+  let winCount = 0;
+  let blockCount = 0;
+  for (const move of legalMoves) {
+    const playMove = buildBotPlayMoveFromLegalMove(move, safeSeat);
+    const applied = applyResolvedDuelMove(liveState, room, playMove, "sim:finish-scan");
+    const nextState = applied.state;
+    if (safeSignedInt(nextState.winnerSeat, -1) === safeSeat) {
+      winCount += 1;
+      continue;
+    }
+    const otherSeat = getOtherDuelSeat(safeSeat);
+    const stockSize = Array.isArray(nextState.stockPile) ? nextState.stockPile.length : 0;
+    const otherLegal = getLegalMovesForDuelSeat(nextState, otherSeat).length;
+    if (stockSize <= 0 && otherLegal <= 0 && computeBlockedWinnerSeatForDuel(nextState.seatHands) === safeSeat) {
+      blockCount += 1;
+    }
+  }
+
+  return {
+    winCount,
+    blockCount,
+    legalCount: legalMoves.length,
+  };
+}
+
 function scoreDuelMovePressure(state = {}, room = {}, seat = 1, move = {}) {
   const liveState = normalizeDuelGameState(state, room);
   const otherSeat = getOtherDuelSeat(seat);
@@ -765,6 +806,21 @@ function scoreDuelMovePressure(state = {}, room = {}, seat = 1, move = {}) {
   const nextHumanDoubles = countDuelHandDoubles(nextHumanHand);
   const nextHumanPips = sumDuelSeatPips(nextState.seatHands, otherSeat);
   const nextBotPips = sumDuelSeatPips(nextState.seatHands, seat);
+  const nextStockSize = Array.isArray(nextState.stockPile) ? nextState.stockPile.length : 0;
+  const nextHumanFinishThreat = (
+    nextHumanHand.length <= 3
+    || nextHumanLegal <= 2
+    || nextStockSize <= 2
+  )
+    ? countImmediateWinningMovesForDuelSeat(nextState, room, otherSeat)
+    : { winCount: 0, blockCount: 0, legalCount: nextHumanLegal };
+  const nextBotCounterThreat = (
+    nextBotHand.length <= 3
+    || nextBotLegal <= 2
+    || nextStockSize <= 2
+  )
+    ? countImmediateWinningMovesForDuelSeat(nextState, room, seat)
+    : { winCount: 0, blockCount: 0, legalCount: nextBotLegal };
 
   let pressureScore = 0;
   pressureScore += (currentHumanLegal - nextHumanLegal) * 145;
@@ -800,6 +856,18 @@ function scoreDuelMovePressure(state = {}, room = {}, seat = 1, move = {}) {
     if (nextHumanLegal === 0) pressureScore += killProfile.blockBonus;
     if (nextStockVision.topPlayableForBot === true) pressureScore += 35;
     if (nextBotLegal >= 2) pressureScore += 45;
+  }
+  if (nextHumanFinishThreat.winCount > 0) {
+    pressureScore -= nextHumanFinishThreat.winCount * 920;
+  }
+  if (nextHumanFinishThreat.blockCount > 0) {
+    pressureScore -= nextHumanFinishThreat.blockCount * 420;
+  }
+  if (nextBotCounterThreat.winCount > 0) {
+    pressureScore += nextBotCounterThreat.winCount * 180;
+  }
+  if (nextBotCounterThreat.blockCount > 0) {
+    pressureScore += nextBotCounterThreat.blockCount * 110;
   }
   return pressureScore * killProfile.pressureMultiplier;
 }
@@ -842,6 +910,20 @@ function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
   const botDoubles = countDuelHandDoubles(botHand);
   const humanDoubles = countDuelHandDoubles(humanHand);
   const stockSize = Array.isArray(liveState.stockPile) ? liveState.stockPile.length : 0;
+  const botFinishThreat = (
+    botHand.length <= 3
+    || botLegal <= 2
+    || stockSize <= 2
+  )
+    ? countImmediateWinningMovesForDuelSeat(liveState, room, botSeat)
+    : { winCount: 0, blockCount: 0, legalCount: botLegal };
+  const humanFinishThreat = (
+    humanHand.length <= 3
+    || humanLegal <= 2
+    || stockSize <= 2
+  )
+    ? countImmediateWinningMovesForDuelSeat(liveState, room, humanSeat)
+    : { winCount: 0, blockCount: 0, legalCount: humanLegal };
 
   let score = 0;
   score += (humanPips - botPips) * 12;
@@ -880,6 +962,10 @@ function scoreDuelBotPosition(state = {}, room = {}, botSeat = 1) {
     if (botLegal >= 2) score += 60;
     if (botPips <= humanPips) score += 55;
   }
+  score += botFinishThreat.winCount * 540;
+  score += botFinishThreat.blockCount * 220;
+  score -= humanFinishThreat.winCount * 760;
+  score -= humanFinishThreat.blockCount * 280;
   return score;
 }
 
@@ -952,6 +1038,11 @@ function pickDominov1BotMove(state = {}, room = {}, seat = 1, legalMoves = []) {
       const nextHumanLegal = getLegalMovesForDuelSeat(applied.state, getOtherDuelSeat(seat)).length;
       if (nextHumanLegal <= 1) score += 150 * killProfile.pressureMultiplier;
       if (nextHumanLegal === 0) score += killProfile.blockBonus;
+    }
+    if ((Array.isArray(applied.state.stockPile) ? applied.state.stockPile.length : 0) <= 2) {
+      const finishThreat = countImmediateWinningMovesForDuelSeat(applied.state, room, getOtherDuelSeat(seat));
+      score -= finishThreat.winCount * 1100;
+      score -= finishThreat.blockCount * 480;
     }
     return {
       move,

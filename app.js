@@ -232,7 +232,7 @@ const UPCOMING_GAME_LABELS = {
 };
 const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEBUG_DUEL_AVAILABILITY = true;
-const HARD_DISABLE_DOMINO_DUEL = true;
+const HARD_DISABLE_DOMINO_DUEL = false;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
   pongEnabled: true,
   dominoClassicEnabled: true,
