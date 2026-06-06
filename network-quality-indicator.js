@@ -1,7 +1,8 @@
 const NETWORK_STYLE_ID = "kobposh-network-quality-style";
-const DEFAULT_PING_INTERVAL_MS = 12000;
-const DEFAULT_HIDDEN_INTERVAL_MS = 22000;
+const DEFAULT_PING_INTERVAL_MS = 5000;
+const DEFAULT_HIDDEN_INTERVAL_MS = 15000;
 const DEFAULT_TIMEOUT_MS = 4200;
+const DEFAULT_RENDER_INTERVAL_MS = 1800;
 
 function ensureStyles() {
   if (document.getElementById(NETWORK_STYLE_ID)) return;
@@ -176,42 +177,81 @@ function readNavigatorConnectionHints() {
   };
 }
 
+function getHintLabel(hints = {}) {
+  const effectiveType = String(hints.effectiveType || "").trim().toLowerCase();
+  if (effectiveType === "slow-2g") return "2G-";
+  if (effectiveType === "2g") return "2G";
+  if (effectiveType === "3g") return "3G";
+  if (effectiveType === "4g") return "4G";
+  if (effectiveType === "5g") return "5G";
+  return "";
+}
+
+function averageLatency(samples = []) {
+  const numeric = samples.filter((value) => Number.isFinite(value) && value > 0);
+  if (!numeric.length) return NaN;
+  return numeric.reduce((sum, value) => sum + value, 0) / numeric.length;
+}
+
 function clampBars(value) {
   const count = Number(value);
   if (!Number.isFinite(count)) return 0;
   return Math.max(0, Math.min(4, Math.trunc(count)));
 }
 
-function classifyNetworkQuality({ online, latencyMs, failed, hints }) {
+function classifyNetworkQuality({
+  online,
+  latencyMs,
+  recentLatencyMs,
+  consecutiveFailures,
+  hints,
+}) {
   if (!online) {
     return { tone: "offline", bars: 0, label: "Offline", detail: "Pa gen rezo" };
   }
 
-  if (failed) {
-    return { tone: "poor", bars: 1, label: "Instab", detail: "Rezo feb" };
-  }
+  const hintLabel = getHintLabel(hints);
+  const measuredLatency = Number.isFinite(latencyMs) && latencyMs > 0
+    ? latencyMs
+    : recentLatencyMs;
 
-  if (!Number.isFinite(latencyMs) || latencyMs <= 0) {
+  if (!Number.isFinite(measuredLatency) || measuredLatency <= 0) {
+    if (hintLabel) {
+      if (hintLabel === "4G" || hintLabel === "5G") {
+        return { tone: "good", bars: 3, label: "Konek", detail: hintLabel };
+      }
+      if (hintLabel === "3G") {
+        return { tone: "fair", bars: 2, label: "Mwayen", detail: hintLabel };
+      }
+      return { tone: "poor", bars: 1, label: "Instab", detail: hintLabel };
+    }
     return { tone: "checking", bars: 2, label: "Test...", detail: "N ap mezire" };
   }
 
   let score = 4;
-  if (latencyMs > 650) score = 1;
-  else if (latencyMs > 420) score = 2;
-  else if (latencyMs > 220) score = 3;
+  if (measuredLatency > 850) score = 1;
+  else if (measuredLatency > 520) score = 2;
+  else if (measuredLatency > 250) score = 3;
 
   if (hints.saveData) score = Math.min(score, 2);
   if (hints.effectiveType === "slow-2g" || hints.effectiveType === "2g") score = Math.min(score, 1);
   else if (hints.effectiveType === "3g") score = Math.min(score, 2);
   if (Number.isFinite(hints.rtt) && hints.rtt > 0) {
-    if (hints.rtt > 800) score = Math.min(score, 1);
-    else if (hints.rtt > 450) score = Math.min(score, 2);
+    if (hints.rtt > 900) score = Math.min(score, 1);
+    else if (hints.rtt > 500) score = Math.min(score, 2);
   }
 
-  if (score >= 4) return { tone: "excellent", bars: 4, label: "Bon", detail: `${Math.round(latencyMs)}ms` };
-  if (score === 3) return { tone: "good", bars: 3, label: "Korek", detail: `${Math.round(latencyMs)}ms` };
-  if (score === 2) return { tone: "fair", bars: 2, label: "Mwayen", detail: `${Math.round(latencyMs)}ms` };
-  return { tone: "poor", bars: 1, label: "Move", detail: `${Math.round(latencyMs)}ms` };
+  if (consecutiveFailures >= 2) score = Math.min(score, 1);
+  else if (consecutiveFailures === 1) score = Math.min(score, 2);
+
+  const detail = hintLabel
+    ? `${Math.round(measuredLatency)}ms ${hintLabel}`
+    : `${Math.round(measuredLatency)}ms`;
+
+  if (score >= 4) return { tone: "excellent", bars: 4, label: "Bon", detail };
+  if (score === 3) return { tone: "good", bars: 3, label: "Korek", detail };
+  if (score === 2) return { tone: "fair", bars: 2, label: "Mwayen", detail };
+  return { tone: "poor", bars: 1, label: "Instab", detail };
 }
 
 function updateIndicator(root, snapshot) {
@@ -259,6 +299,7 @@ export function mountNetworkQualityIndicator(options = {}) {
     pingIntervalMs = DEFAULT_PING_INTERVAL_MS,
     hiddenIntervalMs = DEFAULT_HIDDEN_INTERVAL_MS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    renderIntervalMs = DEFAULT_RENDER_INTERVAL_MS,
     debugLabel = "NETWORK_QUALITY",
   } = options;
 
@@ -267,15 +308,18 @@ export function mountNetworkQualityIndicator(options = {}) {
   (mountTarget || document.body).appendChild(root);
 
   let intervalHandle = 0;
+  let renderHandle = 0;
   let destroyed = false;
   let lastLatencyMs = NaN;
-  let lastFailed = false;
+  let latencySamples = [];
+  let consecutiveFailures = 0;
 
   const render = () => {
     updateIndicator(root, {
       online: navigator.onLine !== false,
       latencyMs: lastLatencyMs,
-      failed: lastFailed,
+      recentLatencyMs: averageLatency(latencySamples),
+      consecutiveFailures,
       hints: readNavigatorConnectionHints(),
     });
   };
@@ -283,8 +327,9 @@ export function mountNetworkQualityIndicator(options = {}) {
   const probe = async () => {
     if (destroyed) return;
     if (navigator.onLine === false) {
-      lastFailed = false;
       lastLatencyMs = NaN;
+      latencySamples = [];
+      consecutiveFailures = 0;
       render();
       return;
     }
@@ -306,10 +351,11 @@ export function mountNetworkQualityIndicator(options = {}) {
       });
       if (!response.ok) throw new Error(`health-${response.status}`);
       lastLatencyMs = performance.now() - probeStartedAt;
-      lastFailed = false;
+      latencySamples = [...latencySamples, lastLatencyMs].slice(-5);
+      consecutiveFailures = 0;
     } catch (error) {
-      lastFailed = true;
-      lastLatencyMs = Number.isFinite(lastLatencyMs) ? lastLatencyMs : NaN;
+      consecutiveFailures += 1;
+      lastLatencyMs = Number.isFinite(lastLatencyMs) ? lastLatencyMs : averageLatency(latencySamples);
       try {
         console.warn(`[${debugLabel}] probe failed`, error);
       } catch (_) {
@@ -335,9 +381,10 @@ export function mountNetworkQualityIndicator(options = {}) {
   };
 
   const handleNetworkToggle = () => {
-    lastFailed = navigator.onLine === false;
     if (navigator.onLine === false) {
       lastLatencyMs = NaN;
+      latencySamples = [];
+      consecutiveFailures = 0;
       render();
       return;
     }
@@ -358,6 +405,9 @@ export function mountNetworkQualityIndicator(options = {}) {
   }
 
   render();
+  renderHandle = window.setInterval(() => {
+    render();
+  }, renderIntervalMs);
   schedule();
   probe().catch(() => undefined);
 
@@ -371,6 +421,10 @@ export function mountNetworkQualityIndicator(options = {}) {
       if (intervalHandle) {
         window.clearInterval(intervalHandle);
         intervalHandle = 0;
+      }
+      if (renderHandle) {
+        window.clearInterval(renderHandle);
+        renderHandle = 0;
       }
       window.removeEventListener("online", handleNetworkToggle);
       window.removeEventListener("offline", handleNetworkToggle);

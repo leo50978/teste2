@@ -15,7 +15,7 @@ import {
 import { PLAYERS, STATE } from './ludo/constants.js?v=20260523-ludo-frienddice2';
 import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo2';
 import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
-import { mountNetworkQualityIndicator } from '../network-quality-indicator.js';
+import { mountNetworkQualityIndicator } from '../network-quality-indicator.js?v=20260605-network2';
 
 const TURN_DURATION_SECONDS = 30;
 const LUDO_PUBLIC_STAKE_HTG = 25;

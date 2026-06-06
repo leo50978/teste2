@@ -20,7 +20,7 @@ import {
   touchRoomPresenceDuelV2Secure,
 } from "./secure-functions.js";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
-import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
 
 const DUEL_V2_ROOMS = "duelRoomsV2";
 const PUBLIC_DUEL_STAKE_HTG = 25;

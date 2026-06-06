@@ -21,7 +21,7 @@ import {
   DEFAULT_HOME_HERO_SLIDES,
   refreshHomeHeroSlides,
 } from "./home-hero-config.js";
-import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
 import { mountRetraitModal } from "./retrait.js";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {

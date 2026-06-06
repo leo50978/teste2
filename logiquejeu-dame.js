@@ -25,7 +25,7 @@ import {
   updateClientProfileSecure,
 } from "./secure-functions.js";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
-import { mountNetworkQualityIndicator } from "./network-quality-indicator.js";
+import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
 
 const urlParams = new URLSearchParams(window.location.search);
 const dameNetworkQualityIndicator = mountNetworkQualityIndicator({
