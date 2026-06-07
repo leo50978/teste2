@@ -2697,7 +2697,7 @@ function normalizeHaitiMobilePhone(value = "") {
     return "";
   }
 
-  if (!/^[34]\d{7}$/.test(local)) return "";
+  if (!/^[345]\d{7}$/.test(local)) return "";
   if (/^(\d)\1{7}$/.test(local)) return "";
   if (OBVIOUS_FAKE_HAITI_PHONE_LOCALS.has(local)) return "";
 
@@ -2712,7 +2712,7 @@ function buildHaitiMobilePhoneError(value = "") {
   }
 
   const local = digits.length === 11 ? digits.slice(3) : digits;
-  if (!/^[34]\d{7}$/.test(local)) {
+  if (!/^[345]\d{7}$/.test(local)) {
     return "Numero a pa bon mete on bon numero haiti ossinon ou pap k fe retre";
   }
   if (/^(\d)\1{7}$/.test(local) || OBVIOUS_FAKE_HAITI_PHONE_LOCALS.has(local)) {

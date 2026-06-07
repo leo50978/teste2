@@ -61,7 +61,7 @@ function normalizeHaitiMobilePhone(value = "", maxLength = 40) {
     return "";
   }
 
-  if (!/^[34]\d{7}$/.test(local)) return "";
+  if (!/^[345]\d{7}$/.test(local)) return "";
   if (/^(\d)\1{7}$/.test(local)) return "";
   if (OBVIOUS_FAKE_HAITI_PHONE_LOCALS.has(local)) return "";
 
