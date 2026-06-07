@@ -476,6 +476,102 @@ async function fetchOrdersAcrossClientsForRange(startMs = 0, endMs = 0, fields =
   };
 }
 
+async function fetchOrdersForClientReviewedRange(clientId = "", startMs = 0, endMs = 0, fields = []) {
+  const normalizedClientId = String(clientId || "").trim();
+  if (!normalizedClientId) return [];
+
+  let query = db.collection(CLIENTS_COLLECTION)
+    .doc(normalizedClientId)
+    .collection("orders")
+    .where("reviewedAtMs", ">=", startMs)
+    .where("reviewedAtMs", "<=", endMs)
+    .orderBy("reviewedAtMs", "asc");
+
+  if (Array.isArray(fields) && fields.length) {
+    query = query.select(...fields);
+  }
+
+  const snap = await query.get();
+  if (snap.empty) return [];
+
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    clientId: normalizedClientId,
+    ...(docSnap.data() || {}),
+  }));
+}
+
+async function fetchReviewedOrdersAcrossClientsForRange(startMs = 0, endMs = 0, fields = []) {
+  const clientIds = await listClientIdsForOrderFallback();
+  const perClientRows = await mapWithConcurrency(
+    clientIds,
+    (clientId) => fetchOrdersForClientReviewedRange(clientId, startMs, endMs, fields),
+    CLIENT_ORDER_FALLBACK_CONCURRENCY
+  );
+
+  const flattened = perClientRows.flat();
+  const rows = flattened
+    .sort((left, right) =>
+      (safeSignedInt(left?.reviewedAtMs) - safeSignedInt(right?.reviewedAtMs))
+      || String(left?.id || "").localeCompare(String(right?.id || ""), "fr")
+    )
+    .slice(0, DEPOSIT_ANALYTICS_DOC_LIMIT);
+
+  return {
+    rows,
+    truncated: flattened.length > DEPOSIT_ANALYTICS_DOC_LIMIT,
+    fallbackUsed: true,
+  };
+}
+
+async function fetchWithdrawalsForClientReviewedRange(clientId = "", startMs = 0, endMs = 0, fields = []) {
+  const normalizedClientId = String(clientId || "").trim();
+  if (!normalizedClientId) return [];
+
+  let query = db.collection(CLIENTS_COLLECTION)
+    .doc(normalizedClientId)
+    .collection("withdrawals")
+    .where("reviewedAtMs", ">=", startMs)
+    .where("reviewedAtMs", "<=", endMs)
+    .orderBy("reviewedAtMs", "asc");
+
+  if (Array.isArray(fields) && fields.length) {
+    query = query.select(...fields);
+  }
+
+  const snap = await query.get();
+  if (snap.empty) return [];
+
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    clientId: normalizedClientId,
+    ...(docSnap.data() || {}),
+  }));
+}
+
+async function fetchReviewedWithdrawalsAcrossClientsForRange(startMs = 0, endMs = 0, fields = []) {
+  const clientIds = await listClientIdsForOrderFallback();
+  const perClientRows = await mapWithConcurrency(
+    clientIds,
+    (clientId) => fetchWithdrawalsForClientReviewedRange(clientId, startMs, endMs, fields),
+    CLIENT_ORDER_FALLBACK_CONCURRENCY
+  );
+
+  const flattened = perClientRows.flat();
+  const rows = flattened
+    .sort((left, right) =>
+      (safeSignedInt(left?.reviewedAtMs) - safeSignedInt(right?.reviewedAtMs))
+      || String(left?.id || "").localeCompare(String(right?.id || ""), "fr")
+    )
+    .slice(0, DEPOSIT_ANALYTICS_DOC_LIMIT);
+
+  return {
+    rows,
+    truncated: flattened.length > DEPOSIT_ANALYTICS_DOC_LIMIT,
+    fallbackUsed: true,
+  };
+}
+
 function snapshotRecord(docSnap) {
   return {
     id: docSnap.id,
@@ -1530,19 +1626,7 @@ async function fetchApprovedCashInRowsForRange(startMs = 0, endMs = 0) {
     if (!shouldFallbackOrderCollectionGroup(error)) {
       throw error;
     }
-    const fallback = await db.collectionGroup("orders")
-      .where("resolutionStatus", "==", "approved")
-      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT)
-      .get();
-    return {
-      rows: fallback.docs.map((docSnap) => ({
-        id: docSnap.id,
-        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
-        ...(docSnap.data() || {}),
-      })),
-      truncated: fallback.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
-      fallbackUsed: true,
-    };
+    return fetchReviewedOrdersAcrossClientsForRange(startMs, endMs, fields);
   }
 }
 
@@ -1597,19 +1681,7 @@ async function fetchApprovedWithdrawalRowsForRange(startMs = 0, endMs = 0) {
     if (code !== 9 && !String(error?.message || "").includes("FAILED_PRECONDITION")) {
       throw error;
     }
-    const fallback = await db.collectionGroup("withdrawals")
-      .where("status", "==", "approved")
-      .limit(DEPOSIT_ANALYTICS_DOC_LIMIT)
-      .get();
-    return {
-      rows: fallback.docs.map((docSnap) => ({
-        id: docSnap.id,
-        clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
-        ...(docSnap.data() || {}),
-      })),
-      truncated: fallback.size >= DEPOSIT_ANALYTICS_DOC_LIMIT,
-      fallbackUsed: true,
-    };
+    return fetchReviewedWithdrawalsAcrossClientsForRange(startMs, endMs, fields);
   }
 }
 
@@ -1671,9 +1743,13 @@ function buildCashflowBucketSeed(startMs = 0, endMs = 0, granularity = "day") {
 async function computeHtgCashflowSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = getTimelineAnalyticsRange(options, nowMs);
-  const rowLimit = Math.min(300, Math.max(25, safeInt(options.listLimit || options.limit || 120) || 120));
-  const bucketSeed = buildCashflowBucketSeed(range.startMs, range.endMs, range.granularity);
-  const bucketMap = new Map(bucketSeed.map((item) => [String(item.key), item]));
+  const includeRecent = options.includeRecent !== false;
+  const includeBuckets = options.includeBuckets !== false;
+  const rawRowLimit = Number(options.listLimit ?? options.limit);
+  const resolvedRowLimit = Number.isFinite(rawRowLimit) ? Math.trunc(rawRowLimit) : 120;
+  const rowLimit = includeRecent ? Math.min(300, Math.max(0, resolvedRowLimit)) : 0;
+  const bucketSeed = includeBuckets ? buildCashflowBucketSeed(range.startMs, range.endMs, range.granularity) : [];
+  const bucketMap = includeBuckets ? new Map(bucketSeed.map((item) => [String(item.key), item])) : new Map();
 
   const [depositRowsResult, withdrawalRowsResult] = await Promise.all([
     fetchApprovedCashInRowsForRange(range.startMs, range.endMs),
@@ -1725,18 +1801,20 @@ async function computeHtgCashflowSnapshot(options = {}) {
       else bucket.directApprovedDepositsHtg += approvedHtg;
     }
 
-    recentDeposits.push({
-      id: String(row.id || "").trim(),
-      kind: "deposit",
-      resolvedAtMs,
-      amountHtg: approvedHtg,
-      source,
-      sourceLabel: normalizeApprovedDepositSourceLabel(source, row),
-      methodName: String(row.methodName || row.methodId || "").trim(),
-      customerName: String(row.customerName || "").trim(),
-      customerEmail: String(row.customerEmail || "").trim(),
-      uniqueCode: String(row.uniqueCode || "").trim(),
-    });
+    if (includeRecent) {
+      recentDeposits.push({
+        id: String(row.id || "").trim(),
+        kind: "deposit",
+        resolvedAtMs,
+        amountHtg: approvedHtg,
+        source,
+        sourceLabel: normalizeApprovedDepositSourceLabel(source, row),
+        methodName: String(row.methodName || row.methodId || "").trim(),
+        customerName: String(row.customerName || "").trim(),
+        customerEmail: String(row.customerEmail || "").trim(),
+        uniqueCode: String(row.uniqueCode || "").trim(),
+      });
+    }
   });
 
   withdrawalRowsResult.rows.forEach((row) => {
@@ -1752,16 +1830,18 @@ async function computeHtgCashflowSnapshot(options = {}) {
     summary.approvedWithdrawalsCount += 1;
     if (bucket) bucket.approvedWithdrawalsHtg += approvedHtg;
 
-    recentWithdrawals.push({
-      id: String(row.id || "").trim(),
-      kind: "withdrawal",
-      resolvedAtMs,
-      amountHtg: approvedHtg,
-      methodName: String(row.methodName || row.destinationType || row.methodId || "").trim(),
-      customerName: String(row.customerName || "").trim(),
-      customerEmail: String(row.customerEmail || "").trim(),
-      destinationValue: String(row.destinationValue || "").trim(),
-    });
+    if (includeRecent) {
+      recentWithdrawals.push({
+        id: String(row.id || "").trim(),
+        kind: "withdrawal",
+        resolvedAtMs,
+        amountHtg: approvedHtg,
+        methodName: String(row.methodName || row.destinationType || row.methodId || "").trim(),
+        customerName: String(row.customerName || "").trim(),
+        customerEmail: String(row.customerEmail || "").trim(),
+        destinationValue: String(row.destinationValue || "").trim(),
+      });
+    }
   });
 
   const collections = [
@@ -1809,18 +1889,20 @@ async function computeHtgCashflowSnapshot(options = {}) {
         bucket.operatorGameEdgeHtg += operatorGameEdgeHtg;
       }
 
-      recentGames.push({
-        id: String(docSnap.id || "").trim(),
-        kind: "game",
-        resolvedAtMs: endedAtMs,
-        gameLabel: collectionMeta.label,
-        stakeHtg,
-        usersStakeHtg,
-        payoutHtg,
-        usersNetHtg,
-        operatorGameEdgeHtg,
-        roomMode: String(row.roomMode || row.gameMode || "").trim(),
-      });
+      if (includeRecent) {
+        recentGames.push({
+          id: String(docSnap.id || "").trim(),
+          kind: "game",
+          resolvedAtMs: endedAtMs,
+          gameLabel: collectionMeta.label,
+          stakeHtg,
+          usersStakeHtg,
+          payoutHtg,
+          usersNetHtg,
+          operatorGameEdgeHtg,
+          roomMode: String(row.roomMode || row.gameMode || "").trim(),
+        });
+      }
     });
   });
 
@@ -1847,9 +1929,11 @@ async function computeHtgCashflowSnapshot(options = {}) {
   summary.netCashHtg = safeSignedInt(summary.approvedDepositsHtg - summary.approvedWithdrawalsHtg);
   summary.netBusinessHtg = safeSignedInt(summary.netCashHtg + summary.operatorGameEdgeHtg);
 
-  recentDeposits.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
-  recentWithdrawals.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
-  recentGames.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+  if (includeRecent) {
+    recentDeposits.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+    recentWithdrawals.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+    recentGames.sort((left, right) => safeSignedInt(right.resolvedAtMs) - safeSignedInt(left.resolvedAtMs));
+  }
 
   return {
     ok: true,
@@ -1871,15 +1955,15 @@ async function computeHtgCashflowSnapshot(options = {}) {
       },
       summary,
       series: {
-        approvedDepositsHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedDepositsHtg })),
-        approvedWithdrawalsHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedWithdrawalsHtg })),
-        operatorGameEdgeHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.operatorGameEdgeHtg })),
-        netBusinessHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.netBusinessHtg })),
+        approvedDepositsHtg: includeBuckets ? buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedDepositsHtg })) : [],
+        approvedWithdrawalsHtg: includeBuckets ? buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedWithdrawalsHtg })) : [],
+        operatorGameEdgeHtg: includeBuckets ? buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.operatorGameEdgeHtg })) : [],
+        netBusinessHtg: includeBuckets ? buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.netBusinessHtg })) : [],
       },
-      buckets,
-      recentApprovedDeposits: recentDeposits.slice(0, rowLimit),
-      recentApprovedWithdrawals: recentWithdrawals.slice(0, rowLimit),
-      recentGameEconomics: recentGames.slice(0, rowLimit),
+      buckets: includeBuckets ? buckets : [],
+      recentApprovedDeposits: includeRecent ? recentDeposits.slice(0, rowLimit) : [],
+      recentApprovedWithdrawals: includeRecent ? recentWithdrawals.slice(0, rowLimit) : [],
+      recentGameEconomics: includeRecent ? recentGames.slice(0, rowLimit) : [],
     },
     scanned: {
       approvedDepositDocs: safeInt(depositRowsResult.rows.length),
