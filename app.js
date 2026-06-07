@@ -1105,7 +1105,7 @@ function ensureDominoDuelStakeModal() {
         <div data-domino-duel-step-panel="mode" class="space-y-4">
           <div>
             <h3 class="text-[24px] font-black text-[#18212b]">Salon prive sèlman</h3>
-            <p class="mt-2 text-sm leading-6 text-[#6b7871]">Pou kounye a, `Domino duel` disponib selman ak kod envitasyon pou jwe ak yon zanmi.</p>
+            <p class="mt-2 text-sm leading-6 text-[#6b7871]">Pou kounye a, Domino duel disponib selman ak kod envitasyon pou jwe ak yon zanmi.</p>
           </div>
           <button type="button" class="group w-full rounded-[28px] border border-[#dfe7e1] bg-white px-5 py-5 text-left transition duration-150 hover:border-[#cae5d5] hover:bg-[#f8fcf9]" data-domino-duel-select-mode="friend">
             <div class="flex items-start gap-4">
