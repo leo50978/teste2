@@ -122,6 +122,10 @@ let friendRematchRequestBusy = false;
 let friendRematchPending = false;
 let pendingJoinInviteCode = "";
 let pendingJoinStakeHtg = DEFAULT_STAKE_HTG;
+let roomPollFailureCount = 0;
+let offlineLeaveTimer = null;
+let connectionToastTimer = null;
+let connectionToastEl = null;
 
 function debugMorpion(label, payload = null) {
   try {
@@ -132,6 +136,90 @@ function debugMorpion(label, payload = null) {
     console.log(`[MORPION_V3_DEBUG] ${label}`, payload);
   } catch (_) {
   }
+}
+
+function isTransientNetworkError(error) {
+  const rawMessage = String(error?.message || "").trim().toLowerCase();
+  const rawCode = String(error?.code || "").trim().toLowerCase();
+  return /failed to fetch|network|timeout|timed out|load failed|abort|internet|offline|unavailable|deadline/i.test(rawMessage)
+    || /unavailable|deadline|network|timeout|aborted/i.test(rawCode);
+}
+
+function ensureConnectionToast() {
+  if (connectionToastEl) return connectionToastEl;
+  connectionToastEl = document.createElement("div");
+  connectionToastEl.className = "morpion-connection-toast hidden";
+  connectionToastEl.setAttribute("role", "status");
+  connectionToastEl.setAttribute("aria-live", "polite");
+  connectionToastEl.innerHTML = `
+    <span class="morpion-connection-toast__dot" aria-hidden="true"></span>
+    <span class="morpion-connection-toast__text">Koneksyon feb. N ap reeseye...</span>
+  `;
+  document.body.appendChild(connectionToastEl);
+
+  const style = document.createElement("style");
+  style.textContent = `
+    .morpion-connection-toast {
+      position: fixed;
+      left: 50%;
+      top: max(12px, env(safe-area-inset-top));
+      z-index: 80;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      max-width: calc(100vw - 28px);
+      transform: translateX(-50%);
+      border: 1px solid rgba(120, 92, 58, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 16px 38px rgba(22, 28, 35, 0.16);
+      color: #26313b;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.01em;
+      backdrop-filter: blur(12px);
+    }
+    .morpion-connection-toast.hidden {
+      display: none;
+    }
+    .morpion-connection-toast__dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #d68a2c;
+      box-shadow: 0 0 0 5px rgba(214, 138, 44, 0.16);
+      flex: 0 0 auto;
+    }
+  `;
+  document.head.appendChild(style);
+  return connectionToastEl;
+}
+
+function showConnectionToast(message = "Koneksyon feb. N ap reeseye...", ttlMs = 2600) {
+  const toast = ensureConnectionToast();
+  const textEl = toast.querySelector(".morpion-connection-toast__text");
+  if (textEl) textEl.textContent = message;
+  toast.classList.remove("hidden");
+  if (connectionToastTimer) window.clearTimeout(connectionToastTimer);
+  if (ttlMs > 0) {
+    connectionToastTimer = window.setTimeout(() => {
+      toast.classList.add("hidden");
+    }, ttlMs);
+  }
+}
+
+function hideConnectionToast() {
+  if (connectionToastTimer) {
+    window.clearTimeout(connectionToastTimer);
+    connectionToastTimer = null;
+  }
+  connectionToastEl?.classList.add("hidden");
+}
+
+function resetRoomNetworkFailures() {
+  roomPollFailureCount = 0;
+  hideConnectionToast();
 }
 
 const URL_PARAMS = new URLSearchParams(window.location.search);
@@ -843,6 +931,7 @@ async function pollRoomState() {
   try {
     const previousStatus = String(currentRoomState?.status || lastKnownRoomStatus || "").trim();
     const state = await getMorpionV3RoomStateSecure({ roomId: currentRoomId });
+    resetRoomNetworkFailures();
     debugMorpion("pollRoomState:result", {
       roomId: currentRoomId,
       previousStatus,
@@ -893,7 +982,24 @@ async function pollRoomState() {
     }
     scheduleRoomPoll(1000);
   } catch (error) {
-    setResultModal("Mopyon", "Koneksyon pa mache", error?.message || "Nou pa rive chaje match la.");
+    const hasKnownRoom = Boolean(currentRoomState || lastKnownRoomStatus || currentRoomId);
+    if (hasKnownRoom && isTransientNetworkError(error)) {
+      roomPollFailureCount += 1;
+      debugMorpion("pollRoomState:network-retry", {
+        roomId: currentRoomId,
+        failureCount: roomPollFailureCount,
+        message: error?.message || "unknown-error",
+        code: error?.code || "",
+      });
+      showConnectionToast(
+        roomPollFailureCount >= 4
+          ? "Koneksyon an toujou feb. Tanpri pa femen paj la."
+          : "Koneksyon feb. N ap reeseye..."
+      );
+      scheduleRoomPoll(Math.min(5000, 900 + (roomPollFailureCount * 650)));
+      return;
+    }
+    setResultModal("Mopyon", "Koneksyon pa mache", "Nou pa rive pale ak seve a. Tcheke entenet ou epi peze Rejwe.");
   }
 }
 
@@ -1081,7 +1187,12 @@ async function submitCell(index) {
       code: error?.code || "",
       details: error?.details || null,
     });
-    setResultModal("Mopyon", "Kou a pa pase", error?.message || "Nou pa rive voye kou a.");
+    if (isTransientNetworkError(error)) {
+      showConnectionToast("Kou a poko pase. Koneksyon an feb, reeseye nan yon ti moman.", 3200);
+      scheduleRoomPoll(900);
+      return;
+    }
+    setResultModal("Mopyon", "Kou a pa pase", "Nou pa rive voye kou a. Tanpri reeseye.");
   } finally {
     actionSending = false;
     renderBoard();
@@ -1305,7 +1416,25 @@ function bindEvents() {
   });
 
   window.addEventListener("offline", () => {
-    void leaveCurrentRoomSilently();
+    showConnectionToast("Entenet la koupe. Pa femen paj la, n ap tann li tounen.", 0);
+    if (offlineLeaveTimer) window.clearTimeout(offlineLeaveTimer);
+    offlineLeaveTimer = window.setTimeout(() => {
+      offlineLeaveTimer = null;
+      if (!navigator.onLine) {
+        void leaveCurrentRoomSilently();
+      }
+    }, 12000);
+  });
+  window.addEventListener("online", () => {
+    if (offlineLeaveTimer) {
+      window.clearTimeout(offlineLeaveTimer);
+      offlineLeaveTimer = null;
+    }
+    showConnectionToast("Koneksyon an tounen. N ap resenkronize match la.", 2200);
+    if (currentRoomId && !leavingRoom) {
+      scheduleRoomPoll(250);
+      void pingPresence();
+    }
   });
   window.addEventListener("pagehide", () => {
     void leaveCurrentRoomSilently();
