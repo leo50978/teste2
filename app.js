@@ -14,15 +14,15 @@
   signInWithEmailAndPassword,
   where,
 } from "./firebase-init.js";
-import PaymentModal from "./payment.js?v=20260603-welcome-export1";
-import { ensureXchangeState, getXchangeState } from "./xchange.js";
+import PaymentModal from "./payment.js?v=20260607-chess-entry1";
+import { ensureXchangeState, getXchangeState } from "./xchange.js?v=20260607-chess-entry1";
 import {
   buildHomeHeroImagePath,
   DEFAULT_HOME_HERO_SLIDES,
   refreshHomeHeroSlides,
 } from "./home-hero-config.js";
 import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
-import { mountRetraitModal } from "./retrait.js";
+import { mountRetraitModal } from "./retrait.js?v=20260607-chess-entry1";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
   createFriendLudoRoomSecure,
@@ -31,7 +31,7 @@ import {
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260605-duel-dashboard-fallback1";
+} from "./secure-functions.js?v=20260607-chess-entry1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -490,11 +490,6 @@ function ensureLudoStakeModal() {
       </div>
 
       <div class="mt-5 space-y-4" data-kobposh-ludo-step-panel="mode">
-        <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="public">
-          <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Piblik</span>
-          <span class="mt-2 block text-lg font-black text-[#18212b]">Gran chanm</span>
-          <span class="mt-2 block text-sm leading-6 text-[#5f6f67]">Antre dirak nan gran chanm piblik 25 HTG la.</span>
-        </button>
         <button class="w-full rounded-[22px] border border-[#dce5df] bg-white px-5 py-4 text-left transition hover:bg-[#f6faf7]" type="button" data-kobposh-ludo-mode="friend">
           <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Entre amis</span>
           <span class="mt-2 block text-lg font-black text-[#18212b]">Salon prive</span>
@@ -2414,20 +2409,6 @@ const SUPPORT_HELP_TOPICS = [
     ],
   },
   {
-    key: "pong",
-    icon: "circle",
-    label: "Kijan poum jwe pong",
-    title: "Kijan pou jwe Pong",
-    targets: ["Kat PONG", "Chips HTG", "Kontinye nan jwet la"],
-    body: [
-      "Sou paj dakey la, peze sou kat PONG.",
-      "Chwazi kantite HTG ou vle jwe a nan modal ki parèt la.",
-      "Peze Kontinye nan jwet la pou komanse match la.",
-      "Tann match la chaje, epi jwe jouk li fini.",
-      "Le match la fini, sit la ap montre rezilta a epi li ka mete balans ou ajou.",
-    ],
-  },
-  {
     key: "transfer",
     icon: "users",
     label: "Kijan poum voye HTG bay yon zanmi",
@@ -2608,12 +2589,6 @@ function getSupportTopicActionConfig(topicKey = "") {
         label: "Ouvri Domino",
         type: "callback",
         run: () => ensureDominoModeModal().open(),
-      };
-    case "pong":
-      return {
-        label: "Ouvri Pong",
-        type: "callback",
-        run: () => launchPongEntry(),
       };
     case "transfer":
       return {
@@ -4923,6 +4898,7 @@ function ensureChessStakeModal() {
           Ouvri salon prive a
         </button>
       </div>
+      <p class="mt-3 text-sm font-semibold text-[#5f6f67]" data-kobposh-chess-public-status></p>
       <div class="mt-5 hidden rounded-[24px] border border-[#dce5df] bg-[#f8fcf9] p-4 text-left" data-kobposh-chess-private-panel>
         <div class="grid gap-3 sm:grid-cols-2">
           <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="create">
@@ -4965,6 +4941,7 @@ function ensureChessStakeModal() {
   const privatePanel = modal.querySelector("[data-kobposh-chess-private-panel]");
   const createPanel = modal.querySelector("[data-kobposh-chess-private-create-panel]");
   const joinPanel = modal.querySelector("[data-kobposh-chess-private-join-panel]");
+  const publicStatusEl = modal.querySelector("[data-kobposh-chess-public-status]");
   const privateStatusEl = modal.querySelector("[data-kobposh-chess-private-status]");
   const joinStatusEl = modal.querySelector("[data-kobposh-chess-join-status]");
   const privateStakeInput = modal.querySelector("#kobposhChessPrivateStake");
@@ -4980,6 +4957,7 @@ function ensureChessStakeModal() {
     if (privatePanel) privatePanel.classList.add("hidden");
     if (createPanel) createPanel.classList.remove("hidden");
     if (joinPanel) joinPanel.classList.add("hidden");
+    if (publicStatusEl) publicStatusEl.textContent = "";
     if (privateStatusEl) privateStatusEl.textContent = "";
     if (joinStatusEl) joinStatusEl.textContent = "";
     if (privateStakeInput) privateStakeInput.value = String(CHESS_PRIVATE_MIN_STAKE_HTG);
@@ -5017,6 +4995,13 @@ function ensureChessStakeModal() {
       return;
     }
     if (target.closest("[data-kobposh-chess-public]")) {
+      const currentBalanceHtg = getCurrentHomeWalletTotalHtg();
+      if (currentBalanceHtg < CHESS_PUBLIC_ENTRY_HTG) {
+        if (publicStatusEl) {
+          publicStatusEl.textContent = `Ou bezwen omwen ${formatHtg(CHESS_PUBLIC_ENTRY_HTG)} disponib pou antre nan gran chanm Echec la.`;
+        }
+        return;
+      }
       close();
       window.location.href = buildChessUrl({
         roomMode: "chess_public_bot",
@@ -5720,10 +5705,7 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       window.location.href = "./morpion.html?engine=v2&stake=500&fundingCurrency=htg&stakeHtg=25";
       return;
     }
-    if (game === "pong") {
-      await launchPongEntry();
-      return;
-    }
+    if (game === "pong") return;
     if (game === "dame") {
       if (!auth.currentUser) {
         openAuthScreen("login");
@@ -5754,7 +5736,12 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
       return;
     }
     if (game === "chess") {
-      openUpcomingGameModal("chess");
+      if (!auth.currentUser) {
+        openAuthScreen("login");
+        return;
+      }
+      const modal = ensureChessStakeModal();
+      modal.open();
       return;
     }
   });
