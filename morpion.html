@@ -382,9 +382,23 @@
 
       .cell.is-last-move {
         z-index: 2;
-        border-color: rgba(231, 111, 81, 0.86);
-        background: rgba(231, 111, 81, 0.10);
-        box-shadow: 0 0 0 1px rgba(231, 111, 81, 0.30) inset, 0 0 28px rgba(231, 111, 81, 0.14);
+        border-color: rgba(231, 111, 81, 0.92);
+        background: rgba(231, 111, 81, 0.13);
+        box-shadow: 0 0 0 2px rgba(231, 111, 81, 0.34) inset, 0 0 30px rgba(231, 111, 81, 0.18);
+      }
+
+      .cell.is-last-move::before {
+        content: "";
+        position: absolute;
+        right: 4px;
+        top: 4px;
+        width: 7px;
+        height: 7px;
+        border-radius: 999px;
+        background: #e76f51;
+        box-shadow: 0 0 0 2px rgba(255, 251, 244, 0.92), 0 0 14px rgba(231, 111, 81, 0.42);
+        pointer-events: none;
+        z-index: 3;
       }
 
       .cell.is-last-move::after {
@@ -1200,6 +1214,6 @@
       </div>
     </div>
 
-    <script type="module" src="./logiquejeu-morpion-v3.js"></script>
+    <script type="module" src="./logiquejeu-morpion-v3.js?v=20260610-last-move1"></script>
   </body>
 </html>

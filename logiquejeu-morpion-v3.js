@@ -543,6 +543,21 @@ function ensureCellSymbol(cell, seat) {
   }
 }
 
+function getLastMoveCellIndex(state = currentRoomState) {
+  const directIndex = safeInt(state?.lastMove?.cellIndex, -1);
+  if (directIndex >= 0 && directIndex < TOTAL_CELLS) return directIndex;
+
+  const board = Array.isArray(state?.board) ? state.board : [];
+  const moveCount = safeInt(state?.moveCount, 0);
+  if (!moveCount || board.length !== TOTAL_CELLS) return -1;
+
+  const expectedSeat = (moveCount - 1) % 2;
+  for (let index = board.length - 1; index >= 0; index -= 1) {
+    if (board[index] === expectedSeat) return index;
+  }
+  return -1;
+}
+
 function renderBoard() {
   if (!dom.board) return;
   if (!dom.board.childElementCount) {
@@ -556,11 +571,13 @@ function renderBoard() {
   const board = Array.isArray(state?.board) ? state.board : Array.from({ length: TOTAL_CELLS }, () => -1);
   const currentPlayer = safeInt(state?.currentPlayer, -1);
   const ended = String(state?.status || "").trim() === "ended" || String(state?.endedReason || "").trim().length > 0;
+  const lastMoveCellIndex = getLastMoveCellIndex(state);
 
   Array.from(dom.board.children).forEach((button, index) => {
     const value = board[index];
     const occupied = value === 0 || value === 1;
     button.classList.toggle("is-occupied", occupied);
+    button.classList.toggle("is-last-move", occupied && index === lastMoveCellIndex);
     if (occupied) {
       ensureCellSymbol(button, value);
     } else {

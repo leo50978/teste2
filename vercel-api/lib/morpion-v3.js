@@ -697,6 +697,17 @@ function buildRoomStateResponse(roomId = "", room = {}, state = {}, seatIndex = 
   const rematchRequestUids = Array.isArray(room.rematchRequestUids)
     ? room.rematchRequestUids.map((item) => String(item || "").trim()).filter(Boolean)
     : [];
+  const lastMove = room.lastMove && typeof room.lastMove === "object"
+    ? {
+      seq: safeInt(room.lastMove.seq),
+      type: String(room.lastMove.type || "place").trim(),
+      player: safeSignedInt(room.lastMove.player, -1),
+      symbol: String(room.lastMove.symbol || "").trim(),
+      cellIndex: safeSignedInt(room.lastMove.cellIndex, -1),
+      row: safeSignedInt(room.lastMove.row, -1),
+      col: safeSignedInt(room.lastMove.col, -1),
+    }
+    : null;
   return {
     ok: true,
     roomId: String(roomId || "").trim(),
@@ -718,6 +729,7 @@ function buildRoomStateResponse(roomId = "", room = {}, state = {}, seatIndex = 
     winnerUid: String(state.winnerUid || "").trim(),
     endedReason: String(state.endedReason || "").trim(),
     winningLine: Array.isArray(state.winningLine) ? state.winningLine.slice(0, 5) : [],
+    lastMove,
     turnDeadlineMs: safeSignedInt(room.turnDeadlineMs, 0),
     rematchRequestUids,
     engineVersion: 3,
