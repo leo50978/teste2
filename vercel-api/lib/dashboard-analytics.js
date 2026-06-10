@@ -453,7 +453,8 @@ async function fetchOrdersForClientRange(clientId = "", startMs = 0, endMs = 0, 
   }));
 }
 
-async function fetchOrdersAcrossClientsForRange(startMs = 0, endMs = 0, fields = []) {
+async function fetchOrdersAcrossClientsForRange(startMs = 0, endMs = 0, fields = [], maxDocs = DEPOSIT_ANALYTICS_DOC_LIMIT) {
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(maxDocs) || DEPOSIT_ANALYTICS_DOC_LIMIT));
   const clientIds = await listClientIdsForOrderFallback();
   const perClientRows = await mapWithConcurrency(
     clientIds,
@@ -467,11 +468,11 @@ async function fetchOrdersAcrossClientsForRange(startMs = 0, endMs = 0, fields =
       (safeSignedInt(left?.createdAtMs) - safeSignedInt(right?.createdAtMs))
       || String(left?.id || "").localeCompare(String(right?.id || ""), "fr")
     )
-    .slice(0, DEPOSIT_ANALYTICS_DOC_LIMIT);
+    .slice(0, docLimit);
 
   return {
     rows,
-    truncated: perClientRows.flat().length > DEPOSIT_ANALYTICS_DOC_LIMIT,
+    truncated: perClientRows.flat().length > docLimit,
     fallbackUsed: true,
   };
 }
@@ -1023,7 +1024,8 @@ function normalizeDepositAnalyticsMethod(order = {}) {
   return "other";
 }
 
-async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0) {
+async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs = DEPOSIT_ANALYTICS_DOC_LIMIT) {
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(maxDocs) || DEPOSIT_ANALYTICS_DOC_LIMIT));
   const fields = [
     "amount",
     "items",
@@ -1042,13 +1044,13 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0) {
   let truncated = false;
 
   try {
-    while (rows.length < DEPOSIT_ANALYTICS_DOC_LIMIT) {
+    while (rows.length < docLimit) {
       let query = db.collectionGroup("orders")
         .where("createdAtMs", ">=", startMs)
         .where("createdAtMs", "<=", endMs)
         .orderBy("createdAtMs", "asc")
         .select(...fields)
-        .limit(Math.min(DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE, DEPOSIT_ANALYTICS_DOC_LIMIT - rows.length));
+        .limit(Math.min(DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE, docLimit - rows.length));
 
       if (lastDoc) {
         query = query.startAfter(lastDoc);
@@ -1081,14 +1083,15 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0) {
     if (!shouldFallbackOrderCollectionGroup(error)) {
       throw error;
     }
-    return fetchOrdersAcrossClientsForRange(startMs, endMs, fields);
+    return fetchOrdersAcrossClientsForRange(startMs, endMs, fields, docLimit);
   }
 }
 
 async function computeDepositAnalyticsSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = normalizeDepositAnalyticsRange(options, nowMs);
-  const rowsResult = await fetchDepositAnalyticsRowsForRange(range.startMs, range.endMs);
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(options.maxDocs || options.docLimit) || DEPOSIT_ANALYTICS_DOC_LIMIT));
+  const rowsResult = await fetchDepositAnalyticsRowsForRange(range.startMs, range.endMs, docLimit);
   const bucketSeed = buildDepositAnalyticsBucketSeed(range.startMs, range.endMs, range.granularity);
   const bucketMap = new Map(bucketSeed.map((item) => [item.key, item]));
 
@@ -1282,7 +1285,7 @@ async function computeDepositAnalyticsSnapshot(options = {}) {
     buckets,
     scannedOrderDocs: safeInt(rowsResult.rows.length),
     truncated: rowsResult.truncated === true,
-    scanLimit: DEPOSIT_ANALYTICS_DOC_LIMIT,
+    scanLimit: docLimit,
   };
 }
 
