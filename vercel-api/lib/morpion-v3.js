@@ -1400,15 +1400,13 @@ async function joinFriendMorpionRoomByCodeV3({ uid = "", email = "", payload = {
       throw makeHttpError(409, "morpion-v3-room-not-available", "Salon prive sa a pa disponib anko.");
     }
     if (requestedStakeHtg > 0 && requestedStakeHtg !== roomStakeHtg) {
-      throw makeHttpError(
-        409,
-        "morpion-v3-stake-mismatch",
-        `Salon prive sa a mande ${roomStakeHtg} HTG.`,
-        {
-          roomStakeHtg,
-          requestedStakeHtg,
-        }
-      );
+      console.warn("[MORPION_V3][friend-join][stake-mismatch-tolerated]", {
+        roomId: roomDoc.ref.id,
+        inviteCode: roomInviteCode,
+        roomStakeHtg,
+        requestedStakeHtg,
+        uid: safeUid,
+      });
     }
     if (waitingDeadlineMs > 0 && humans < 2 && nowMs >= waitingDeadlineMs) {
       tx.set(roomDoc.ref, {

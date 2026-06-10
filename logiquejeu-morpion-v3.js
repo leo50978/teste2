@@ -377,16 +377,16 @@ function updateStakeActionAvailability() {
   [
     { button: dom.stakeContinueBtn, requiredStake: publicStake, label: "jwe piblik la" },
     { button: dom.stakeFriendBtn, requiredStake: friendStake, label: "kreye salon prive a" },
-    { button: dom.stakeJoinFriendBtn, requiredStake: friendStake, label: "antre nan salon prive a" },
-  ].forEach(({ button, requiredStake, label }) => {
+    { button: dom.stakeJoinFriendBtn, requiredStake: DEFAULT_STAKE_HTG, label: "antre nan salon prive a", allowWithoutDraftStake: true },
+  ].forEach(({ button, requiredStake, label, allowWithoutDraftStake = false }) => {
     if (!button) return;
     const canAfford = balance >= requiredStake;
-    const canProceed = isValidStake && canAfford;
+    const canProceed = (isValidStake || allowWithoutDraftStake) && canAfford;
     const shortfall = Math.max(0, requiredStake - balance);
     button.disabled = !canProceed;
     button.setAttribute("aria-disabled", canProceed ? "false" : "true");
     button.classList.toggle("is-disabled", !canProceed);
-    if (!isValidStake) {
+    if (!isValidStake && !allowWithoutDraftStake) {
       button.title = `Miz la pa ka desann anba ${formatHtg(DEFAULT_STAKE_HTG)}.`;
     } else if (!canAfford) {
       button.title = `Ou bezwen ${formatHtg(shortfall)} anplis pou ${label}.`;
@@ -1062,13 +1062,20 @@ async function joinFriendRoomByCode(inviteCodeArg = "", stakeHtgArg = null) {
     setFriendJoinStatus("Tanpri mete kod salon an.", true);
     return;
   }
-  const requestedStakeHtg = normalizeStakeHtg(stakeHtgArg, 0);
+  const rawStakeArg = Number.parseInt(String(stakeHtgArg ?? ""), 10);
+  const requestedStakeHtg = Number.isFinite(rawStakeArg) && rawStakeArg >= DEFAULT_STAKE_HTG
+    ? normalizeStakeHtg(rawStakeArg, DEFAULT_STAKE_HTG)
+    : 0;
   if (requestedStakeHtg > 0) {
     selectedStakeHtg = requestedStakeHtg;
   }
-  if (!(await ensureStakeIsAffordable(selectedStakeHtg || DEFAULT_STAKE_HTG, "antre nan salon prive a"))) return;
+  if (requestedStakeHtg > 0) {
+    if (!(await ensureStakeIsAffordable(requestedStakeHtg, "antre nan salon prive a"))) return;
+  } else if (getCurrentWalletTotalHtg() < DEFAULT_STAKE_HTG) {
+    if (!(await ensureStakeIsAffordable(DEFAULT_STAKE_HTG, "antre nan salon prive a"))) return;
+  }
   friendActionBusy = true;
-  setFriendJoinStatus("M ap verifye kod la...");
+  setFriendJoinStatus("M ap verifye kod la ak miz salon an...");
   try {
     const payload = { inviteCode };
     if (requestedStakeHtg > 0) payload.stakeHtg = requestedStakeHtg;
