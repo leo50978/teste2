@@ -948,7 +948,7 @@ async function submitActionChess({ uid = "", payload = {} } = {}) {
       && requestedActorSeat <= 1
       && requestedActorSeat !== requesterSeatIndex
       && !String((room.playerUids || [])[requestedActorSeat] || "").trim();
-    const seatIndex = canRelayBotMove ? 1 : requesterSeatIndex;
+    const seatIndex = canRelayBotMove ? requestedActorSeat : requesterSeatIndex;
     const expectedSeat = safeSignedInt(room.currentTurnSeat, 0);
     if (!forceFinalize && expectedSeat !== seatIndex) {
       throw makeHttpError(409, "chess-not-your-turn", "Se pa tou pa ou.");
