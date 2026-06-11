@@ -534,20 +534,6 @@ input {
   color: var(--green-dark);
 }
 
-.profile-agent-cta {
-  margin-top: 18px;
-  width: 100%;
-  min-height: 42px;
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 16px;
-  background: var(--gold);
-  color: #111111;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .profile-transfer-copy {
   margin: -6px 0 16px;
   color: var(--muted);

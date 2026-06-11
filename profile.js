@@ -1674,16 +1674,6 @@ document.querySelectorAll("[data-profile-history-more]").forEach((button) => {
   });
 });
 
-document.querySelector("[data-profile-become-agent]")?.addEventListener("click", () => {
-  const waLink = buildWhatsappUrlForKey(
-    "recruitment_modal",
-    "Bonjou, mwen vle vin yon ajan sou Kobpoch. Tanpri ban mwen etap yo."
-  );
-  if (waLink) {
-    window.location.href = waLink;
-  }
-});
-
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     refreshProfileLiveSurface();
