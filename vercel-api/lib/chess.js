@@ -5,6 +5,10 @@ const { makeHttpError } = require("./http");
 const { assertWalletNotFrozen, walletRef } = require("./player-wallet");
 const { safeInt, safeSignedInt, sanitizeText } = require("./safe");
 const { applyHtgRewardCredit, applyHtgStakeDebit } = require("./wallet-htg");
+const {
+  getConfiguredChessBotDifficulty,
+  normalizeChessBotDifficulty,
+} = require("./chess-bot-pilot");
 
 const CHESS_ROOMS_COLLECTION = "chessRooms";
 const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
@@ -169,6 +173,7 @@ function buildRoomStateResponse(roomId = "", room = {}, seatIndex = -1) {
     playerUids: Array.isArray(room.playerUids) ? room.playerUids.slice(0, 2) : ["", ""],
     playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
     botCount: safeInt(room.botCount),
+    botDifficulty: normalizeChessBotDifficulty(room.botDifficulty || "fo"),
     humanCount: safeInt(room.humanCount),
     moveCountBySeat: getMoveCountBySeat(room),
     playedCount: safeInt(room.playedCount),
@@ -381,6 +386,7 @@ async function writeChessRoomResultIfEndedTx(tx, roomRefDoc, room = {}, nextRoom
     winnerType,
     humanCount: safeInt(room.humanCount),
     botCount: safeInt(room.botCount),
+    botDifficulty: normalizeChessBotDifficulty(room.botDifficulty || nextRoom.botDifficulty || "fo"),
     playerUids,
     playerNames: Array.isArray(room.playerNames) ? room.playerNames.slice(0, 2) : ["", ""],
     entryFundingByUid: room.entryFundingByUid && typeof room.entryFundingByUid === "object"
@@ -442,7 +448,7 @@ async function joinMatchmakingChess({ uid = "", email = "", payload = {} } = {})
   }
 
   const stakeHtg = assertPublicChessStake(payload.stakeHtg || CHESS_PUBLIC_STAKE_HTG);
-  const botDifficulty = sanitizeText(payload.botDifficulty || "fo", 16).toLowerCase() || "fo";
+  const botDifficulty = normalizeChessBotDifficulty(await getConfiguredChessBotDifficulty());
   const publicOpponentName = sanitizeText(payload.publicOpponentName || payload.opponentDisplayName || "", 40);
   const nowMs = Date.now();
   const roomRefDoc = chessRoomRef();
