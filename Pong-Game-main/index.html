@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ht">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Pong · Dominoes Lakay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="pong-shell">
+        <section class="pong-card">
+            <header class="pong-head">
+                <div>
+                    <p class="eyebrow">Jwèt</p>
+                    <h1>Pong</h1>
+                    <p class="sub">Premye a 3 pwen. Gen yon konte desann avan chak won.</p>
+                </div>
+                <div class="score-wrap" aria-live="polite">
+                    <div class="score-block">
+                        <span class="score-label">Ou</span>
+                        <strong id="leftScore">0</strong>
+                    </div>
+                    <span class="score-sep">:</span>
+                    <div class="score-block">
+                        <span id="rightPlayerLabel" class="score-label">Advèsè</span>
+                        <strong id="rightScore">0</strong>
+                    </div>
+                </div>
+            </header>
+            <p id="matchStatus" class="match-status" aria-live="polite">Preparasyon pati a...</p>
+
+            <div class="canvas-wrap">
+                <canvas id="pong" width="800" height="500" aria-label="Zòn jwèt Pong"></canvas>
+            </div>
+
+            <footer class="pong-actions">
+                <button id="replayBtn" type="button" class="hidden">Nouvo pati</button>
+            </footer>
+
+            <div id="endModal" class="pong-end-modal" aria-hidden="true">
+                <div class="pong-end-modal__card">
+                    <p id="endModalEyebrow" class="pong-end-modal__eyebrow">Pati fini</p>
+                    <h2 id="endModalTitle" class="pong-end-modal__title">Rezilta match la</h2>
+                    <p id="endModalScore" class="pong-end-modal__score">0 - 0</p>
+                    <p id="endModalCopy" class="pong-end-modal__copy">N ap anrejistre rezilta a anvan ou kontinye.</p>
+                    <div class="pong-end-modal__actions">
+                        <button id="endReplayBtn" type="button" class="pong-end-modal__btn" disabled>Rejwe</button>
+                        <button id="endHomeBtn" type="button" class="pong-end-modal__btn pong-end-modal__btn--alt" disabled>Retounen</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="script.js?v=20260510-pong-ultra1"></script>
+</body>
+</html>
