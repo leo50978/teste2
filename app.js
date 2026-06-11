@@ -6292,7 +6292,7 @@ function registerKobposhServiceWorker() {
   if (!("serviceWorker" in window.navigator)) return;
 
   window.addEventListener("load", () => {
-    window.navigator.serviceWorker.register("./service-worker.js", { scope: "./" }).catch((error) => {
+    window.navigator.serviceWorker.register("./service-worker.js?v=20260611-chess-friend-code2", { scope: "./" }).catch((error) => {
       console.warn("[KOBPOSH_PWA] service worker registration failed", error);
     });
   }, { once: true });

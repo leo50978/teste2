@@ -1,9 +1,9 @@
-const KOBPOSH_CACHE = "kobposh-shell-v38";
+const KOBPOSH_CACHE = "kobposh-shell-v39";
 const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js?v=20260610-remove-pong-ludo-public1",
+  "/app.js?v=20260611-chess-friend-code2",
   "/site.webmanifest",
   "/apple-touch-icon.png",
   "/favicon-96x96.png",
