@@ -1045,8 +1045,6 @@ function ensureDominoModeModal() {
       logDuelAvailabilityDebug("dominoModeModal:continue-duel", {
         selectedMode,
       });
-      const canLaunch = await canLaunchPublicGame("domino-duel");
-      if (!canLaunch) return;
       ensureDominoDuelStakeModal().open();
       return;
     }
@@ -6292,7 +6290,7 @@ function registerKobposhServiceWorker() {
   if (!("serviceWorker" in window.navigator)) return;
 
   window.addEventListener("load", () => {
-    window.navigator.serviceWorker.register("./service-worker.js?v=20260611-chess-friend-code2", { scope: "./" }).catch((error) => {
+    window.navigator.serviceWorker.register("./service-worker.js?v=20260611-duel-private-only1", { scope: "./" }).catch((error) => {
       console.warn("[KOBPOSH_PWA] service worker registration failed", error);
     });
   }, { once: true });

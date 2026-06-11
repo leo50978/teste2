@@ -31,13 +31,17 @@ const PUBLIC_DUEL_BOT_WAIT_MS = 7 * 1000;
 const PUBLIC_DUEL_BOT_DEFAULT_DIFFICULTY = "dominov1";
 const HARD_DISABLE_DOMINO_DUEL = false;
 
-async function assertDuelV2Available() {
+function assertDuelV2HardAvailable() {
   if (HARD_DISABLE_DOMINO_DUEL) {
     throw makeHttpError(503, "duel-v2-temporarily-disabled", "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.", {
       game: "domino-duel",
       hardDisabled: true,
     });
   }
+}
+
+async function assertDuelV2PublicAvailable() {
+  assertDuelV2HardAvailable();
   const publicSettings = await readPublicAppSettings();
   if (publicSettings.dominoDuelPublicEnabled === false) {
     throw makeHttpError(503, "duel-v2-temporarily-disabled", "Domino duel la gen yon pwoblem teknik. Nou femen li tanporeman pandan nap regle sa.", {
@@ -2094,7 +2098,7 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
 }
 
 async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
-  await assertDuelV2Available();
+  await assertDuelV2PublicAvailable();
   const stakeHtg = PUBLIC_DUEL_V2_STAKE_HTG;
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
@@ -2170,7 +2174,7 @@ async function joinMatchmakingDuelV2({ uid, email, payload = {} }) {
 }
 
 async function createFriendDuelRoomV2({ uid, email, payload = {} }) {
-  await assertDuelV2Available();
+  assertDuelV2HardAvailable();
   const stakeHtg = assertPrivateDuelV2StakeHtg(payload);
   const stakeDoes = stakeHtg * RATE_HTG_TO_DOES;
   const rewardAmountDoes = Math.floor(stakeDoes * 1.85);
@@ -2252,7 +2256,7 @@ async function createFriendDuelRoomV2({ uid, email, payload = {} }) {
 }
 
 async function resumeFriendDuelRoomV2({ uid, payload = {} }) {
-  await assertDuelV2Available();
+  assertDuelV2HardAvailable();
   const roomId = String(payload.roomId || "").trim();
   if (!roomId) {
     throw new HttpsError("invalid-argument", "roomId requis.");
@@ -2281,7 +2285,7 @@ async function resumeFriendDuelRoomV2({ uid, payload = {} }) {
 }
 
 async function joinFriendDuelRoomByCodeV2({ uid, email, payload = {} }) {
-  await assertDuelV2Available();
+  assertDuelV2HardAvailable();
   const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
   if (!inviteCodeNormalized) {
     throw new HttpsError("invalid-argument", "Kod salon an obligatwa.");
