@@ -27,6 +27,7 @@ import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-moda
 import {
   createFriendLudoRoomSecure,
   createFriendDuelRoomV2Secure,
+  createFriendChessRoomSecure,
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
@@ -4874,6 +4875,33 @@ function buildChessUrl({
   return `./JS-Chess-Stockfish-Puzzles-main/kobposh-chess.html?${params.toString()}`;
 }
 
+function waitForHomeCurrentUser(timeoutMs = 3500) {
+  if (auth.currentUser) return Promise.resolve(auth.currentUser);
+  return new Promise((resolve) => {
+    let settled = false;
+    let unsubscribe = () => {};
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      unsubscribe();
+      resolve(auth.currentUser || null);
+    }, Math.max(500, Number(timeoutMs) || 3500));
+    unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (settled || !user) return;
+      settled = true;
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(user);
+    }, () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(auth.currentUser || null);
+    });
+  });
+}
+
 function ensureChessStakeModal() {
   if (chessStakeModal) return chessStakeModal;
 
@@ -4918,6 +4946,20 @@ function ensureChessStakeModal() {
             Kreye salon prive a
           </button>
         </div>
+        <div class="mt-4 hidden space-y-3" data-kobposh-chess-private-share-panel>
+          <p class="text-sm font-semibold text-[#5f6f67]">Salon prive a pare. Pataje kod sa a ak zanmi ou avan ou antre nan paj jeu a.</p>
+          <div class="rounded-[22px] border border-[#cfe4d7] bg-white px-4 py-4 text-center">
+            <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Kod salon prive</span>
+            <strong class="mt-2 block text-[28px] font-black tracking-[0.18em] text-[#123522]" data-kobposh-chess-created-code>------</strong>
+          </div>
+          <p class="text-sm text-[#5f6f67]" data-kobposh-chess-share-status></p>
+          <button class="kobposh-forgot-modal__secondary" type="button" data-kobposh-chess-copy-code>
+            Kopye kod la
+          </button>
+          <button class="kobposh-forgot-modal__action" type="button" data-kobposh-chess-enter-created-room>
+            Antre nan salon an
+          </button>
+        </div>
         <div class="mt-4 hidden space-y-3" data-kobposh-chess-private-join-panel>
           <label class="block text-sm font-semibold text-[#30443a]" for="kobposhChessInviteCode">Kod salon prive a</label>
           <input id="kobposhChessInviteCode" class="w-full rounded-[18px] border border-[#dce5df] bg-white px-4 py-3 text-base font-semibold uppercase tracking-[0.12em] text-[#18212b] outline-none" type="text" maxlength="12" placeholder="ABCD12">
@@ -4940,12 +4982,18 @@ function ensureChessStakeModal() {
 
   const privatePanel = modal.querySelector("[data-kobposh-chess-private-panel]");
   const createPanel = modal.querySelector("[data-kobposh-chess-private-create-panel]");
+  const sharePanel = modal.querySelector("[data-kobposh-chess-private-share-panel]");
   const joinPanel = modal.querySelector("[data-kobposh-chess-private-join-panel]");
   const publicStatusEl = modal.querySelector("[data-kobposh-chess-public-status]");
   const privateStatusEl = modal.querySelector("[data-kobposh-chess-private-status]");
+  const shareStatusEl = modal.querySelector("[data-kobposh-chess-share-status]");
   const joinStatusEl = modal.querySelector("[data-kobposh-chess-join-status]");
   const privateStakeInput = modal.querySelector("#kobposhChessPrivateStake");
   const inviteInput = modal.querySelector("#kobposhChessInviteCode");
+  const createdCodeEl = modal.querySelector("[data-kobposh-chess-created-code]");
+  const createSubmitBtn = modal.querySelector("[data-kobposh-chess-private-create-submit]");
+  let createdFriendRoomState = null;
+  let creatingFriendRoom = false;
 
   const close = () => {
     modal.classList.remove("is-open");
@@ -4956,12 +5004,21 @@ function ensureChessStakeModal() {
   const open = () => {
     if (privatePanel) privatePanel.classList.add("hidden");
     if (createPanel) createPanel.classList.remove("hidden");
+    if (sharePanel) sharePanel.classList.add("hidden");
     if (joinPanel) joinPanel.classList.add("hidden");
     if (publicStatusEl) publicStatusEl.textContent = "";
     if (privateStatusEl) privateStatusEl.textContent = "";
+    if (shareStatusEl) shareStatusEl.textContent = "";
     if (joinStatusEl) joinStatusEl.textContent = "";
+    if (createdCodeEl) createdCodeEl.textContent = "------";
     if (privateStakeInput) privateStakeInput.value = String(CHESS_PRIVATE_MIN_STAKE_HTG);
     if (inviteInput) inviteInput.value = "";
+    createdFriendRoomState = null;
+    creatingFriendRoom = false;
+    if (createSubmitBtn) {
+      createSubmitBtn.disabled = false;
+      createSubmitBtn.textContent = "Kreye salon prive a";
+    }
     closeGamesModal();
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
@@ -4987,7 +5044,87 @@ function ensureChessStakeModal() {
 
   const normalizeInviteCode = (value = "") => String(value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
 
-  modal.addEventListener("click", (event) => {
+  const showPrivateCreatePanel = () => {
+    createPanel?.classList.remove("hidden");
+    sharePanel?.classList.add("hidden");
+    joinPanel?.classList.add("hidden");
+  };
+
+  const showPrivateJoinPanel = () => {
+    createPanel?.classList.add("hidden");
+    sharePanel?.classList.add("hidden");
+    joinPanel?.classList.remove("hidden");
+  };
+
+  const showPrivateSharePanel = () => {
+    createPanel?.classList.add("hidden");
+    sharePanel?.classList.remove("hidden");
+    joinPanel?.classList.add("hidden");
+  };
+
+  const renderChessCreateLoading = () => {
+    if (!createSubmitBtn) return;
+    createSubmitBtn.disabled = creatingFriendRoom;
+    createSubmitBtn.textContent = creatingFriendRoom ? "M ap kreye salon an..." : "Kreye salon prive a";
+  };
+
+  const handleCreateFriendChessRoom = async () => {
+    if (creatingFriendRoom) return;
+    const user = await waitForHomeCurrentUser();
+    if (!user?.uid) {
+      close();
+      openAuthScreen("login");
+      setAuthError("Tanpri konekte avan ou kreye yon salon prive Echec.");
+      return;
+    }
+    const stakeState = validatePrivateStake();
+    if (!stakeState.valid) return;
+
+    creatingFriendRoom = true;
+    createdFriendRoomState = null;
+    if (privateStatusEl) privateStatusEl.textContent = "M ap kreye salon prive a...";
+    if (shareStatusEl) shareStatusEl.textContent = "";
+    renderChessCreateLoading();
+    try {
+      const result = await createFriendChessRoomSecure({ stakeHtg: stakeState.stakeHtg });
+      createdFriendRoomState = {
+        roomId: String(result?.roomId || "").trim(),
+        inviteCode: normalizeInviteCode(result?.inviteCode || ""),
+        stakeHtg: Math.max(CHESS_PRIVATE_MIN_STAKE_HTG, Math.trunc(Number(result?.stakeHtg || stakeState.stakeHtg) || stakeState.stakeHtg)),
+        resumed: result?.resumed === true,
+      };
+      if (createdCodeEl) createdCodeEl.textContent = createdFriendRoomState.inviteCode || "------";
+      if (privateStatusEl) privateStatusEl.textContent = "";
+      if (shareStatusEl) {
+        shareStatusEl.textContent = createdFriendRoomState.resumed
+          ? "Nou jwenn salon prive ou te deja genyen an. Ou ka pataje kod la oswa kontinye."
+          : "Salon prive a pare. Pataje kod la ak zanmi ou avan ou antre nan paj la.";
+      }
+      showPrivateSharePanel();
+    } catch (error) {
+      createdFriendRoomState = null;
+      if (privateStatusEl) privateStatusEl.textContent = error?.message || "Nou pa rive kreye salon prive Echec la.";
+    } finally {
+      creatingFriendRoom = false;
+      renderChessCreateLoading();
+    }
+  };
+
+  const copyCreatedFriendCode = async () => {
+    const inviteCode = normalizeInviteCode(createdFriendRoomState?.inviteCode || "");
+    if (!inviteCode) {
+      if (shareStatusEl) shareStatusEl.textContent = "Kod la poko pare.";
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      if (shareStatusEl) shareStatusEl.textContent = "Kod la kopye.";
+    } catch (_) {
+      if (shareStatusEl) shareStatusEl.textContent = `Kopye kod sa a manyelman: ${inviteCode}`;
+    }
+  };
+
+  modal.addEventListener("click", async (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
     if (target === modal || target.closest("[data-kobposh-chess-mode-close]")) {
@@ -5015,23 +5152,33 @@ function ensureChessStakeModal() {
       return;
     }
     if (target.closest("[data-kobposh-chess-private-action=\"create\"]")) {
-      createPanel?.classList.remove("hidden");
-      joinPanel?.classList.add("hidden");
+      showPrivateCreatePanel();
       return;
     }
     if (target.closest("[data-kobposh-chess-private-action=\"join\"]")) {
-      createPanel?.classList.add("hidden");
-      joinPanel?.classList.remove("hidden");
+      showPrivateJoinPanel();
       return;
     }
     if (target.closest("[data-kobposh-chess-private-create-submit]")) {
-      const stakeState = validatePrivateStake();
-      if (!stakeState.valid) return;
+      void handleCreateFriendChessRoom();
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-copy-code]")) {
+      void copyCreatedFriendCode();
+      return;
+    }
+    if (target.closest("[data-kobposh-chess-enter-created-room]")) {
+      if (!createdFriendRoomState?.roomId) {
+        if (shareStatusEl) shareStatusEl.textContent = "Salon an poko pare. Eseye kreye l anko.";
+        return;
+      }
       close();
       window.location.href = buildChessUrl({
         roomMode: "chess_friends",
         friendAction: "create",
-        stakeHtg: stakeState.stakeHtg,
+        inviteCode: normalizeInviteCode(createdFriendRoomState.inviteCode || ""),
+        roomId: String(createdFriendRoomState.roomId || "").trim(),
+        stakeHtg: createdFriendRoomState.stakeHtg || CHESS_PRIVATE_MIN_STAKE_HTG,
         botDifficulty: "fo",
       });
       return;
@@ -5041,6 +5188,13 @@ function ensureChessStakeModal() {
       if (inviteInput) inviteInput.value = inviteCode;
       if (!inviteCode) {
         if (joinStatusEl) joinStatusEl.textContent = "Mete kod salon prive a anvan ou kontinye.";
+        return;
+      }
+      const user = await waitForHomeCurrentUser();
+      if (!user?.uid) {
+        close();
+        openAuthScreen("login");
+        setAuthError("Tanpri konekte avan ou antre nan salon prive Echec.");
         return;
       }
       if (joinStatusEl) joinStatusEl.textContent = "";
