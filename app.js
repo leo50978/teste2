@@ -152,7 +152,8 @@ const signupPasswordConfirmEl = document.querySelector("[data-kobposh-signup-pas
 const signupAgeEl = document.querySelector("[data-kobposh-signup-age]");
 const signupTermsEl = document.querySelector("[data-kobposh-signup-terms]");
 const passwordToggleBtns = Array.from(document.querySelectorAll("[data-kobposh-toggle-password]"));
-const profileLinks = Array.from(document.querySelectorAll('a[href="./profile.html"]'));
+const PROFILE_PAGE_VERSION = "20260611-no-agent-cta2";
+const profileLinks = Array.from(document.querySelectorAll('a[href^="./profile.html"]'));
 const transferFriendBtn = document.getElementById("kobposhTransferBtn");
 const openGamesButtons = Array.from(document.querySelectorAll("[data-open-games-modal]"));
 const closeGamesButtons = Array.from(document.querySelectorAll("[data-close-games-modal]"));
@@ -2427,6 +2428,7 @@ const SUPPORT_HELP_ACTION_TRANSITION_MS = 220;
 
 function buildSupportProfileUrl({ panel = "info", historySection = "", modal = "", agentMode = "" } = {}) {
   const params = new URLSearchParams();
+  params.set("v", PROFILE_PAGE_VERSION);
   const safePanel = String(panel || "info").trim().toLowerCase();
   if (safePanel === "history" || safePanel === "agents") {
     params.set("panel", safePanel);
@@ -2450,6 +2452,17 @@ function buildSupportProfileUrl({ panel = "info", historySection = "", modal = "
   }
 
   return `./profile.html?${params.toString()}`;
+}
+
+function buildProfileUrl(params = {}) {
+  const searchParams = new URLSearchParams();
+  searchParams.set("v", PROFILE_PAGE_VERSION);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    const safeKey = String(key || "").trim();
+    const safeValue = String(value || "").trim();
+    if (safeKey && safeValue) searchParams.set(safeKey, safeValue);
+  });
+  return `./profile.html?${searchParams.toString()}`;
 }
 
 function getSupportTopicActionConfig(topicKey = "") {
@@ -2994,7 +3007,7 @@ function bindHeaderBalanceHistoryShortcut() {
   balanceEl.title = "Klike pou louvri istorik kont la";
   const pendingInfoModal = ensurePendingHeaderBalanceInfoModal();
   const openHistory = () => {
-    window.location.href = "./profile.html?panel=history";
+    window.location.href = buildProfileUrl({ panel: "history" });
   };
   balanceEl.addEventListener("click", (event) => {
     const pendingTarget = event.target instanceof Element
@@ -5332,7 +5345,7 @@ function openTransferFriendFlow() {
     openTransferPendingModal(pendingAmount);
     return;
   }
-  window.location.href = "./profile.html?modal=transfer";
+  window.location.href = buildProfileUrl({ modal: "transfer" });
 }
 
 function ensureDepositPendingModal() {
@@ -6290,7 +6303,7 @@ function registerKobposhServiceWorker() {
   if (!("serviceWorker" in window.navigator)) return;
 
   window.addEventListener("load", () => {
-    window.navigator.serviceWorker.register("./service-worker.js?v=20260611-duel-private-only1", { scope: "./" }).catch((error) => {
+    window.navigator.serviceWorker.register("./service-worker.js?v=20260611-profile-cache-fix1", { scope: "./" }).catch((error) => {
       console.warn("[KOBPOSH_PWA] service worker registration failed", error);
     });
   }, { once: true });
