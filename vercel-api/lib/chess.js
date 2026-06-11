@@ -382,6 +382,8 @@ async function writeChessRoomResultIfEndedTx(tx, roomRefDoc, room = {}, nextRoom
   const winnerType = winnerSeat < 0
     ? "none"
     : (winnerUid ? "human" : "bot");
+  const isRefundEnd = endedReason === "timeout_refund" || endedReason === "quit_refund_before_opening";
+  const rewardGranted = !isRefundEnd && winnerType === "human" && winnerSeat >= 0;
 
   tx.set(resultRef, {
     id: roomId,
@@ -391,7 +393,7 @@ async function writeChessRoomResultIfEndedTx(tx, roomRefDoc, room = {}, nextRoom
     stakeHtg: getRoomStakeHtg(room),
     rewardAmountHtg: getRoomRewardHtg(room),
     fundingCurrency: "htg",
-    rewardGranted: endedReason !== "timeout_refund" && endedReason !== "quit_refund_before_opening" && winnerSeat >= 0,
+    rewardGranted,
     winnerSeat,
     winnerUid,
     winnerType,
@@ -1118,6 +1120,7 @@ async function recordChessMatchResult({ uid = "", payload = {} } = {}) {
     : (payload.winnerType
       ? sanitizeText(payload.winnerType, 16).toLowerCase()
       : (winnerUid ? "human" : "bot"));
+  const rewardGranted = winnerType === "human" && rewardAmountHtg > 0;
 
   await chessRoomResultRef(resultDocId).set({
     id: resultDocId,
@@ -1137,7 +1140,7 @@ async function recordChessMatchResult({ uid = "", payload = {} } = {}) {
     rewardAmountHtg: endedReason === "timeout_refund" || endedReason === "quit_refund_before_opening"
       ? 0
       : rewardAmountHtg,
-    rewardGranted: payload.rewardGranted === true,
+    rewardGranted,
     startedAtMs: safeSignedInt(payload.startedAtMs, 0),
     endedAtMs: safeSignedInt(payload.endedAtMs, Date.now()) || Date.now(),
     endedReason,

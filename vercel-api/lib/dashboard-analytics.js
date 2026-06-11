@@ -1721,6 +1721,18 @@ function inferCashflowHumanCount(gameKey = "", result = {}) {
   return Math.max(1, playerCount || 1);
 }
 
+function inferCashflowRewardGranted(gameKey = "", result = {}) {
+  const rewardAmountHtg = safeInt(result?.rewardAmountHtg || result?.rewardExpectedHtg);
+  const hasRewardFlag = Object.prototype.hasOwnProperty.call(result || {}, "rewardGranted");
+  let rewardGranted = result?.rewardGranted === true || (!hasRewardFlag && rewardAmountHtg > 0);
+  if (gameKey === "chess") {
+    const winnerType = String(result?.winnerType || result?.winner || result?.resultType || "").trim().toLowerCase();
+    const winnerUid = String(result?.winnerUid || "").trim();
+    rewardGranted = rewardGranted && (winnerType === "human" || winnerType === "user" || winnerType === "player" || !!winnerUid);
+  }
+  return rewardGranted;
+}
+
 function buildCashflowBucketSeed(startMs = 0, endMs = 0, granularity = "day") {
   const bucketSizeMs = granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000);
   const firstBucketStartMs = startMs - (startMs % bucketSizeMs);
@@ -1877,7 +1889,7 @@ async function computeHtgCashflowSnapshot(options = {}) {
       if (endedAtMs < range.startMs || endedAtMs > range.endMs) return;
       const stakeHtg = Math.max(0, safeInt(row.stakeHtg || row.entryCostHtg || doesToHtg(row.stakeDoes || row.entryCostDoes)));
       if (stakeHtg <= 0) return;
-      const rewardGranted = row.rewardGranted === true || (!Object.prototype.hasOwnProperty.call(row, "rewardGranted") && safeInt(row.rewardAmountHtg) > 0);
+      const rewardGranted = inferCashflowRewardGranted(collectionMeta.key, row);
       const payoutHtg = rewardGranted ? Math.max(0, safeInt(row.rewardAmountHtg || row.rewardExpectedHtg)) : 0;
       const humanCount = inferCashflowHumanCount(collectionMeta.key, row);
       const usersStakeHtg = Math.max(0, stakeHtg * humanCount);

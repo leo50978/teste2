@@ -218,12 +218,12 @@ async function computeChessBotPilotSnapshot(options = {}) {
     const stakeHtg = readStakeHtg(data);
     if (stakeHtg <= 0) return;
 
-    const rewardAmountHtg = readRewardHtg(data);
-    const rewardGranted = data.rewardGranted === true || (
-      rewardAmountHtg > 0
-      && normalizeWinnerType(data.winnerType || data.winner || data.resultType) === "human"
-    );
     const winnerType = normalizeWinnerType(data.winnerType || data.winner || data.resultType);
+    const rewardAmountHtg = readRewardHtg(data);
+    const rewardGranted = winnerType === "human" && (
+      data.rewardGranted === true
+      || rewardAmountHtg > 0
+    );
     const roomCollectedHtg = stakeHtg;
     const roomPayoutHtg = rewardGranted ? rewardAmountHtg : 0;
     const roomNetHtg = safeSignedInt(roomCollectedHtg - roomPayoutHtg);
