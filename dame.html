@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="ht">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>Dame | KOBPOSH V2</title>
+    <link rel="stylesheet" href="./draughtsjs-master/draughts.css" />
+    <style>
+      :root {
+        --bg-1: #eefaf1;
+        --bg-2: #dff5e4;
+        --card: rgba(255, 255, 255, 0.92);
+        --line: rgba(19, 110, 57, 0.14);
+        --text: #10351f;
+        --muted: rgba(16, 53, 31, 0.7);
+        --accent: #1f8f4a;
+      }
+
+      html {
+        min-height: 100%;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif !important;
+        background:
+          radial-gradient(1200px 680px at 10% 0%, rgba(59, 181, 98, 0.16), transparent 58%),
+          radial-gradient(1000px 560px at 100% 100%, rgba(30, 141, 73, 0.12), transparent 62%),
+          linear-gradient(150deg, var(--bg-1), var(--bg-2));
+        padding: 18px;
+      }
+
+      .game-shell {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+      }
+
+      .game-topbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .game-topbar-center {
+        flex: 1 1 320px;
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .game-topbar-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-wrap: wrap;
+        min-width: 0;
+      }
+
+      .back-btn {
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.92);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 44px;
+      }
+
+      .status-pill,
+      .opponent-pill,
+      .search-opponent,
+      .search-friend-box {
+        border: 1px solid rgba(19, 110, 57, 0.14);
+        background: rgba(255, 255, 255, 0.82);
+        border-radius: 16px;
+      }
+
+      .status-pill {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 10px 14px;
+        color: #10351f;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.45;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .opponent-pill {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 14px;
+      }
+
+      .opponent-pill.hidden,
+      .search-opponent.hidden,
+      .search-friend-box.hidden {
+        display: none;
+      }
+
+      .search-friend-box {
+        margin-top: 12px;
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+        text-align: left;
+      }
+
+      .search-friend-code {
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        color: #155a31;
+      }
+
+      .search-friend-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .search-friend-btn {
+        border: 1px solid rgba(19, 110, 57, 0.18);
+        background: rgba(31, 143, 74, 0.1);
+        color: #155a31;
+        border-radius: 999px;
+        padding: 10px 14px;
+        min-height: 42px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .room-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(16, 53, 31, 0.62);
+      }
+
+      .room-value {
+        font-size: 14px;
+        font-weight: 800;
+        color: #10351f;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+      }
+
+      .balance-badge {
+        border: 1px solid rgba(31, 143, 74, 0.22);
+        background: rgba(31, 143, 74, 0.1);
+        color: #175a31;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .turn-timer-badge {
+        border: 1px solid rgba(31, 143, 74, 0.25);
+        background: rgba(255, 255, 255, 0.95);
+        color: #175a31;
+        padding: 7px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        min-width: 112px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .turn-timer-badge.danger {
+        border-color: rgba(192, 29, 29, 0.44);
+        color: #b21e1e;
+        background: rgba(255, 237, 237, 0.96);
+        animation: dameTimerPulse 0.9s ease-in-out infinite;
+      }
+
+      @keyframes dameTimerPulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.06); }
+        100% { transform: scale(1); }
+      }
+
+      .leave-btn {
+        border: 1px solid rgba(31, 143, 74, 0.22);
+        background: linear-gradient(135deg, rgba(31, 143, 74, 0.18), rgba(15, 71, 38, 0.94));
+        color: #fff;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 700;
+        cursor: pointer;
+        min-height: 44px;
+      }
+
+      #draughts {
+        display: flex;
+        justify-content: center;
+      }
+
+      #board {
+        width: min(94vw, 560px);
+        height: min(94vw, 560px);
+        max-height: calc(100dvh - 124px);
+        margin: 0 auto;
+        border: 2px solid rgba(31, 143, 74, 0.18);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 22px 42px rgba(17, 70, 38, 0.16);
+      }
+
+      #board.dame-board-flipped {
+        transform: rotate(180deg);
+        transform-origin: center center;
+      }
+
+      #board.dame-board-flipped a,
+      #board.dame-board-flipped .move,
+      #board.dame-board-flipped .focus {
+        transform: rotate(180deg);
+        transform-origin: center center;
+      }
+
+      .search-modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(9, 35, 18, 0.46);
+        backdrop-filter: blur(10px);
+        z-index: 20;
+      }
+
+      .search-modal.hidden {
+        display: none;
+      }
+
+      .search-card {
+        width: min(100%, 420px);
+        border: 1px solid rgba(31, 143, 74, 0.14);
+        border-radius: 26px;
+        padding: 22px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 250, 240, 0.98));
+        box-shadow: 0 24px 44px rgba(17, 70, 38, 0.15);
+        text-align: center;
+        max-height: calc(100dvh - 36px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .search-eyebrow {
+        margin: 0;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(31, 143, 74, 0.75);
+      }
+
+      .search-title {
+        margin: 10px 0 0;
+        font-size: 24px;
+        line-height: 1.15;
+        font-weight: 800;
+      }
+
+      .search-copy {
+        margin: 10px 0 0;
+        font-size: 14px;
+        line-height: 1.7;
+        color: rgba(16, 53, 31, 0.82);
+      }
+
+      .search-countdown {
+        margin-top: 18px;
+        border: 1px solid rgba(31, 143, 74, 0.18);
+        border-radius: 18px;
+        padding: 14px 16px;
+        background: rgba(31, 143, 74, 0.08);
+        color: #175a31;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .search-opponent {
+        margin-top: 14px;
+        padding: 12px 14px;
+        text-align: left;
+      }
+
+      .search-opponent-value {
+        margin-top: 4px;
+        font-size: 17px;
+        line-height: 1.35;
+        font-weight: 800;
+        color: #10351f;
+      }
+
+      .expired-modal {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(9, 35, 18, 0.46);
+        backdrop-filter: blur(10px);
+        z-index: 30;
+      }
+
+      .expired-modal.hidden {
+        display: none;
+      }
+
+      .expired-card {
+        width: min(100%, 460px);
+        border-radius: 28px;
+        border: 1px solid rgba(31, 143, 74, 0.14);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(236, 250, 240, 0.98));
+        padding: 22px;
+        color: var(--text);
+        box-shadow: 0 24px 48px rgba(17, 70, 38, 0.16);
+        max-height: calc(100dvh - 36px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .expired-flag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 143, 74, 0.18);
+        background: rgba(31, 143, 74, 0.08);
+        color: #175a31;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .expired-title {
+        margin: 14px 0 0;
+        font-size: 25px;
+        line-height: 1.1;
+        font-weight: 900;
+      }
+
+      .expired-text {
+        margin: 12px 0 0;
+        color: rgba(16, 53, 31, 0.82);
+        line-height: 1.65;
+        font-size: 14px;
+      }
+
+      .expired-actions {
+        display: grid;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .expired-btn {
+        min-height: 48px;
+        border-radius: 16px;
+        border: 1px solid rgba(31, 143, 74, 0.16);
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--text);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .expired-btn.primary {
+        border: 1px solid #71d197;
+        background: linear-gradient(135deg, rgba(31, 143, 74, 0.16), rgba(15, 71, 38, 0.94));
+        color: #fff;
+      }
+
+      .expired-btn.accent {
+        border: 1px solid #71d197;
+        background: linear-gradient(135deg, #25a05b, #167640);
+        color: #fff;
+      }
+
+      .expired-phone-box {
+        margin-top: 14px;
+        display: none;
+        gap: 10px;
+      }
+
+      .expired-phone-box.visible {
+        display: grid;
+      }
+
+      .expired-input {
+        width: 100%;
+        min-height: 48px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        padding: 0 14px;
+        outline: none;
+      }
+
+      .expired-note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: rgba(235, 242, 255, 0.68);
+      }
+
+      .expired-actions > * {
+        width: 100%;
+      }
+
+      @media (max-width: 640px) {
+        body {
+          padding: 12px;
+        }
+
+        .game-topbar {
+          margin-bottom: 12px;
+        }
+
+        .game-topbar > * {
+          flex: 0 0 auto;
+        }
+
+        .game-topbar-center {
+          flex: 1 1 100%;
+          order: 3;
+        }
+
+        .game-topbar-actions {
+          margin-left: auto;
+        }
+
+        .back-btn {
+          padding: 8px 12px;
+          font-size: 13px;
+        }
+
+        .balance-badge {
+          font-size: 12px;
+          padding: 7px 10px;
+        }
+
+        .status-pill,
+        .opponent-pill {
+          border-radius: 14px;
+          padding: 10px 12px;
+        }
+
+        .leave-btn {
+          padding: 8px 12px;
+          font-size: 13px;
+        }
+
+        #board {
+          width: min(94vw, 520px);
+          height: min(94vw, 520px);
+          max-height: calc(100dvh - 112px);
+        }
+
+        .search-modal,
+        .expired-modal {
+          align-items: flex-end;
+          padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+        }
+
+        .search-card,
+        .expired-card {
+          width: 100%;
+          border-radius: 24px 24px 18px 18px;
+          padding: 18px 16px 16px;
+        }
+
+        .search-eyebrow {
+          font-size: 11px;
+        }
+
+        .search-title,
+        .expired-title {
+          font-size: 20px;
+        }
+
+        .search-copy,
+        .expired-text {
+          font-size: 13px;
+          line-height: 1.55;
+        }
+
+        .search-countdown {
+          margin-top: 14px;
+          padding: 12px 14px;
+          font-size: 14px;
+        }
+
+        .search-opponent {
+          margin-top: 12px;
+          padding: 11px 12px;
+        }
+
+        .search-opponent-value {
+          font-size: 15px;
+        }
+
+        .expired-flag {
+          min-height: 30px;
+          font-size: 11px;
+        }
+
+        .expired-actions {
+          gap: 9px;
+          margin-top: 14px;
+        }
+
+        .expired-btn {
+          min-height: 46px;
+          border-radius: 14px;
+          font-size: 14px;
+        }
+
+        .expired-phone-box {
+          margin-top: 12px;
+        }
+
+        .expired-note {
+          font-size: 11px;
+          line-height: 1.45;
+        }
+      }
+
+      @media (min-width: 641px) {
+        .expired-actions {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .expired-actions > *:nth-child(3),
+        .expired-actions > *:nth-child(6) {
+          grid-column: 1 / -1;
+        }
+      }
+
+      @media (max-width: 380px) {
+        body {
+          padding: 10px;
+        }
+
+        .game-topbar {
+          gap: 10px;
+        }
+
+        .game-topbar-center {
+          flex-basis: 100%;
+          order: 3;
+        }
+
+        .search-card,
+        .expired-card {
+          padding: 16px 14px 14px;
+          border-radius: 22px 22px 16px 16px;
+        }
+
+        .search-title,
+        .expired-title {
+          font-size: 18px;
+        }
+
+        .search-copy,
+        .expired-text {
+          font-size: 12px;
+        }
+
+        .expired-btn {
+          min-height: 44px;
+          font-size: 13px;
+          border-radius: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="game-topbar">
+        <div class="game-topbar-center">
+          <div id="dameStatusBadge" class="status-pill">Koneksyon an kou...</div>
+          <div id="dameOpponentBadge" class="opponent-pill hidden">
+            <span class="room-label">Advèsè</span>
+            <strong id="dameOpponentName" class="room-value">-</strong>
+          </div>
+        </div>
+        <div class="game-topbar-actions">
+          <span id="dameTurnTimer" class="turn-timer-badge">Tan kou: --</span>
+          <span id="dameBalanceBadge" class="balance-badge">HTG: --</span>
+        </div>
+      </header>
+
+      <section id="draughts">
+        <input id="forceattack" type="checkbox" checked hidden aria-hidden="true" />
+        <input id="queenfreerun" type="checkbox" checked hidden aria-hidden="true" />
+        <input id="queenattackrun" type="checkbox" checked hidden aria-hidden="true" />
+        <input id="backwardattack" type="checkbox" checked hidden aria-hidden="true" />
+        <div id="board"></div>
+      </section>
+    </main>
+
+    <div id="dameSearchOverlay" class="search-modal hidden" aria-live="polite" aria-atomic="true">
+      <div class="search-card">
+        <p class="search-eyebrow">Dame</p>
+        <h2 class="search-title">N ap chache yon lot jwe</h2>
+        <p id="dameSearchCopy" class="search-copy">
+          N ap prepare pati a epi n ap chache advese w la.
+        </p>
+        <div id="dameSearchCountdown" class="search-countdown">15 s ki rete</div>
+        <div id="dameSearchOpponentBadge" class="search-opponent hidden">
+          <span class="room-label">Advese nan sal la</span>
+          <div id="dameSearchOpponentName" class="search-opponent-value">-</div>
+        </div>
+        <div id="dameSearchFriendBox" class="search-friend-box hidden">
+          <span class="room-label">Kod salon prive a</span>
+          <div id="dameSearchInviteCode" class="search-friend-code">------</div>
+          <div class="search-friend-actions">
+            <button id="dameSearchCopyCodeBtn" type="button" class="search-friend-btn">Kopye kod la</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="dameSearchExpiredOverlay" class="expired-modal hidden" aria-live="polite" aria-atomic="true">
+      <div class="expired-card">
+        <span class="expired-flag">Pa gen jwe anko</span>
+        <h2 class="expired-title">Nou poko jwenn yon advese</h2>
+        <p class="expired-text">
+          Ou ka relanse rechech la oswa antre nan gwoup WhatsApp la pou jwenn yon jwe Dame.
+        </p>
+      <div id="dameExpiredAgentValue" class="expired-text" style="margin-top:14px;"></div>
+      <div class="expired-actions">
+        <button id="dameExpiredRetryBtn" type="button" class="expired-btn accent">Tann 15 s anko</button>
+        <button id="dameExpiredHomeBtn" type="button" class="expired-btn primary">Akey</button>
+        <a id="dameExpiredGroupBtn" href="https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1" target="_blank" rel="noopener noreferrer" class="expired-btn" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">Antre nan gwoup WhatsApp la</a>
+      </div>
+      </div>
+    </div>
+
+    <script src="./draughtsjs-master/draughts.js?v=20260603-dame-queen-crown1"></script>
+    <script type="module" src="./logiquejeu-dame.js?v=20260605-network2"></script>
+  </body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="shortcut icon" href="./favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+    <title>Kobposh | Domino duel</title>
+    <link rel="stylesheet" href="./style.css" />
+    <style>
+      body.domino-duel-body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(21, 100, 55, 0.16), transparent 28%),
+          radial-gradient(circle at bottom right, rgba(21, 100, 55, 0.1), transparent 30%),
+          linear-gradient(180deg, #f7fbf8 0%, #ecf8f0 48%, #e6f4ec 100%);
+        color: #143321;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .domino-duel-shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .domino-duel-card {
+        width: min(100%, 760px);
+        border: 1px solid rgba(21, 100, 55, 0.12);
+        border-radius: 32px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 28px 80px rgba(20, 51, 33, 0.14);
+        padding: 28px;
+      }
+      .domino-duel-eyebrow {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #5f7b69;
+      }
+      .domino-duel-title {
+        margin: 0;
+        font-size: clamp(30px, 5vw, 46px);
+        line-height: 1.04;
+        color: #0f311f;
+      }
+      .domino-duel-copy {
+        margin: 14px 0 0;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #496756;
+      }
+      .domino-duel-grid {
+        margin-top: 24px;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+      .domino-duel-panel {
+        border: 1px solid rgba(21, 100, 55, 0.12);
+        border-radius: 24px;
+        background: #f7fcf8;
+        padding: 18px;
+      }
+      .domino-duel-panel h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+        color: #0f311f;
+      }
+      .domino-duel-panel p,
+      .domino-duel-panel li {
+        color: #4e6959;
+        line-height: 1.6;
+      }
+      .domino-duel-panel ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+      .domino-duel-actions {
+        margin-top: 22px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .domino-duel-btn {
+        height: 52px;
+        border: none;
+        border-radius: 18px;
+        padding: 0 20px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .domino-duel-btn--primary {
+        background: #156437;
+        color: white;
+      }
+      .domino-duel-btn--secondary {
+        background: rgba(21, 100, 55, 0.08);
+        color: #156437;
+      }
+      .domino-duel-note {
+        margin-top: 18px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255, 191, 117, 0.18);
+        color: #7a4d10;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      .domino-duel-state {
+        margin-top: 20px;
+        border: 1px dashed rgba(21, 100, 55, 0.18);
+        border-radius: 22px;
+        background: rgba(21, 100, 55, 0.03);
+        padding: 18px;
+      }
+      .domino-duel-state-label {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #5f7b69;
+      }
+      .domino-duel-status {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f311f;
+      }
+      .domino-duel-meta {
+        margin-top: 10px;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      }
+      .domino-duel-chip {
+        border-radius: 18px;
+        border: 1px solid rgba(21, 100, 55, 0.12);
+        background: white;
+        padding: 12px 14px;
+      }
+      .domino-duel-chip strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #0f311f;
+      }
+      .domino-duel-chip span {
+        color: #5b7464;
+      }
+    </style>
+  </head>
+  <body class="domino-duel-body">
+    <main class="domino-duel-shell">
+      <section class="domino-duel-card" aria-label="Domino duel">
+        <p class="domino-duel-eyebrow">Domino duel</p>
+        <h1 class="domino-duel-title">Premye sal Duel V2 la pare</h1>
+        <p class="domino-duel-copy">
+          Nouvo branch sa a antre nan premye etap rey?l li: room, matchmaking, prezans ak s?ti pw?p.
+          Lajan poko branche, epi mot? domino a poko fini, men nou deja sou yon baz serye.
+        </p>
+
+        <div class="domino-duel-grid">
+          <article class="domino-duel-panel">
+            <h2>Sa ki mache deja</h2>
+            <ul>
+              <li>Ch?che yon adv?s?.</li>
+              <li>Kreye oswa reprann yon room Duel V2.</li>
+              <li>Swiv eta room la.</li>
+              <li>Kenbe prezans jw? yo.</li>
+            </ul>
+          </article>
+          <article class="domino-duel-panel">
+            <h2>Sa k poko branche</h2>
+            <ul>
+              <li>Mot? jw?t domino a menm.</li>
+              <li>M?d zanmi duel la.</li>
+              <li>HTG yo.</li>
+              <li>Istwa match la.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="domino-duel-actions">
+          <button class="domino-duel-btn domino-duel-btn--primary" type="button" id="dominoDuelSearchBtn">Ch?che yon adv?s?</button>
+          <button class="domino-duel-btn domino-duel-btn--secondary" type="button" id="dominoDuelBackBtn">Retounen sou akey</button>
+        </div>
+
+        <section class="domino-duel-state" aria-live="polite">
+          <p class="domino-duel-state-label">Eta akty?l</p>
+          <p class="domino-duel-status" id="dominoDuelStatus">Konekte pou k?manse.</p>
+          <div class="domino-duel-meta">
+            <div class="domino-duel-chip">
+              <strong>Room</strong>
+              <span id="dominoDuelRoomId">--</span>
+            </div>
+            <div class="domino-duel-chip">
+              <strong>Statut</strong>
+              <span id="dominoDuelRoomStatus">--</span>
+            </div>
+            <div class="domino-duel-chip">
+              <strong>Pozisyon ou</strong>
+              <span id="dominoDuelSeat">--</span>
+            </div>
+            <div class="domino-duel-chip">
+              <strong>Jw? yo</strong>
+              <span id="dominoDuelPlayers">--</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="domino-duel-note">
+          Nouvo etap sa a s?vi pou valide sik room la anvan nou rive sou mouvman domino yo ak sou kestyon HTG yo.
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./domino-duel.js"></script>
+  </body>
+</html>
