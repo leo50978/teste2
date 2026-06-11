@@ -11,6 +11,7 @@ const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const DUEL_ROOM_RESULTS_COLLECTION = "duelRoomResults";
 const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
 const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
+const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
 const ANALYTICS_META_COLLECTION = "analyticsMeta";
@@ -1702,6 +1703,10 @@ function inferCashflowHumanCount(gameKey = "", result = {}) {
 
   if (gameKey === "domino_classic") return 1;
   if (gameKey === "ludo") return roomMode === "ludo_friends" ? 2 : 1;
+  if (gameKey === "chess") {
+    if (botCount > 0 || aiProfile || roomMode.includes("bot")) return 1;
+    return Math.max(1, Math.min(2, playerCount || 2));
+  }
   if (gameKey === "pong") {
     if (botCount > 0 || aiProfile) return 1;
     return Math.max(1, Math.min(2, playerCount || 1));
@@ -1852,7 +1857,7 @@ async function computeHtgCashflowSnapshot(options = {}) {
     { key: "duel", label: "Domino duel", ref: db.collection(DUEL_ROOM_RESULTS_COLLECTION) },
     { key: "morpion", label: "Mopyon", ref: db.collection(MORPION_ROOM_RESULTS_COLLECTION) },
     { key: "dame", label: "Dame", ref: db.collection(DAME_ROOM_RESULTS_COLLECTION) },
-    { key: "pong", label: "Pong", ref: db.collection(PONG_MATCH_RESULTS_COLLECTION) },
+    { key: "chess", label: "Echec", ref: db.collection(CHESS_ROOM_RESULTS_COLLECTION) },
     { key: "ludo", label: "Ludo", ref: db.collection(LUDO_MATCH_RESULTS_COLLECTION) },
   ];
 
@@ -2176,7 +2181,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
   let duelQuery = db.collection(DUEL_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let morpionQuery = db.collection(MORPION_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let dameQuery = db.collection(DAME_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
-  let pongQuery = db.collection(PONG_MATCH_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
+  let chessQuery = db.collection(CHESS_ROOM_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
   let ludoQuery = db.collection(LUDO_MATCH_RESULTS_COLLECTION).orderBy("endedAtMs", "asc");
 
   if (range.startMs > 0) {
@@ -2184,7 +2189,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
     duelQuery = duelQuery.where("endedAtMs", ">=", range.startMs);
     morpionQuery = morpionQuery.where("endedAtMs", ">=", range.startMs);
     dameQuery = dameQuery.where("endedAtMs", ">=", range.startMs);
-    pongQuery = pongQuery.where("endedAtMs", ">=", range.startMs);
+    chessQuery = chessQuery.where("endedAtMs", ">=", range.startMs);
     ludoQuery = ludoQuery.where("endedAtMs", ">=", range.startMs);
   }
   if (range.endMs > 0) {
@@ -2192,16 +2197,16 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
     duelQuery = duelQuery.where("endedAtMs", "<=", range.endMs);
     morpionQuery = morpionQuery.where("endedAtMs", "<=", range.endMs);
     dameQuery = dameQuery.where("endedAtMs", "<=", range.endMs);
-    pongQuery = pongQuery.where("endedAtMs", "<=", range.endMs);
+    chessQuery = chessQuery.where("endedAtMs", "<=", range.endMs);
     ludoQuery = ludoQuery.where("endedAtMs", "<=", range.endMs);
   }
 
-  const [classicSnap, duelSnap, morpionSnap, dameSnap, pongSnap, ludoSnap] = await Promise.all([
+  const [classicSnap, duelSnap, morpionSnap, dameSnap, chessSnap, ludoSnap] = await Promise.all([
     safeAnalyticsQueryGet(classicQuery, db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION), "dominoClassicMatchResults"),
     safeAnalyticsQueryGet(duelQuery, db.collection(DUEL_ROOM_RESULTS_COLLECTION), "duelRoomResults"),
     safeAnalyticsQueryGet(morpionQuery, db.collection(MORPION_ROOM_RESULTS_COLLECTION), "morpionRoomResults"),
     safeAnalyticsQueryGet(dameQuery, db.collection(DAME_ROOM_RESULTS_COLLECTION), "dameRoomResults"),
-    safeAnalyticsQueryGet(pongQuery, db.collection(PONG_MATCH_RESULTS_COLLECTION), "pongMatchResults"),
+    safeAnalyticsQueryGet(chessQuery, db.collection(CHESS_ROOM_RESULTS_COLLECTION), "chessRoomResults"),
     safeAnalyticsQueryGet(ludoQuery, db.collection(LUDO_MATCH_RESULTS_COLLECTION), "ludoMatchResults"),
   ]);
 
@@ -2214,13 +2219,13 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
     duelMatches: 0,
     morpionMatches: 0,
     dameMatches: 0,
-    pongMatches: 0,
+    chessMatches: 0,
     ludoMatches: 0,
     classicWithBots: 0,
     duelWithBots: 0,
     morpionWithBots: 0,
     dameWithBots: 0,
-    pongWithBots: 0,
+    chessWithBots: 0,
     ludoWithBots: 0,
   };
 
@@ -2236,15 +2241,15 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
     if (gameKey === "duel") summary.duelMatches += 1;
     if (gameKey === "morpion") summary.morpionMatches += 1;
     if (gameKey === "dame") summary.dameMatches += 1;
-    if (gameKey === "pong") summary.pongMatches += 1;
+    if (gameKey === "chess") summary.chessMatches += 1;
     if (gameKey === "ludo") summary.ludoMatches += 1;
 
-    const botCount = gameKey === "pong" ? inferPongResultBotCount(data) : safeInt(data.botCount);
+    const botCount = safeInt(data.botCount) || (String(data.roomMode || data.gameMode || "").toLowerCase().includes("bot") ? 1 : 0);
     if (gameKey === "classic" && inferClassicGameComposition(data) === "with_bot") summary.classicWithBots += 1;
     if (gameKey === "duel" && botCount > 0) summary.duelWithBots += 1;
     if (gameKey === "morpion" && botCount > 0) summary.morpionWithBots += 1;
     if (gameKey === "dame" && botCount > 0) summary.dameWithBots += 1;
-    if (gameKey === "pong" && botCount > 0) summary.pongWithBots += 1;
+    if (gameKey === "chess" && botCount > 0) summary.chessWithBots += 1;
     if (gameKey === "ludo" && botCount > 0) summary.ludoWithBots += 1;
 
     const bucketKey = getDuelAnalyticsBucketKey(range.granularity, endedAtMs);
@@ -2257,7 +2262,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
       duelMatches: 0,
       morpionMatches: 0,
       dameMatches: 0,
-      pongMatches: 0,
+      chessMatches: 0,
       ludoMatches: 0,
     };
     bucket.totalMatches += 1;
@@ -2265,7 +2270,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
     if (gameKey === "duel") bucket.duelMatches += 1;
     if (gameKey === "morpion") bucket.morpionMatches += 1;
     if (gameKey === "dame") bucket.dameMatches += 1;
-    if (gameKey === "pong") bucket.pongMatches += 1;
+    if (gameKey === "chess") bucket.chessMatches += 1;
     if (gameKey === "ludo") bucket.ludoMatches += 1;
     if (endedAtMs > safeSignedInt(bucket.periodMs)) {
       bucket.periodMs = endedAtMs;
@@ -2288,7 +2293,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
   duelSnap.forEach((docSnap) => addMatch("duel", "Duel 2 joueurs", docSnap.data() || {}, docSnap.id));
   morpionSnap.forEach((docSnap) => addMatch("morpion", "Morpion 5", docSnap.data() || {}, docSnap.id));
   dameSnap.forEach((docSnap) => addMatch("dame", "Jeu de dame", docSnap.data() || {}, docSnap.id));
-  pongSnap.forEach((docSnap) => addMatch("pong", "Pong", docSnap.data() || {}, docSnap.id));
+  chessSnap.forEach((docSnap) => addMatch("chess", "Echec", docSnap.data() || {}, docSnap.id));
   ludoSnap.forEach((docSnap) => addMatch("ludo", "Ludo", {
     botCount: 1,
     ...docSnap.data(),
@@ -2307,7 +2312,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
       duelMatches: safeInt(bucket.duelMatches),
       morpionMatches: safeInt(bucket.morpionMatches),
       dameMatches: safeInt(bucket.dameMatches),
-      pongMatches: safeInt(bucket.pongMatches),
+      chessMatches: safeInt(bucket.chessMatches),
       ludoMatches: safeInt(bucket.ludoMatches),
     }));
 
@@ -2332,7 +2337,7 @@ async function computeGamesVolumeAnalyticsSnapshot(options = {}) {
         { key: "duel", label: "Duel 2 joueurs", count: summary.duelMatches },
         { key: "morpion", label: "Morpion 5", count: summary.morpionMatches },
         { key: "dame", label: "Jeu de dame", count: summary.dameMatches },
-        { key: "pong", label: "Pong", count: summary.pongMatches },
+        { key: "chess", label: "Echec", count: summary.chessMatches },
         { key: "ludo", label: "Ludo", count: summary.ludoMatches },
       ],
       trend,
@@ -3071,8 +3076,9 @@ function computeAiAdvisorHealth(snapshot = {}) {
     safeInt(gamesSummary.classicMatches) > 0,
     safeInt(gamesSummary.duelMatches) > 0,
     safeInt(gamesSummary.morpionMatches) > 0,
-    safeInt(gamesSummary.pongMatches) > 0,
     safeInt(gamesSummary.dameMatches) > 0,
+    safeInt(gamesSummary.chessMatches) > 0,
+    safeInt(gamesSummary.ludoMatches) > 0,
   ].filter(Boolean).length;
 
   const trafficScore = clampPercentScore(
@@ -3085,7 +3091,7 @@ function computeAiAdvisorHealth(snapshot = {}) {
   const livePlayRatio = peakVisitors > 0 ? (peakPlayers / peakVisitors) : 0;
   const engagementScore = clampPercentScore(
     Math.min(45, matchPerVisit * 95)
-    + Math.min(25, (activeGames / 5) * 25)
+    + Math.min(25, (activeGames / 6) * 25)
     + Math.min(30, livePlayRatio * 60)
   );
 

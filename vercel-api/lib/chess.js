@@ -9,6 +9,7 @@ const {
   getConfiguredChessBotDifficulty,
   normalizeChessBotDifficulty,
 } = require("./chess-bot-pilot");
+const { readPublicAppSettings } = require("./public-config");
 
 const CHESS_ROOMS_COLLECTION = "chessRooms";
 const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
@@ -23,6 +24,16 @@ const CHESS_PRESENCE_GRACE_MS = 30 * 1000;
 const CHESS_TURN_LIMIT_MS = 30 * 1000;
 const CHESS_HISTORY_LIMIT = 500;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+async function assertPublicChessAvailable() {
+  const publicSettings = await readPublicAppSettings();
+  if (publicSettings.chessEnabled === false) {
+    throw makeHttpError(503, "chess-temporarily-disabled", "Echec la pa disponib pou kounye a. Tanpri tounen pita.", {
+      game: "chess",
+    });
+  }
+  return publicSettings;
+}
 
 function chessRoomRef(roomId = "") {
   const safeRoomId = String(roomId || "").trim();
@@ -446,6 +457,8 @@ async function joinMatchmakingChess({ uid = "", email = "", payload = {} } = {})
       ...buildRoomStateResponse(activeRoom.roomId, activeRoom.room, activeRoom.seatIndex),
     };
   }
+
+  await assertPublicChessAvailable();
 
   const stakeHtg = assertPublicChessStake(payload.stakeHtg || CHESS_PUBLIC_STAKE_HTG);
   const botDifficulty = normalizeChessBotDifficulty(await getConfiguredChessBotDifficulty());

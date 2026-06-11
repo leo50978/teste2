@@ -162,7 +162,7 @@ async function getPublicRuntimeConfigPayload() {
     dashboardWebPushPublicKey: String(pushConfig.publicKey || ""),
     dashboardWebPushEnabled: !!String(pushConfig.publicKey || "").trim(),
     provisionalDepositsEnabled: settings.provisionalDepositsEnabled === true,
-    pongEnabled: settings.pongEnabled !== false,
+    chessEnabled: settings.chessEnabled !== false,
     dominoClassicEnabled: settings.dominoClassicEnabled !== false,
     dominoDuelPublicEnabled: settings.dominoDuelPublicEnabled !== false,
     ludoEnabled: settings.ludoEnabled !== false,

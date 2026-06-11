@@ -56,7 +56,7 @@ function normalizePublicAppSettings(rawData = {}) {
     gameStakeOptions: normalizeGameStakeOptions(rawData.gameStakeOptions),
     appCheckSiteKey: sanitizeText(rawData.appCheckSiteKey || "", 256),
     provisionalDepositsEnabled: rawData.provisionalDepositsEnabled === true,
-    pongEnabled: rawData.pongEnabled !== false,
+    chessEnabled: rawData.chessEnabled !== false,
     dominoClassicEnabled: rawData.dominoClassicEnabled !== false,
     dominoDuelPublicEnabled: rawData.dominoDuelPublicEnabled !== false,
     ludoEnabled: rawData.ludoEnabled !== false,

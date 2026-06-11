@@ -236,7 +236,7 @@ const PUBLIC_GAME_AVAILABILITY_TTL_MS = 15000;
 const DEBUG_DUEL_AVAILABILITY = true;
 const HARD_DISABLE_DOMINO_DUEL = false;
 const DEFAULT_PUBLIC_GAME_AVAILABILITY = Object.freeze({
-  pongEnabled: true,
+  chessEnabled: true,
   dominoClassicEnabled: true,
   dominoDuelPublicEnabled: true,
   ludoEnabled: true,
@@ -258,7 +258,7 @@ function logDuelAvailabilityDebug(eventName, payload = null) {
 function normalizePublicGameAvailability(raw = {}) {
   const source = raw && typeof raw === "object" ? raw : {};
   return {
-    pongEnabled: source.pongEnabled !== false,
+    chessEnabled: source.chessEnabled !== false,
     dominoClassicEnabled: source.dominoClassicEnabled !== false,
     dominoDuelPublicEnabled: source.dominoDuelPublicEnabled !== false,
     ludoEnabled: source.ludoEnabled !== false,
@@ -318,6 +318,7 @@ async function readPublicGameAvailability(force = false) {
 function getGameAvailabilityLabel(gameKey = "") {
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   if (normalizedKey === "pong") return "Pong";
+  if (normalizedKey === "chess" || normalizedKey === "echec") return "Echec";
   if (normalizedKey === "dominoclassic" || normalizedKey === "domino-classic") return "Domino 4 player";
   if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") return "Domino duel";
   if (normalizedKey === "ludo") return "Ludo";
@@ -392,8 +393,8 @@ async function canLaunchPublicGame(gameKey = "") {
   const availability = await readPublicGameAvailability(true);
   const normalizedKey = String(gameKey || "").trim().toLowerCase();
   let isEnabled = true;
-  if (normalizedKey === "pong") {
-    isEnabled = availability.pongEnabled !== false;
+  if (normalizedKey === "chess" || normalizedKey === "echec") {
+    isEnabled = availability.chessEnabled !== false;
   } else if (normalizedKey === "dominoduel" || normalizedKey === "domino-duel") {
     isEnabled = HARD_DISABLE_DOMINO_DUEL ? false : (availability.dominoDuelPublicEnabled !== false);
   } else if (normalizedKey === "ludo") {
@@ -5905,6 +5906,8 @@ document.querySelectorAll("[data-kobposh-launch-game]").forEach((button) => {
         openAuthScreen("login");
         return;
       }
+      const canLaunch = await canLaunchPublicGame("chess");
+      if (!canLaunch) return;
       const modal = ensureChessStakeModal();
       modal.open();
       return;
