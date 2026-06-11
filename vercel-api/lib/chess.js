@@ -217,6 +217,20 @@ async function findActiveChessRoomForUser(uid = "") {
   };
 }
 
+function buildPublicRoomReplacementPatch(room = {}, nowMs = Date.now(), endedReason = "replaced_by_new_public_entry") {
+  return {
+    ...room,
+    status: "ended",
+    endedReason,
+    winnerSeat: -1,
+    winnerUid: "",
+    endedAtMs: nowMs,
+    updatedAtMs: nowMs,
+    endedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+}
+
 async function generateUniqueFriendChessInviteCode(size = FRIEND_ROOM_CODE_SIZE, maxAttempts = 18) {
   const targetSize = Math.max(4, safeInt(size) || FRIEND_ROOM_CODE_SIZE);
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -419,7 +433,7 @@ async function joinMatchmakingChess({ uid = "", email = "", payload = {} } = {})
   }
 
   const activeRoom = await findActiveChessRoomForUser(safeUid);
-  if (activeRoom) {
+  if (activeRoom && String(activeRoom.room.roomMode || "").trim() === "chess_friends") {
     return {
       ok: true,
       resumed: true,
@@ -441,6 +455,35 @@ async function joinMatchmakingChess({ uid = "", email = "", payload = {} } = {})
   playerNames[botSeatIndex] = publicOpponentName || "Joueur prive";
 
   const result = await db.runTransaction(async (tx) => {
+    if (activeRoom?.roomId) {
+      const activeRoomRefDoc = chessRoomRef(activeRoom.roomId);
+      const activeRoomSnap = await tx.get(activeRoomRefDoc);
+      if (activeRoomSnap.exists) {
+        const activeRoomFresh = activeRoomSnap.data() || {};
+        const activeStatus = String(activeRoomFresh.status || "").trim().toLowerCase();
+        const activeMode = String(activeRoomFresh.roomMode || "").trim();
+        if (
+          activeMode !== "chess_friends"
+          && (activeStatus === "playing" || activeStatus === "waiting")
+          && getSeatForUser(activeRoomFresh, safeUid) >= 0
+        ) {
+          const existingEntryFunding = activeRoomFresh.entryFundingByUid
+            && typeof activeRoomFresh.entryFundingByUid === "object"
+            ? activeRoomFresh.entryFundingByUid[safeUid]
+            : null;
+          const replacementReason = existingEntryFunding
+            ? "quit_refund_before_opening"
+            : "replaced_by_new_public_entry";
+          const replacementPatch = buildPublicRoomReplacementPatch(activeRoomFresh, nowMs, replacementReason);
+          if (replacementReason === "quit_refund_before_opening") {
+            await settleChessRoomTx(tx, activeRoomRefDoc, activeRoomFresh, replacementPatch);
+          }
+          await writeChessRoomResultIfEndedTx(tx, activeRoomRefDoc, activeRoomFresh, replacementPatch);
+          tx.set(activeRoomRefDoc, replacementPatch, { merge: true });
+        }
+      }
+    }
+
     const entryFunding = await debitStakeTx(tx, safeUid, stakeHtg);
     const roomPatch = {
       roomMode: "chess_public_bot",
