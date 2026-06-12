@@ -36,7 +36,7 @@ const ACQUISITION_ACTIVE_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const ACQUISITION_FIDELITY_MIN_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 const ACQUISITION_PAGE_FETCH_SIZE = 1000;
 const ACQUISITION_DOC_LIMIT = 10000;
-const DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEPOSIT_ANALYTICS_MAX_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 const DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE = 1000;
 const DEPOSIT_ANALYTICS_DOC_LIMIT = 12000;
@@ -898,13 +898,23 @@ function normalizeDepositAnalyticsGranularity(rawValue = "", rangeMs = 0) {
   return "week";
 }
 
+function getDepositAnalyticsTodayStartMs(nowMs = Date.now()) {
+  const todayParts = getGamesAnalyticsShiftedDayParts(nowMs, 0);
+  return getGamesAnalyticsZonedTimestamp(todayParts, 0, 0, 0, 0)
+    || (safeSignedInt(nowMs) - DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS);
+}
+
 function normalizeDepositAnalyticsRange(options = {}, nowMs = Date.now()) {
   const safeNow = safeSignedInt(nowMs) || Date.now();
   let endMs = safeSignedInt(options.endMs ?? options.dateToMs ?? options.toMs) || safeNow;
   if (endMs <= 0 || endMs > safeNow) endMs = safeNow;
 
+  const defaultStartMs = getDepositAnalyticsTodayStartMs(endMs);
   let startMs = safeSignedInt(options.startMs ?? options.dateFromMs ?? options.fromMs)
-    || (endMs - DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS);
+    || defaultStartMs;
+  if (startMs <= 0 || startMs >= endMs) {
+    startMs = defaultStartMs;
+  }
   if (startMs <= 0 || startMs >= endMs) {
     startMs = endMs - DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS;
   }
