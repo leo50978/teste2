@@ -40,6 +40,7 @@ const DEPOSIT_ANALYTICS_DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const DEPOSIT_ANALYTICS_MAX_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 const DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE = 1000;
 const DEPOSIT_ANALYTICS_DOC_LIMIT = 12000;
+const DEPOSIT_ANALYTICS_DEFAULT_DOC_LIMIT = 600;
 const CLIENT_ORDER_FALLBACK_CLIENT_PAGE_SIZE = 250;
 const CLIENT_ORDER_FALLBACK_CONCURRENCY = 5;
 const CLIENT_DELETION_REVIEW_PENDING_STATUS = "pending_review";
@@ -1061,7 +1062,7 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs
         .where("createdAtMs", "<=", endMs)
         .orderBy("createdAtMs", "asc")
         .select(...fields)
-        .limit(Math.min(DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE, docLimit - rows.length));
+        .limit(Math.min(250, DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE, docLimit - rows.length));
 
       if (lastDoc) {
         query = query.startAfter(lastDoc);
@@ -1078,16 +1079,7 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs
       if (snap.size < DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE) break;
     }
 
-    if (lastDoc) {
-      const moreSnap = await db.collectionGroup("orders")
-        .where("createdAtMs", ">=", startMs)
-        .where("createdAtMs", "<=", endMs)
-        .orderBy("createdAtMs", "asc")
-        .startAfter(lastDoc)
-        .limit(1)
-        .get();
-      truncated = !moreSnap.empty;
-    }
+    truncated = rows.length >= docLimit;
 
     return { rows, truncated, fallbackUsed: false };
   } catch (error) {
@@ -1101,7 +1093,7 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs
 async function computeDepositAnalyticsSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = normalizeDepositAnalyticsRange(options, nowMs);
-  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(options.maxDocs || options.docLimit) || DEPOSIT_ANALYTICS_DOC_LIMIT));
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(options.maxDocs || options.docLimit) || DEPOSIT_ANALYTICS_DEFAULT_DOC_LIMIT));
   const rowsResult = await fetchDepositAnalyticsRowsForRange(range.startMs, range.endMs, docLimit);
   const bucketSeed = buildDepositAnalyticsBucketSeed(range.startMs, range.endMs, range.granularity);
   const bucketMap = new Map(bucketSeed.map((item) => [item.key, item]));
