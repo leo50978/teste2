@@ -677,16 +677,21 @@ a {
 @media (max-width: 699px) {
     html,
     body {
-        min-height: 100dvh;
-        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
         padding: 0;
         overflow: hidden;
+        overscroll-behavior: none;
     }
 
     .app {
         width: 100%;
-        min-height: 100dvh;
-        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
         overflow: hidden;
     }
 
@@ -698,18 +703,25 @@ a {
     }
 
     .arena {
-        min-height: 100dvh;
-        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
         border-radius: 0;
         padding: max(4px, env(safe-area-inset-top)) 0 max(4px, env(safe-area-inset-bottom));
+        display: grid;
+        grid-template-rows: auto minmax(0, 1fr) auto;
         overflow: hidden;
         gap: 4px;
     }
 
     .arena__top {
+        position: relative;
+        top: auto;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         gap: 4px;
         padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left));
+        min-height: 0;
     }
 
     .player-card {
@@ -719,8 +731,10 @@ a {
 
     .arena__bottom {
         width: 100%;
-        margin-top: auto;
-        padding: 0 max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+        margin-top: 0;
+        min-height: 58px;
+        padding: 0 max(6px, env(safe-area-inset-right)) 2px max(6px, env(safe-area-inset-left));
+        align-items: center;
     }
 
     .player-card__name {
@@ -772,19 +786,35 @@ a {
     }
 
     .board-wrap {
-        flex: 1;
         min-height: 0;
+        min-width: 0;
         width: 100%;
+        height: 100%;
         padding: 0;
         border-radius: 0;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
     }
 
     .board-shell {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        min-width: 0;
         border-radius: 0;
         padding: 0 max(6px, env(safe-area-inset-right)) 0 max(6px, env(safe-area-inset-left));
         background: transparent;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .ludo-container {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        min-width: 0;
         justify-content: center;
     }
 
@@ -793,7 +823,8 @@ a {
     }
 
     .ludo {
-        width: min(100%, calc(100dvh - 270px));
+        width: min(100%, calc(100svh - 162px), calc(100vw - 12px));
+        max-height: 100%;
         max-width: calc(100vw - 12px);
         min-width: 0;
         border-radius: 20px;
