@@ -385,6 +385,13 @@ function resolveFriendEndPresentation(room = {}) {
     const endReason = String(room?.endReason || '').trim().toLowerCase();
     const localWon = !!winnerPlayer && winnerPlayer === localPlayer;
 
+    if (endReason === 'timeout_refund' || endReason === 'quit_refund_before_opening' || endReason === 'no_play_refund') {
+        return {
+            title: 'Miz la remèt',
+            copy: 'Pati prive Ludo a fini two bone pou deklare yon pedi. Nou remèt miz la sou kont jwè yo.',
+        };
+    }
+
     if (endReason === 'turn_timeout') {
         return localWon
             ? {

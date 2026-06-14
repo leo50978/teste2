@@ -1737,6 +1737,14 @@ function inferCashflowRewardGranted(gameKey = "", result = {}) {
   return rewardGranted;
 }
 
+function isRefundedGameResult(result = {}) {
+  const reason = String(result?.endedReason || result?.endReason || "").trim().toLowerCase();
+  return result?.protectedOpeningRefund === true
+    || reason === "no_play_refund"
+    || reason === "quit_refund_before_opening"
+    || reason === "timeout_refund";
+}
+
 function buildCashflowBucketSeed(startMs = 0, endMs = 0, granularity = "day") {
   const bucketSizeMs = granularity === "hour" ? (60 * 60 * 1000) : (24 * 60 * 60 * 1000);
   const firstBucketStartMs = startMs - (startMs % bucketSizeMs);
@@ -1894,6 +1902,7 @@ async function computeHtgCashflowSnapshot(options = {}) {
     snap.docs.forEach((docSnap) => {
       const row = docSnap.data() || {};
       if (String(row.status || "").trim().toLowerCase() !== "ended") return;
+      if (isRefundedGameResult(row)) return;
       const endedAtMs = safeSignedInt(row.endedAtMs);
       if (endedAtMs < range.startMs || endedAtMs > range.endMs) return;
       const stakeHtg = Math.max(0, safeInt(row.stakeHtg || row.entryCostHtg || doesToHtg(row.stakeDoes || row.entryCostDoes)));

@@ -28,6 +28,7 @@ const LUDO_ALLOWED_STAKES = new Set([500]);
 const LUDO_FRIEND_ROOMS_COLLECTION = "ludoFriendRooms";
 const LUDO_FRIEND_ALLOWED_STAKES = new Set([500, 1000, 2000, 5000, 10000]);
 const LUDO_FRIEND_TURN_LIMIT_MS = 30 * 1000;
+const LUDO_FRIEND_OPENING_PROTECTION_MS = 20 * 1000;
 const LUDO_ODDS_NUMERATOR = 19;
 const LUDO_ODDS_DENOMINATOR = 10;
 const LUDO_ACTIVE_WAGER_STALE_MS = 30 * 60 * 1000;
@@ -46,6 +47,11 @@ const LUDO_FRIEND_WAIT_MS = 15 * 60 * 1000;
 const LUDO_FRIEND_CODE_SIZE = 6;
 const LUDO_FRIEND_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const LUDO_FRIEND_ACTION_LOG_LIMIT = 50;
+const LUDO_FRIEND_REFUND_REASONS = new Set([
+  "no_play_refund",
+  "quit_refund_before_opening",
+  "timeout_refund",
+]);
 
 const ludoBotPilotDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: LUDO_BOT_PILOT_TIMEZONE,
@@ -342,6 +348,14 @@ function readResultRewardHtg(result = {}) {
   return Math.max(0, doesToHtg(safeInt(result.rewardAmountDoes || result.rewardExpectedDoes)));
 }
 
+function isRefundedLudoResult(result = {}) {
+  const reason = String(result?.endedReason || result?.endReason || "").trim().toLowerCase();
+  return result?.protectedOpeningRefund === true
+    || reason === "no_play_refund"
+    || reason === "quit_refund_before_opening"
+    || reason === "timeout_refund";
+}
+
 function chooseAutoLudoBotDifficulty(snapshot = {}) {
   const netHtg = safeSignedInt(snapshot.netHtg);
   const collectedHtg = safeInt(snapshot.collectedHtg);
@@ -442,6 +456,7 @@ async function computeLudoBotPilotSnapshot(options = {}) {
     const endedAtMs = safeSignedInt(data.endedAtMs);
     const status = String(data.status || "").trim().toLowerCase();
     if (status !== "ended" || endedAtMs <= 0) return;
+    if (isRefundedLudoResult(data)) return;
 
     const stakeHtg = readResultStakeHtg(data);
     if (stakeHtg <= 0) return;
@@ -933,6 +948,75 @@ function buildNextFriendLudoActionLog(room = {}, entry = {}) {
     .slice(-LUDO_FRIEND_ACTION_LOG_LIMIT);
 }
 
+function getFriendLudoOpeningElapsedMs(room = {}, nowMs = Date.now()) {
+  const startedAtMs = safeSignedInt(room.startedAtMs);
+  if (startedAtMs <= 0) return 0;
+  return Math.max(0, safeSignedInt(nowMs) - startedAtMs);
+}
+
+function getFriendLudoActionCountsBySeat(room = {}) {
+  const playerUids = resolveFriendRoomPlayerUids(room);
+  const counts = [0, 0];
+  const actionLog = Array.isArray(room.actionLog) ? room.actionLog : [];
+
+  actionLog.forEach((entry) => {
+    if (!entry || typeof entry !== "object") return;
+    const type = String(entry.type || "").trim().toLowerCase();
+    if (type !== "roll" && type !== "move") return;
+    const uid = String(entry.uid || "").trim();
+    let seat = playerUids.findIndex((playerUid) => playerUid && playerUid === uid);
+    if (seat < 0) {
+      const fallbackSeat = safeSignedInt(entry.turnIndex, -1);
+      seat = fallbackSeat === 0 || fallbackSeat === 1 ? fallbackSeat : -1;
+    }
+    if (seat === 0 || seat === 1) {
+      counts[seat] += 1;
+    }
+  });
+
+  return counts;
+}
+
+function hasFriendLudoOpeningActions(room = {}) {
+  const counts = getFriendLudoActionCountsBySeat(room);
+  return counts[0] > 0 && counts[1] > 0;
+}
+
+function shouldRefundProtectedFriendLudoEnd(room = {}, nowMs = Date.now()) {
+  const elapsedMs = getFriendLudoOpeningElapsedMs(room, nowMs);
+  return elapsedMs < LUDO_FRIEND_OPENING_PROTECTION_MS || !hasFriendLudoOpeningActions(room);
+}
+
+function isLudoFriendRefundReason(reason = "") {
+  return LUDO_FRIEND_REFUND_REASONS.has(String(reason || "").trim().toLowerCase());
+}
+
+function normalizeProtectedFriendLudoEndReason(reason = "", room = {}, nowMs = Date.now()) {
+  const normalized = String(reason || "").trim().toLowerCase() || "match_end";
+  if (isLudoFriendRefundReason(normalized)) {
+    return normalized;
+  }
+  if (!shouldRefundProtectedFriendLudoEnd(room, nowMs)) {
+    return normalized;
+  }
+  if (normalized === "turn_timeout") return "timeout_refund";
+  if (normalized === "disconnect_forfeit" || normalized === "player_quit") return "quit_refund_before_opening";
+  return "no_play_refund";
+}
+
+function resolveLudoFriendRefundAmountHtg(room = {}, playerUid = "") {
+  const entryFundingByUid = room.entryFundingByUid && typeof room.entryFundingByUid === "object"
+    ? room.entryFundingByUid
+    : {};
+  const entryFunding = entryFundingByUid[String(playerUid || "").trim()] || {};
+  return Math.max(
+    0,
+    safeInt(entryFunding.convertedHtg)
+    || (safeInt(entryFunding.approvedHtg) + safeInt(entryFunding.provisionalHtg))
+    || resolveLudoFriendStakeHtg(room)
+  );
+}
+
 function isExpiredWaitingFriendLudoRoom(room = {}, nowMs = Date.now()) {
   const status = String(room.status || "").trim().toLowerCase();
   if (status !== "waiting") return false;
@@ -973,11 +1057,12 @@ function computeFriendLudoAutoOutcome(room = {}, nowMs = Date.now()) {
   const currentPlayerSeat = safeInt(room.currentPlayerSeat);
   const turnStartedAtMs = safeSignedInt(room.turnStartedAtMs);
   if (turnStartedAtMs > 0 && (nowMs - turnStartedAtMs) >= LUDO_FRIEND_TURN_LIMIT_MS) {
-    const winnerSeat = currentPlayerSeat === 1 ? 0 : 1;
+    const reason = normalizeProtectedFriendLudoEndReason("turn_timeout", room, nowMs);
+    const winnerSeat = isLudoFriendRefundReason(reason) ? -1 : (currentPlayerSeat === 1 ? 0 : 1);
     return {
       winnerSeat,
-      winnerUid: playerUids[winnerSeat] || "",
-      reason: "turn_timeout",
+      winnerUid: winnerSeat >= 0 ? (playerUids[winnerSeat] || "") : "",
+      reason,
     };
   }
 
@@ -990,11 +1075,12 @@ function computeFriendLudoAutoOutcome(room = {}, nowMs = Date.now()) {
     return uid && lastHeartbeatAtMs > 0 && (nowMs - lastHeartbeatAtMs) >= LUDO_DISCONNECT_FORFEIT_MS;
   });
   if (typeof staleSeat === "number" && staleSeat >= 0) {
-    const winnerSeat = staleSeat === 1 ? 0 : 1;
+    const reason = normalizeProtectedFriendLudoEndReason("disconnect_forfeit", room, nowMs);
+    const winnerSeat = isLudoFriendRefundReason(reason) ? -1 : (staleSeat === 1 ? 0 : 1);
     return {
       winnerSeat,
-      winnerUid: playerUids[winnerSeat] || "",
-      reason: "disconnect_forfeit",
+      winnerUid: winnerSeat >= 0 ? (playerUids[winnerSeat] || "") : "",
+      reason,
     };
   }
 
@@ -1009,6 +1095,7 @@ async function archiveFriendLudoResultTx(tx, {
   endReason = "",
   rewardEntryFunding = null,
   winnerWalletData = null,
+  refundEntries = [],
   nowMs = Date.now(),
 } = {}) {
   const roomId = roomRefDoc?.id || "";
@@ -1019,8 +1106,29 @@ async function archiveFriendLudoResultTx(tx, {
   const rewardAmountHtg = resolveLudoFriendRewardHtg(room);
   const safeWinnerUid = String(winnerUid || "").trim();
   const safeWinnerSeat = Number.isFinite(Number(winnerSeat)) ? Math.trunc(Number(winnerSeat)) : -1;
+  const normalizedEndReason = String(endReason || "").trim() || "match_end";
+  const refundRows = Array.isArray(refundEntries) ? refundEntries : [];
+  const isRefund = isLudoFriendRefundReason(normalizedEndReason);
 
-  if (safeWinnerUid && winnerWalletData) {
+  if (isRefund) {
+    refundRows.forEach((entry) => {
+      const playerUid = String(entry?.uid || "").trim();
+      const refundHtg = safeInt(entry?.refundHtg);
+      if (!playerUid || refundHtg <= 0) return;
+      const walletMutation = applyHtgRewardCredit(entry.walletData || {}, {
+        rewardHtg: refundHtg,
+        rewardEntryFunding: entry.entryFunding || null,
+      });
+      tx.set(walletRef(playerUid), {
+        ...walletMutation.balancesPatch,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastSeenAtMs: nowMs,
+      }, { merge: true });
+    });
+  }
+
+  if (!isRefund && safeWinnerUid && winnerWalletData) {
     const walletMutation = applyHtgRewardCredit(winnerWalletData, {
       rewardHtg: rewardAmountHtg,
       rewardEntryFunding,
@@ -1044,9 +1152,23 @@ async function archiveFriendLudoResultTx(tx, {
     stakeHtg,
     rewardAmountDoes,
     rewardAmountHtg,
-    winnerUid: safeWinnerUid,
-    winnerSeat: safeWinnerSeat,
-    endReason: String(endReason || "").trim() || "match_end",
+    rewardGranted: !isRefund && !!safeWinnerUid,
+    winnerType: !isRefund && safeWinnerUid ? "human" : "",
+    winnerUid: isRefund ? "" : safeWinnerUid,
+    winnerSeat: isRefund ? -1 : safeWinnerSeat,
+    endReason: normalizedEndReason,
+    endedReason: normalizedEndReason,
+    protectedOpeningRefund: isRefund,
+    openingElapsedMs: getFriendLudoOpeningElapsedMs(room, nowMs),
+    actionCountsBySeat: getFriendLudoActionCountsBySeat(room),
+    refundedHtgByUid: isRefund
+      ? refundRows.reduce((acc, entry) => {
+          const playerUid = String(entry?.uid || "").trim();
+          const refundHtg = safeInt(entry?.refundHtg);
+          if (playerUid && refundHtg > 0) acc[playerUid] = refundHtg;
+          return acc;
+        }, {})
+      : {},
     endedAtMs: nowMs,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     fundingCurrency: "htg",
@@ -1061,19 +1183,36 @@ async function finalizeFriendLudoOutcomeTx(tx, {
   nowMs = Date.now(),
 } = {}) {
   const playerUids = resolveFriendRoomPlayerUids(room);
-  const safeWinnerSeat = Number.isFinite(Number(winnerSeat)) ? Math.trunc(Number(winnerSeat)) : -1;
+  const normalizedEndReason = normalizeProtectedFriendLudoEndReason(endReason, room, nowMs);
+  const isRefund = isLudoFriendRefundReason(normalizedEndReason);
+  const safeWinnerSeat = isRefund ? -1 : (Number.isFinite(Number(winnerSeat)) ? Math.trunc(Number(winnerSeat)) : -1);
   const winnerUid = safeWinnerSeat >= 0 ? (playerUids[safeWinnerSeat] || "") : "";
   const entryFundingByUid = room.entryFundingByUid && typeof room.entryFundingByUid === "object"
     ? room.entryFundingByUid
     : {};
   const rewardEntryFunding = winnerUid ? (entryFundingByUid[winnerUid] || null) : null;
-  const winnerWalletSnap = winnerUid ? await tx.get(walletRef(winnerUid)) : null;
+  const refundPlayerUids = isRefund
+    ? Array.from(new Set(playerUids.map((item) => String(item || "").trim()).filter(Boolean)))
+    : [];
+  const [winnerWalletSnap, ...refundWalletSnaps] = await Promise.all([
+    winnerUid ? tx.get(walletRef(winnerUid)) : Promise.resolve(null),
+    ...refundPlayerUids.map((playerUid) => tx.get(walletRef(playerUid))),
+  ]);
   const winnerWalletData = winnerWalletSnap?.exists ? (winnerWalletSnap.data() || {}) : null;
+  const refundEntries = refundPlayerUids.map((playerUid, index) => {
+    const entryFunding = entryFundingByUid[playerUid] || null;
+    return {
+      uid: playerUid,
+      entryFunding,
+      refundHtg: resolveLudoFriendRefundAmountHtg(room, playerUid),
+      walletData: refundWalletSnaps[index]?.exists ? (refundWalletSnaps[index].data() || {}) : {},
+    };
+  });
 
   const nextEngineState = buildFriendLudoStateSnapshot(room.engineState || {});
   nextEngineState.state = LUDO_FRIEND_ENGINE_STATE.GAME_OVER;
   nextEngineState.winnerSeat = safeWinnerSeat;
-  nextEngineState.winnerPlayer = resolvePlayerBySeat(safeWinnerSeat);
+  nextEngineState.winnerPlayer = safeWinnerSeat >= 0 ? resolvePlayerBySeat(safeWinnerSeat) : "";
   nextEngineState.eligiblePieces = [];
   nextEngineState.turnStartedAtMs = nowMs;
 
@@ -1082,9 +1221,10 @@ async function finalizeFriendLudoOutcomeTx(tx, {
     room,
     winnerUid,
     winnerSeat: safeWinnerSeat,
-    endReason,
+    endReason: normalizedEndReason,
     rewardEntryFunding,
     winnerWalletData,
+    refundEntries,
     nowMs,
   });
 
@@ -1093,11 +1233,16 @@ async function finalizeFriendLudoOutcomeTx(tx, {
     endedAtMs: nowMs,
     winnerUid,
     winnerSeat: safeWinnerSeat,
-    endReason: String(endReason || "").trim() || "match_end",
+    endReason: normalizedEndReason,
+    endedReason: normalizedEndReason,
+    protectedOpeningRefund: isRefund,
+    openingElapsedMs: getFriendLudoOpeningElapsedMs(room, nowMs),
+    actionCountsBySeat: getFriendLudoActionCountsBySeat(room),
     engineState: nextEngineState,
     currentPlayerSeat: resolveSeatByPlayer(nextEngineState.currentPlayer || "P1"),
     turnStartedAtMs: safeSignedInt(nextEngineState.turnStartedAtMs),
     actionSeq: safeInt(nextEngineState.actionSeq),
+    actionLog: Array.isArray(room.actionLog) ? room.actionLog : [],
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAtMs: nowMs,
   }, { merge: true });
@@ -1108,11 +1253,16 @@ async function finalizeFriendLudoOutcomeTx(tx, {
     endedAtMs: nowMs,
     winnerUid,
     winnerSeat: safeWinnerSeat,
-    endReason: String(endReason || "").trim() || "match_end",
+    endReason: normalizedEndReason,
+    endedReason: normalizedEndReason,
+    protectedOpeningRefund: isRefund,
+    openingElapsedMs: getFriendLudoOpeningElapsedMs(room, nowMs),
+    actionCountsBySeat: getFriendLudoActionCountsBySeat(room),
     engineState: nextEngineState,
     currentPlayerSeat: resolveSeatByPlayer(nextEngineState.currentPlayer || "P1"),
     turnStartedAtMs: safeSignedInt(nextEngineState.turnStartedAtMs),
     actionSeq: safeInt(nextEngineState.actionSeq),
+    actionLog: Array.isArray(room.actionLog) ? room.actionLog : [],
     updatedAtMs: nowMs,
   };
 }
@@ -1628,30 +1778,22 @@ async function submitFriendLudoAction({ uid, payload = {} }) {
 
     if (String(nextEngineState.state || "") === LUDO_FRIEND_ENGINE_STATE.GAME_OVER) {
       const winnerSeat = safeInt(nextEngineState.winnerSeat);
-      const winnerUid = resolveFriendRoomPlayerUids(room)[winnerSeat] || "";
-      const entryFundingByUid = room.entryFundingByUid && typeof room.entryFundingByUid === "object"
-        ? room.entryFundingByUid
-        : {};
-      const rewardEntryFunding = winnerUid ? (entryFundingByUid[winnerUid] || null) : null;
-      const winnerWalletData = winnerUid
-        ? ((await tx.get(walletRef(winnerUid))).data() || {})
-        : null;
-
-      roomPatch.status = "ended";
-      roomPatch.endedAtMs = nowMs;
-      roomPatch.winnerUid = winnerUid;
-      roomPatch.winnerSeat = winnerSeat;
-      roomPatch.endReason = "match_end";
-
-      await archiveFriendLudoResultTx(tx, {
+      const settledRoom = await finalizeFriendLudoOutcomeTx(tx, {
         roomRefDoc,
-        room,
-        winnerUid,
+        room: {
+          ...room,
+          ...roomPatch,
+          engineState: nextEngineState,
+          actionLog: nextActionLog,
+        },
         winnerSeat,
         endReason: "match_end",
-        rewardEntryFunding,
-        winnerWalletData,
         nowMs,
+      });
+      return buildFriendRoomSummary(settledRoom, {
+        roomId,
+        seatIndex,
+        resumed: true,
       });
     }
 
@@ -1722,12 +1864,13 @@ async function leaveFriendLudoRoom({ uid, payload = {} }) {
     }
 
     if (status === "playing") {
-      const winnerSeat = seatIndex === 1 ? 0 : 1;
+      const endReason = normalizeProtectedFriendLudoEndReason("player_quit", room, nowMs);
+      const winnerSeat = isLudoFriendRefundReason(endReason) ? -1 : (seatIndex === 1 ? 0 : 1);
       const endedRoom = await finalizeFriendLudoOutcomeTx(tx, {
         roomRefDoc,
         room,
         winnerSeat,
-        endReason: "player_quit",
+        endReason,
         nowMs,
       });
       return buildFriendRoomSummary(endedRoom, {
