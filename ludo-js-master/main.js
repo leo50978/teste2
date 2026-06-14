@@ -339,10 +339,16 @@ function resolveFriendRoomErrorMessage(error = null) {
         return 'Tan salon prive sa a fini deja. Ou ka kreye yon nouvo oswa mande lot jw a voye yon lot kod.';
     }
     if (code === 'ludo-friend-room-full') {
-        return 'Salon prive Ludo sa a deja plen.';
+        return 'Salon prive Ludo sa a deja gen 2 jwe. Kod sa a pa ka pran lot moun. Mande zanmi ou kreye yon nouvo salon si nou vle jwe.';
+    }
+    if (code === 'ludo-friend-room-already-started') {
+        return 'Pati Ludo sa a deja komanse. Kod sa a pa ouvri pou nouvo jwe anko. Mande zanmi ou kreye yon nouvo salon.';
     }
     if (code === 'ludo-friend-room-closed') {
-        return 'Salon prive Ludo sa a femen deja.';
+        return 'Salon prive Ludo sa a fini oswa femen deja. Kod sa a pa valab anko. Kreye yon nouvo salon pou rejwe.';
+    }
+    if (code === 'ludo-friend-room-not-playable') {
+        return 'Salon prive Ludo sa a pa disponib pou nouvo jwe kounye a. Mande zanmi ou voye yon nouvo kod.';
     }
     if (code === 'ludo-friend-not-room-member') {
         return 'Kont sa a pa ladan salon prive Ludo sa a.';

@@ -1459,11 +1459,29 @@ async function joinFriendLudoRoomByCode({ uid, email, payload = {} }) {
         resumed: true,
       });
     }
-    if (status !== "waiting") {
-      throw makeHttpError(412, "ludo-friend-room-not-playable", "Salon prive Ludo sa a pa ouvè pou nouvo jwè ankò.");
+    if (status === "playing") {
+      throw makeHttpError(412, "ludo-friend-room-already-started", "Pati Ludo sa a deja komanse. Kod sa a pa ouvri pou nouvo jwe anko. Mande zanmi ou kreye yon nouvo salon.", {
+        status,
+        humanCount,
+      });
+    }
+    if (status === "ended" || status === "closed") {
+      throw makeHttpError(412, "ludo-friend-room-closed", "Salon prive Ludo sa a fini oswa femen deja. Kod sa a pa valab anko. Kreye yon nouvo salon pou rejwe.", {
+        status,
+        humanCount,
+      });
     }
     if (humanCount >= 2 || playerUids[1]) {
-      throw makeHttpError(409, "ludo-friend-room-full", "Salon prive Ludo sa a deja plen.");
+      throw makeHttpError(409, "ludo-friend-room-full", "Salon prive Ludo sa a deja gen 2 jwe. Kod sa a pa ka pran lot moun. Mande zanmi ou kreye yon nouvo salon si nou vle jwe.", {
+        status,
+        humanCount,
+      });
+    }
+    if (status !== "waiting") {
+      throw makeHttpError(412, "ludo-friend-room-not-playable", "Salon prive Ludo sa a pa disponib pou nouvo jwe kounye a. Mande zanmi ou voye yon nouvo kod.", {
+        status,
+        humanCount,
+      });
     }
     if (nowMs >= waitingDeadlineMs) {
       await closeExpiredWaitingFriendLudoRoomTx(tx, { roomRefDoc, room, nowMs });
