@@ -21,13 +21,14 @@ const DUEL_ROOM_RESULTS_COLLECTION = "duelRoomResults";
 const DUEL_V2_ROOMS_COLLECTION = "duelRoomsV2";
 const MORPION_ROOM_RESULTS_COLLECTION = "morpionRoomResults";
 const DAME_ROOM_RESULTS_COLLECTION = "dameRoomResults";
+const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
 
 function normalizeDashboardGameFilter(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
-  if (["duel", "morpion", "dame", "pong", "domino", "ludo"].includes(normalized)) {
+  if (["duel", "morpion", "dame", "chess", "pong", "domino", "ludo"].includes(normalized)) {
     return normalized;
   }
   return "all";
@@ -45,6 +46,7 @@ function inferGameKeyFromHistoryDoc(sourceKey = "", data = {}) {
   if (source === "duelroomsv2") return "duel";
   if (source === "morpionroomresults") return "morpion";
   if (source === "dameroomresults") return "dame";
+  if (source === "chessroomresults") return "chess";
   if (source === "pongmatchresults") return "pong";
   if (source === "ludomatchresults") return "ludo";
   if (source === "dominoclassicmatchresults") return "domino";
@@ -53,6 +55,7 @@ function inferGameKeyFromHistoryDoc(sourceKey = "", data = {}) {
     if (roomMode.includes("duel")) return "duel";
     if (roomMode.includes("morpion")) return "morpion";
     if (roomMode.includes("dame")) return "dame";
+    if (roomMode.includes("chess") || roomMode.includes("echec")) return "chess";
     if (roomMode.includes("pong")) return "pong";
     if (roomMode.includes("ludo")) return "ludo";
     return "domino";
@@ -65,6 +68,7 @@ function getGameLabelFromKey(gameKey = "") {
   if (normalized === "duel") return "Duel";
   if (normalized === "morpion") return "Morpion";
   if (normalized === "dame") return "Dame";
+  if (normalized === "chess") return "Echec";
   if (normalized === "pong") return "Pong";
   if (normalized === "ludo") return "Ludo";
   if (normalized === "domino") return "Domino";
@@ -126,7 +130,9 @@ function buildClientHistoryRecord(sourceKey = "", docSnap, clientId = "") {
   const endedAtMs = safeSignedInt(data.endedAtMs || data.endedAt || data.createdAtMs);
   const startedAtMs = safeSignedInt(data.startedAtMs);
   const endedReason = String(data.endedReason || "").trim().toLowerCase();
-  const isRefundResult = endedReason === "timeout_refund" || endedReason === "quit_refund_before_opening";
+  const isRefundResult = endedReason === "timeout_refund"
+    || endedReason === "quit_refund_before_opening"
+    || endedReason === "no_play_refund";
   const isDrawResult = !isRefundResult && endedReason.startsWith("draw");
   const isNeutralResult = isRefundResult || isDrawResult;
   const won = isNeutralResult
@@ -262,6 +268,7 @@ async function collectClientGameHistoryRows(clientId = "", {
     { key: "duelRoomsV2", collection: db.collection(DUEL_V2_ROOMS_COLLECTION), gameKey: "duel" },
     { key: "morpionRoomResults", collection: db.collection(MORPION_ROOM_RESULTS_COLLECTION), gameKey: "morpion" },
     { key: "dameRoomResults", collection: db.collection(DAME_ROOM_RESULTS_COLLECTION), gameKey: "dame" },
+    { key: "chessRoomResults", collection: db.collection(CHESS_ROOM_RESULTS_COLLECTION), gameKey: "chess" },
     { key: "dominoClassicMatchResults", collection: db.collection(DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION), gameKey: "domino" },
     { key: "pongMatchResults", collection: db.collection(PONG_MATCH_RESULTS_COLLECTION), gameKey: "pong" },
     { key: "ludoMatchResults", collection: db.collection(LUDO_MATCH_RESULTS_COLLECTION), gameKey: "ludo" },
