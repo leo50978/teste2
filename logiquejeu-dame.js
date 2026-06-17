@@ -45,6 +45,7 @@ function formatHtg(value) {
 
 const PUBLIC_DAME_ROOM_MODE = "dame_2p";
 const DEFAULT_PUBLIC_DAME_STAKE_DOES = 500;
+const DAME_PRESENCE_PING_INTERVAL_MS = 20000;
 
 function normalizeInviteCode(value = "") {
   return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
@@ -135,6 +136,7 @@ let dameFriendRematchPending = false;
 let pendingBootAfterRulesModal = false;
 let dameHistoryGuardArmed = false;
 let currentSearchCountdownOverride = "";
+let dameActionSubmitting = false;
 const dameRecordedHistoryKeys = new Set();
 
 function formatDoes(value) {
@@ -355,6 +357,13 @@ function renderTurnTimer(roomData = currentRoomData || {}) {
 
   const remainingSec = Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
   const myTurn = mySeatIndex >= 0 && getMySeatColor(roomData) === currentColor;
+  if (dameActionSubmitting && myTurn) {
+    const syncText = "Tan ou: sync...";
+    turnTimerEl.textContent = syncText;
+    turnTimerEl.title = syncText;
+    turnTimerEl.classList.add("danger");
+    return;
+  }
   const timerText = `${myTurn ? "Tan ou" : "Tan advese a"}: ${remainingSec}s`;
   turnTimerEl.textContent = timerText;
   turnTimerEl.title = timerText;
@@ -1826,7 +1835,7 @@ function startRoomSync() {
   }, 2000);
   presenceTimer = window.setInterval(() => {
     void touchPresence();
-  }, 20000);
+  }, DAME_PRESENCE_PING_INTERVAL_MS);
   turnSyncTimer = window.setInterval(() => {
     if (String(currentRoomData?.status || "").trim().toLowerCase() !== "playing") return;
     syncBoardTurnFromRoom(currentRoomData);
@@ -2096,6 +2105,8 @@ boardEl?.addEventListener("piecemove", async (event) => {
     clientActionId,
   });
 
+  dameActionSubmitting = true;
+  renderTurnTimer(currentRoomData);
   try {
     const result = await submitActionDameSecure({
       roomId: currentRoomId,
@@ -2132,6 +2143,9 @@ boardEl?.addEventListener("piecemove", async (event) => {
   } catch (error) {
     console.warn("[DAME] submit action failed", error);
     updateStatus("Kowodinasyon mouvman an echwe. Verifye koneksyon an epi jwe anko.");
+  } finally {
+    dameActionSubmitting = false;
+    renderTurnTimer(currentRoomData);
   }
 });
 

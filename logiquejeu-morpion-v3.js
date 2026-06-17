@@ -19,6 +19,7 @@ const BOARD_SIZE = 15;
 const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
 const WAIT_SECONDS = 15;
 const DEFAULT_STAKE_HTG = 25;
+const PRESENCE_PING_INTERVAL_MS = 3000;
 const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1";
 
 const dom = {
@@ -726,11 +727,21 @@ function renderTimers() {
     return;
   }
 
+  const selfIsCurrent = currentPlayer === currentSeatIndex;
+  if (actionSending && selfIsCurrent) {
+    if (dom.selfTimerLabel) dom.selfTimerLabel.textContent = "Sync...";
+    if (dom.opponentTimerLabel) dom.opponentTimerLabel.textContent = "Tann";
+    if (dom.selfTimerFill) dom.selfTimerFill.style.width = "8%";
+    if (dom.opponentTimerFill) dom.opponentTimerFill.style.width = "100%";
+    dom.selfCard?.classList.add("is-danger");
+    dom.opponentCard?.classList.remove("is-danger");
+    return;
+  }
+
   const remainingMs = Math.max(0, turnDeadlineMs - Date.now());
   const remainingSeconds = Math.ceil(remainingMs / 1000);
   const ratio = Math.max(0, Math.min(1, remainingMs / 30000));
   const ratioPercent = `${Math.round(ratio * 100)}%`;
-  const selfIsCurrent = currentPlayer === currentSeatIndex;
   if (dom.selfTimerLabel) dom.selfTimerLabel.textContent = selfIsCurrent ? `${remainingSeconds}s` : "Tann";
   if (dom.opponentTimerLabel) dom.opponentTimerLabel.textContent = selfIsCurrent ? "Tann" : `${remainingSeconds}s`;
   if (dom.selfTimerFill) dom.selfTimerFill.style.width = selfIsCurrent ? ratioPercent : "100%";
@@ -785,7 +796,7 @@ function startPresenceLoop() {
   void pingPresence();
   presenceTimer = window.setInterval(() => {
     void pingPresence();
-  }, 1000);
+  }, PRESENCE_PING_INTERVAL_MS);
 }
 
 function stopWaitingCycle() {
