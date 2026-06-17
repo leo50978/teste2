@@ -961,107 +961,18 @@ function openLudoBlockedModal(requiredHtg = LUDO_PUBLIC_ENTRY_HTG, currentHtg = 
 }
 
 function ensureDominoModeModal() {
-  if (dominoModeModal) return dominoModeModal;
-
-  const overlay = document.createElement("div");
-  overlay.className = "fixed inset-0 z-[4200] hidden items-stretch justify-stretch overflow-hidden bg-[rgba(239,246,241,0.82)] backdrop-blur-sm";
-  overlay.setAttribute("data-kobposh-domino-mode-modal", "");
-  overlay.innerHTML = `
-    <div class="flex h-[100dvh] w-full flex-col overflow-hidden bg-[linear-gradient(180deg,_rgba(248,252,249,0.98),_rgba(241,248,243,0.96))]">
-      <div class="flex shrink-0 items-center justify-between gap-4 border-b border-[#dcecdf] bg-white/90 px-4 py-4 sm:px-6">
-        <div class="flex items-center gap-3">
-          <button type="button" class="grid h-11 w-11 place-items-center rounded-full bg-[#eaf6ee] text-[#21342a] transition hover:bg-[#ddf1e3]" data-close-domino-mode aria-label="Retounen">
-            <i data-lucide="arrow-left" class="icon" aria-hidden="true"></i>
-          </button>
-          <div>
-            <p class="text-[11px] font-black uppercase tracking-[0.22em] text-[#51c774]">Jwet</p>
-            <h2 class="text-[22px] font-black leading-none text-[#20252b] sm:text-[26px]">DOMINO</h2>
-          </div>
-        </div>
-        <div class="rounded-full bg-[#e8f5ea] px-4 py-2 text-sm font-black uppercase tracking-[0.06em] text-[#20b15a]">Chwazi</div>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto bg-[linear-gradient(180deg,_rgba(238,247,241,0.9),_rgba(246,251,247,0.96))] px-3 py-4 sm:px-5 sm:py-5">
-        <div class="mx-auto flex min-h-full w-full max-w-[1880px] flex-col overflow-hidden rounded-none border border-white/80 bg-white p-3 shadow-[0_10px_30px_rgba(14,61,30,0.08)] sm:rounded-[28px] sm:p-5">
-          <img src="./assets/images/domino.png" alt="Domino" class="h-[clamp(220px,38vh,460px)] w-full rounded-[22px] object-cover" />
-          <p class="mt-4 text-sm leading-6 text-[#50615a] sm:text-[17px]">Chwazi mòd domino ou vle lanse sou Kobposh kounye a.</p>
-          <div class="mt-5 grid gap-3 sm:grid-cols-2">
-            <button type="button" class="rounded-full border px-5 py-4 text-center text-base font-black transition" data-domino-mode-option="classic">Domino 4 player</button>
-            <button type="button" class="rounded-full border px-5 py-4 text-center text-base font-black transition" data-domino-mode-option="duel">Domino 2 player</button>
-          </div>
-          <div class="mt-5 flex items-center justify-between gap-4 rounded-[22px] border border-[#dbeedf] bg-[#eef8f0] px-4 py-5">
-            <div class="min-w-0">
-            <p class="text-sm text-[#1e2a23]">Ou chwazi mòd</p>
-            </div>
-            <p class="shrink-0 text-xl font-black text-[#20b15a]" data-domino-mode-current-label>Domino 4 player</p>
-          </div>
-          <button type="button" class="mt-8 h-14 w-full rounded-[20px] bg-[#2cc460] text-lg font-black text-white shadow-[0_18px_30px_rgba(44,196,96,0.26)] transition hover:brightness-[1.03]" data-domino-mode-continue>Kontinye</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-  renderIconsSafely();
-
-  const modeLabels = {
-    classic: "Domino 4 player",
-    duel: "Domino 2 player",
-  };
-  let selectedMode = "classic";
-
-  const optionButtons = Array.from(overlay.querySelectorAll("[data-domino-mode-option]"));
-  const currentLabel = overlay.querySelector("[data-domino-mode-current-label]");
-  const continueBtn = overlay.querySelector("[data-domino-mode-continue]");
-
-  const renderSelectedMode = () => {
-    optionButtons.forEach((button) => {
-      const optionMode = button.getAttribute("data-domino-mode-option") === "classic" ? "classic" : "duel";
-      const isActive = optionMode === selectedMode;
-      button.className = isActive
-        ? "rounded-full border border-[#9ce2b3] bg-[#e7f7eb] px-5 py-4 text-center text-base font-black text-[#1fb35a] shadow-[inset_0_1px_0_rgba(255,255,255,0.55)] transition"
-        : "rounded-full border border-[#d9eadf] bg-white px-5 py-4 text-center text-base font-black text-[#1fb35a] transition hover:bg-[#f7fcf8]";
-      button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    });
-    if (currentLabel) currentLabel.textContent = modeLabels[selectedMode] || "";
-  };
-
-  const close = () => {
-    overlay.classList.add("hidden");
-    overlay.classList.remove("flex");
-    document.body.classList.remove("modal-open");
-  };
-
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) close();
-  });
-  overlay.querySelector("[data-close-domino-mode]")?.addEventListener("click", close);
-  optionButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      selectedMode = button.getAttribute("data-domino-mode-option") === "duel" ? "duel" : "classic";
-      renderSelectedMode();
-    });
-  });
-  continueBtn?.addEventListener("click", async () => {
-    if (selectedMode === "duel") {
-      close();
-      logDuelAvailabilityDebug("dominoModeModal:continue-duel", {
-        selectedMode,
-      });
-      ensureDominoDuelStakeModal().open();
-      return;
-    }
-    close();
-    await launchDominoClassicEntry();
-  });
-  renderSelectedMode();
-  dominoModeModal = {
-    open() {
-      overlay.classList.remove("hidden");
-      overlay.classList.add("flex");
-      document.body.classList.add("modal-open");
-    },
-    close,
-  };
+  if (!dominoModeModal) {
+    dominoModeModal = {
+      open() {
+        closeGamesModal();
+        logDuelAvailabilityDebug("dominoModeModal:direct-duel", {
+          selectedMode: "duel",
+        });
+        ensureDominoDuelStakeModal().open();
+      },
+      close() {},
+    };
+  }
 
   return dominoModeModal;
 }
@@ -2404,9 +2315,8 @@ const SUPPORT_HELP_TOPICS = [
     targets: ["Kat DOMINO", "Domino duel", "Live"],
     body: [
       "Sou paj dakey la, peze sou kat DOMINO.",
-      "Nan modal Domino a, peze sou kat Domino duel, paske se branch sa a ki aktif kounye a nan V2 la.",
-      "Apre sa, sit la ap louvri paj Duel la pou voye w nan eksperyans Domino ki disponib la.",
-      "Branch Domino classique la poko louvri, se sak fe li make Bientot nan modal la.",
+      "Kat Domino a ap ouvri Domino duel dirèkteman, paske se sèl mòd Domino ki disponib kounye a.",
+      "Apre sa, chwazi salon prive pou kreye yon kod oswa antre kod zanmi ou.",
     ],
   },
   {
