@@ -27,12 +27,13 @@ const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
 const LUDO_ALLOWED_STAKES = new Set([500]);
 const LUDO_FRIEND_ROOMS_COLLECTION = "ludoFriendRooms";
 const LUDO_FRIEND_ALLOWED_STAKES = new Set([500, 1000, 2000, 5000, 10000]);
-const LUDO_FRIEND_TURN_LIMIT_MS = 30 * 1000;
+const LUDO_FRIEND_TURN_LIMIT_MS = 90 * 1000;
+const LUDO_FRIEND_TURN_TIMEOUT_GRACE_MS = 12 * 1000;
 const LUDO_FRIEND_OPENING_PROTECTION_MS = 20 * 1000;
 const LUDO_ODDS_NUMERATOR = 19;
 const LUDO_ODDS_DENOMINATOR = 10;
 const LUDO_ACTIVE_WAGER_STALE_MS = 30 * 60 * 1000;
-const LUDO_DISCONNECT_FORFEIT_MS = 30 * 1000;
+const LUDO_DISCONNECT_FORFEIT_MS = 45 * 1000;
 const LUDO_RECENT_OUTCOMES_LIMIT = 10;
 const LUDO_RECENT_MATCH_IDS_LIMIT = 20;
 const DEFAULT_LUDO_BOT_DIFFICULTY = "weak";
@@ -1056,7 +1057,7 @@ function computeFriendLudoAutoOutcome(room = {}, nowMs = Date.now()) {
 
   const currentPlayerSeat = safeInt(room.currentPlayerSeat);
   const turnStartedAtMs = safeSignedInt(room.turnStartedAtMs);
-  if (turnStartedAtMs > 0 && (nowMs - turnStartedAtMs) >= LUDO_FRIEND_TURN_LIMIT_MS) {
+  if (turnStartedAtMs > 0 && (nowMs - turnStartedAtMs) >= (LUDO_FRIEND_TURN_LIMIT_MS + LUDO_FRIEND_TURN_TIMEOUT_GRACE_MS)) {
     const reason = normalizeProtectedFriendLudoEndReason("turn_timeout", room, nowMs);
     const winnerSeat = isLudoFriendRefundReason(reason) ? -1 : (currentPlayerSeat === 1 ? 0 : 1);
     return {

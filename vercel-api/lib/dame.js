@@ -23,9 +23,10 @@ const DEFAULT_DAME_STAKE_OPTIONS = Object.freeze([
 const ROOM_WAIT_MS = 15 * 1000;
 const FRIEND_ROOM_WAIT_MS = 10 * 60 * 1000;
 const FRIEND_ROOM_CODE_SIZE = 6;
-const DAME_TURN_LIMIT_MS = 30 * 1000;
+const DAME_TURN_LIMIT_MS = 90 * 1000;
+const DAME_TURN_TIMEOUT_GRACE_MS = 12 * 1000;
 const DAME_DRAW_MAX_HALF_MOVES = 160;
-const DAME_DISCONNECT_GRACE_MS = 30 * 1000;
+const DAME_DISCONNECT_GRACE_MS = 45 * 1000;
 const MAX_FRIEND_DAME_STAKE_DOES = 100_000_000;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -33,6 +34,12 @@ function timestampToMillis(value) {
   if (value && typeof value.toMillis === "function") return value.toMillis();
   const raw = Number(value);
   return Number.isFinite(raw) ? raw : 0;
+}
+
+function isDameTurnTimeoutEligible(deadlineMs = 0, nowMs = Date.now()) {
+  const safeDeadlineMs = safeSignedInt(deadlineMs, 0);
+  if (safeDeadlineMs <= 0) return false;
+  return safeSignedInt(nowMs, Date.now()) >= safeDeadlineMs + DAME_TURN_TIMEOUT_GRACE_MS;
 }
 
 function resolveRoomCreatedAtMs(room = {}) {
@@ -1186,7 +1193,7 @@ async function ensureRoomReadyDame({ uid, payload = {} }) {
         }
         const turnDeadlineMs = safeSignedInt(room.turnDeadlineMs);
         const currentColor = safeSignedInt(room.currentPlayer, -1);
-        if (turnDeadlineMs > 0 && currentColor >= 0 && nowMsStatus >= turnDeadlineMs) {
+        if (currentColor >= 0 && isDameTurnTimeoutEligible(turnDeadlineMs, nowMsStatus)) {
           const loserSeat = getDameSeatForColor(room, currentColor);
           const refundBeforeOpening = shouldRefundDameBeforeOpening(room);
           const winnerSeat = refundBeforeOpening ? -1 : (loserSeat >= 0 ? (loserSeat ^ 1) : -1);
@@ -1458,7 +1465,7 @@ async function submitActionDame({ uid, payload = {} }) {
     }
     const nowMs = Date.now();
     const turnDeadlineMs = safeSignedInt(room.turnDeadlineMs);
-    if (turnDeadlineMs > 0 && nowMs >= turnDeadlineMs) {
+    if (isDameTurnTimeoutEligible(turnDeadlineMs, nowMs)) {
       const loserSeat = getDameSeatForColor(room, currentPlayer);
       const refundBeforeOpening = shouldRefundDameBeforeOpening(room);
       const winnerSeat = refundBeforeOpening ? -1 : (loserSeat >= 0 ? (loserSeat ^ 1) : -1);

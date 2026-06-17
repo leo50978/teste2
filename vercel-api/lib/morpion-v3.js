@@ -26,8 +26,9 @@ const MORPION_PUBLIC_STAKE_HTG = 25;
 const MORPION_PRIVATE_MIN_STAKE_HTG = 25;
 const MORPION_IDEMPOTENCY_LIMIT = 200;
 const MORPION_REWARD_MULTIPLIER = 1.8;
-const MORPION_TURN_LIMIT_MS = 30 * 1000;
-const MORPION_V3_PRESENCE_GRACE_MS = 15 * 1000;
+const MORPION_TURN_LIMIT_MS = 90 * 1000;
+const MORPION_TURN_TIMEOUT_GRACE_MS = 12 * 1000;
+const MORPION_V3_PRESENCE_GRACE_MS = 45 * 1000;
 const ROOM_WAIT_MS = 15 * 1000;
 
 const INVITE_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -109,6 +110,12 @@ function buildRewardAmountDoes(stakeHtg = 0) {
 
 function buildRewardAmountHtg(stakeHtg = 0) {
   return Math.floor(safeInt(stakeHtg) * MORPION_REWARD_MULTIPLIER);
+}
+
+function isMorpionTurnTimeoutEligible(deadlineMs = 0, nowMs = Date.now()) {
+  const safeDeadlineMs = safeSignedInt(deadlineMs, 0);
+  if (safeDeadlineMs <= 0) return false;
+  return safeSignedInt(nowMs, Date.now()) >= safeDeadlineMs + MORPION_TURN_TIMEOUT_GRACE_MS;
 }
 
 function buildEmptyMorpionBoard() {
@@ -1626,7 +1633,7 @@ async function touchRoomPresenceMorpionV3({ uid = "", payload = {} } = {}) {
     }
 
     const deadlineMs = safeSignedInt(room.turnDeadlineMs, 0);
-    if (deadlineMs > 0 && deadlineMs <= nowMs) {
+    if (isMorpionTurnTimeoutEligible(deadlineMs, nowMs)) {
       const nextState = buildMorpionV3TimeoutState(currentState, room);
       const settlement = await settleMorpionV3RoomTx(tx, roomRefDoc, room, nextState);
       const roomUpdate = buildMorpionRoomUpdateFromGameState({ ...room, roomPresenceMs }, nextState, [], nowMs);

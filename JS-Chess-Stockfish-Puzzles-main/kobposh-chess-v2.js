@@ -22,6 +22,7 @@ import {
   const PUBLIC_WAIT_MS = 1800;
   const PRESENCE_HEARTBEAT_MS = 10000;
   const PRIVATE_ROOM_POLL_MS = 2200;
+  const CHESS_TURN_LIMIT_MS = 90 * 1000;
   const OPPONENT_NAMES = [
     "march56", "dexter5", "junior44", "leon73", "mika21", "toto88", "fega22", "samy14", "jude40", "nixon77",
     "alex31", "brice28", "tiyo90", "rolo19", "pipo34", "dany58", "manno46", "evens29", "franco61", "lucky35",
@@ -253,11 +254,11 @@ import {
       if (observedTurn && observedTurn !== lastObservedTurn) {
         lastObservedTurn = observedTurn;
         activeTurnSeat = getObservedTurnSeat();
-        activeTurnDeadlineMs = Date.now() + 30000;
+        activeTurnDeadlineMs = Date.now() + CHESS_TURN_LIMIT_MS;
       }
       if (!activeTurnDeadlineMs) {
         activeTurnSeat = getObservedTurnSeat();
-        activeTurnDeadlineMs = Date.now() + 30000;
+        activeTurnDeadlineMs = Date.now() + CHESS_TURN_LIMIT_MS;
       }
     }
 
@@ -472,7 +473,7 @@ import {
     if (typeof window.play === "function") window.play();
     activeGameStatus = "playing";
     activeTurnSeat = 0;
-    activeTurnDeadlineMs = Date.now() + 30000;
+    activeTurnDeadlineMs = Date.now() + CHESS_TURN_LIMIT_MS;
     lastObservedTurn = String(window.turn || "w").trim().toLowerCase() || "w";
     startTurnTimerLoop();
   }

@@ -17,7 +17,8 @@ import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo2';
 import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
 import { mountNetworkQualityIndicator } from '../network-quality-indicator.js?v=20260605-network2';
 
-const TURN_DURATION_SECONDS = 30;
+const TURN_DURATION_SECONDS = 90;
+const TURN_TIMEOUT_CLIENT_GRACE_MS = 3500;
 const LUDO_PUBLIC_STAKE_HTG = 25;
 const LUDO_PUBLIC_STAKE_DOES = 500;
 const DEFAULT_BOT_DIFFICULTY = 'weak';
@@ -402,11 +403,11 @@ function resolveFriendEndPresentation(room = {}) {
         return localWon
             ? {
                 title: 'Ou genyen pati a',
-                copy: 'Advese a pa jwe nan 30 segonn yo. Pati prive Ludo a fini an favè ou.',
+                copy: 'Advese a pa jwe nan 90 segonn yo. Pati prive Ludo a fini an favè ou.',
             }
             : {
                 title: 'Ou pedi',
-                copy: '30 segonn yo fini anvan ou te jwe kou ou. Pati prive Ludo a fini kont ou.',
+                copy: '90 segonn yo fini anvan ou te jwe kou ou. Pati prive Ludo a fini kont ou.',
             };
     }
 
@@ -906,11 +907,19 @@ async function handleTurnTimeout(player) {
 
     UI.showResultModal({
         title: 'Ou pedi wonn nan',
-        copy: '30 segonn yo fini anvan ou te jwe kou ou. Pati a konte tankou yon defet otomatik.',
+        copy: '90 segonn yo fini anvan ou te jwe kou ou. Pati a konte tankou yon defet otomatik.',
         showReplay: true,
         replayLabel: 'Rejwe',
         homeLabel: 'Akey',
     });
+}
+
+function scheduleTurnTimeoutAfterGrace(player) {
+    window.setTimeout(() => {
+        if (activeState === STATE.GAME_OVER) return;
+        if (player !== activeTurnPlayer) return;
+        void handleTurnTimeout(player);
+    }, TURN_TIMEOUT_CLIENT_GRACE_MS);
 }
 
 function startTurnTimer(player) {
@@ -934,7 +943,7 @@ function startTurnTimer(player) {
         if (remaining > 0) return;
 
         clearTurnTimer();
-        void handleTurnTimeout(player);
+        scheduleTurnTimeoutAfterGrace(player);
     }, 1000);
 }
 

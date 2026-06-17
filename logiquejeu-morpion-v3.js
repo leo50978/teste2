@@ -17,6 +17,7 @@ import { ensureXchangeState, getXchangeState } from "./xchange.js";
 
 const BOARD_SIZE = 15;
 const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
+const TURN_DURATION_SECONDS = 90;
 const WAIT_SECONDS = 15;
 const DEFAULT_STAKE_HTG = 25;
 const PRESENCE_PING_INTERVAL_MS = 3000;
@@ -718,8 +719,8 @@ function renderTimers() {
   const currentPlayer = safeInt(currentRoomState?.currentPlayer, -1);
   const turnDeadlineMs = safeInt(currentRoomState?.turnDeadlineMs, 0);
   if (turnDeadlineMs <= 0 || currentPlayer < 0) {
-    if (dom.selfTimerLabel) dom.selfTimerLabel.textContent = "30s";
-    if (dom.opponentTimerLabel) dom.opponentTimerLabel.textContent = "30s";
+    if (dom.selfTimerLabel) dom.selfTimerLabel.textContent = `${TURN_DURATION_SECONDS}s`;
+    if (dom.opponentTimerLabel) dom.opponentTimerLabel.textContent = `${TURN_DURATION_SECONDS}s`;
     if (dom.selfTimerFill) dom.selfTimerFill.style.width = "100%";
     if (dom.opponentTimerFill) dom.opponentTimerFill.style.width = "100%";
     dom.selfCard?.classList.remove("is-danger");
@@ -740,7 +741,7 @@ function renderTimers() {
 
   const remainingMs = Math.max(0, turnDeadlineMs - Date.now());
   const remainingSeconds = Math.ceil(remainingMs / 1000);
-  const ratio = Math.max(0, Math.min(1, remainingMs / 30000));
+  const ratio = Math.max(0, Math.min(1, remainingMs / (TURN_DURATION_SECONDS * 1000)));
   const ratioPercent = `${Math.round(ratio * 100)}%`;
   if (dom.selfTimerLabel) dom.selfTimerLabel.textContent = selfIsCurrent ? `${remainingSeconds}s` : "Tann";
   if (dom.opponentTimerLabel) dom.opponentTimerLabel.textContent = selfIsCurrent ? "Tann" : `${remainingSeconds}s`;

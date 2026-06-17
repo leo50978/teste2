@@ -22,8 +22,9 @@ const DUEL_ROOM_RESULTS_COLLECTION = "duelRoomResults";
 
 const ROOM_WAIT_MS = 15 * 1000;
 const FRIEND_ROOM_WAIT_MS = 5 * 60 * 1000;
-const DUEL_TURN_LIMIT_MS = 30 * 1000;
-const DUEL_PRESENCE_GRACE_MS = 30 * 1000;
+const DUEL_TURN_LIMIT_MS = 90 * 1000;
+const DUEL_TURN_TIMEOUT_GRACE_MS = 12 * 1000;
+const DUEL_PRESENCE_GRACE_MS = 45 * 1000;
 const FRIEND_ROOM_CODE_SIZE = 6;
 const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
@@ -2047,7 +2048,7 @@ async function resolveOrReadActiveDuelV2RoomTx(tx, roomRefDoc, uid, nowMs = Date
 
   const liveState = state || createInitialDuelGameState(room, room.privateDeckOrder || []);
   const turnDeadlineMs = safeSignedInt(room.turnDeadlineMs, 0);
-  if (turnDeadlineMs > 0 && turnDeadlineMs <= nowMs) {
+  if (turnDeadlineMs > 0 && nowMs >= turnDeadlineMs + DUEL_TURN_TIMEOUT_GRACE_MS) {
     const nextState = buildDuelV2TimeoutState(liveState, room);
     const roomUpdate = buildDuelRoomUpdateFromGameState(room, nextState, []);
     const settlementWalletSnaps = await preloadDuelSettlementWalletSnapsTx(tx, { ...room, ...roomUpdate }, nextState);
