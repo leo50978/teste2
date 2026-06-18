@@ -25,6 +25,7 @@ const FRIEND_ROOM_WAIT_MS = 5 * 60 * 1000;
 const DUEL_TURN_LIMIT_MS = 90 * 1000;
 const DUEL_TURN_TIMEOUT_GRACE_MS = 12 * 1000;
 const DUEL_PRESENCE_GRACE_MS = 45 * 1000;
+const FRIEND_ROOM_START_PRESENCE_GRACE_MS = DUEL_TURN_LIMIT_MS + DUEL_TURN_TIMEOUT_GRACE_MS;
 const FRIEND_ROOM_CODE_SIZE = 6;
 const PUBLIC_DUEL_V2_STAKE_HTG = 25;
 const MIN_PRIVATE_DUEL_V2_STAKE_HTG = 25;
@@ -1773,6 +1774,13 @@ function resolveDuelV2WaitDeadlineMs(room = {}, nowMs = Date.now()) {
   return createdAtMs > 0 ? createdAtMs + duration : nowMs + duration;
 }
 
+function shouldProtectFriendDuelStartPresence(room = {}, liveState = {}, nowMs = Date.now()) {
+  if (!isFriendDuelV2Room(room)) return false;
+  if (didBothSeatsActInDuel(liveState || {})) return false;
+  const startedAtMs = safeSignedInt(room.startedAtMs || room.updatedAtMs || room.createdAtMs, 0);
+  return startedAtMs > 0 && (nowMs - startedAtMs) < FRIEND_ROOM_START_PRESENCE_GRACE_MS;
+}
+
 function setDuelV2MatchmakingPoolOpen(tx, poolRef, roomId, stakeHtg = 25) {
   tx.set(poolRef, {
     openRoomId: String(roomId || "").trim(),
@@ -2297,9 +2305,28 @@ async function joinFriendDuelRoomByCodeV2({ uid, email, payload = {} }) {
     .where("inviteCodeNormalized", "==", inviteCodeNormalized)
     .limit(8)
     .get();
-  const roomDoc = matchingSnap.docs.find((docSnap) => isFriendDuelV2Room(docSnap.data() || {})) || null;
+  const nowForLookupMs = Date.now();
+  const friendDocs = matchingSnap.docs.filter((docSnap) => isFriendDuelV2Room(docSnap.data() || {}));
+  const roomDoc = friendDocs.find((docSnap) => {
+    const room = docSnap.data() || {};
+    const status = String(room.status || "").trim().toLowerCase();
+    const playerUids = Array.isArray(room.playerUids)
+      ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+      : ["", ""];
+    const humans = playerUids.filter(Boolean).length;
+    const deadline = resolveDuelV2WaitDeadlineMs(room, nowForLookupMs);
+    return status === "waiting"
+      && humans < 2
+      && !(deadline > 0 && nowForLookupMs >= deadline);
+  }) || null;
   if (!roomDoc) {
-    throw new HttpsError("not-found", "Kod salon prive Duel sa a pa egziste.");
+    const hasEndedRoom = friendDocs.some((docSnap) => String((docSnap.data() || {}).status || "").trim().toLowerCase() === "ended");
+    throw new HttpsError(
+      hasEndedRoom ? "failed-precondition" : "not-found",
+      hasEndedRoom
+        ? "Kod salon prive Duel sa a deja fini. Mande zanmi ou kreye yon nouvo kod."
+        : "Kod salon prive Duel sa a pa egziste oswa li ekspire."
+    );
   }
 
   const targetRoomId = String(roomDoc.id || "").trim();
@@ -2382,7 +2409,9 @@ async function joinFriendDuelRoomByCodeV2({ uid, email, payload = {} }) {
     const nextPresence = room.roomPresenceMs && typeof room.roomPresenceMs === "object"
       ? { ...room.roomPresenceMs }
       : {};
-    nextPresence[uid] = nowMs;
+    nextPlayerUids.forEach((playerUid) => {
+      if (playerUid) nextPresence[playerUid] = nowMs;
+    });
     const roomStakeHtg = safeInt(room.stakeHtg || 25);
     const roomStakeDoes = safeInt(room.entryCostDoes || room.stakeDoes || (roomStakeHtg * RATE_HTG_TO_DOES));
     const roomRewardAmountDoes = safeInt(room.rewardAmountDoes || Math.floor(roomStakeDoes * 1.85));
@@ -2519,6 +2548,7 @@ async function touchRoomPresenceDuelV2({ uid, payload = {} }) {
 
     const staleSeat = playerUids.findIndex((playerUid, seat) => {
       if (!playerUid || playerUid === uid) return false;
+      if (shouldProtectFriendDuelStartPresence(room, liveState || {}, nowMs)) return false;
       const lastSeenMs = safeSignedInt(nextPresence[playerUid], 0);
       return lastSeenMs > 0 && (nowMs - lastSeenMs) >= DUEL_PRESENCE_GRACE_MS;
     });
@@ -2699,6 +2729,7 @@ async function requestFriendDuelRematchV2({ uid, payload = {} }) {
       : {};
     activePlayers.forEach((playerUid) => {
       nextEntryFundingCurrencyByUid[playerUid] = normalizeFundingCurrency(nextEntryFundingCurrencyByUid[playerUid] || "htg");
+      roomPresenceMs[playerUid] = nowMs;
     });
     const roomForCharge = {
       ...room,
