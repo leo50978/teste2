@@ -46,6 +46,8 @@ function formatHtg(value) {
 const PUBLIC_DAME_ROOM_MODE = "dame_2p";
 const DEFAULT_PUBLIC_DAME_STAKE_DOES = 500;
 const DAME_PRESENCE_PING_INTERVAL_MS = 20000;
+const DAME_UI_WATCHDOG_INTERVAL_MS = 1200;
+const DAME_SLOW_SUBMIT_NOTICE_MS = 5000;
 
 function normalizeInviteCode(value = "") {
   return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
@@ -113,6 +115,7 @@ let actionsUnsub = null;
 let ensureTimer = null;
 let presenceTimer = null;
 let turnSyncTimer = null;
+let uiWatchdogTimer = null;
 let syncRetryTimer = null;
 let balanceUnsub = null;
 let searchTimer = null;
@@ -137,6 +140,12 @@ let pendingBootAfterRulesModal = false;
 let dameHistoryGuardArmed = false;
 let currentSearchCountdownOverride = "";
 let dameActionSubmitting = false;
+let dameActionSubmitStartedAtMs = 0;
+let dameLiveIssueBanner = null;
+let dameLiveIssueTimer = null;
+let lastRoomSnapshotAtMs = 0;
+let lastActionSnapshotAtMs = 0;
+let lastBoardInteractionEnabled = false;
 const dameRecordedHistoryKeys = new Set();
 
 function formatDoes(value) {
@@ -272,6 +281,64 @@ function updateStatus(text) {
   const nextText = String(text || "");
   statusEl.textContent = nextText;
   statusEl.title = nextText;
+}
+
+function isDamePlaying(roomData = currentRoomData || {}) {
+  return String(roomData?.status || "").trim().toLowerCase() === "playing";
+}
+
+function getRoomCurrentPlayer(roomData = currentRoomData || {}) {
+  return Number.isFinite(Number(roomData?.currentPlayer))
+    ? Math.trunc(Number(roomData.currentPlayer))
+    : -1;
+}
+
+function isLocalPlayerTurn(roomData = currentRoomData || {}) {
+  const currentPlayer = getRoomCurrentPlayer(roomData);
+  return isDamePlaying(roomData)
+    && mySeatIndex >= 0
+    && currentPlayer >= 0
+    && getMySeatColor(roomData) === currentPlayer;
+}
+
+function ensureDameLiveIssueBanner() {
+  if (dameLiveIssueBanner) return dameLiveIssueBanner;
+  dameLiveIssueBanner = document.createElement("div");
+  dameLiveIssueBanner.className = "dame-live-issue hidden";
+  dameLiveIssueBanner.setAttribute("role", "status");
+  dameLiveIssueBanner.setAttribute("aria-live", "polite");
+  const host = document.getElementById("draughts") || boardEl?.parentElement || document.body;
+  host?.parentElement?.insertBefore(dameLiveIssueBanner, host);
+  return dameLiveIssueBanner;
+}
+
+function showDameLiveIssue(message = "", { autoHide = true } = {}) {
+  const banner = ensureDameLiveIssueBanner();
+  if (!banner) return;
+  const text = String(message || "Synchro pati a pran reta. N ap rekonekte tablo a...").trim();
+  banner.textContent = text;
+  banner.classList.remove("hidden");
+  updateStatus(text);
+  if (dameLiveIssueTimer) {
+    window.clearTimeout(dameLiveIssueTimer);
+    dameLiveIssueTimer = null;
+  }
+  if (autoHide) {
+    dameLiveIssueTimer = window.setTimeout(() => {
+      banner.classList.add("hidden");
+      dameLiveIssueTimer = null;
+    }, 4500);
+  }
+}
+
+function hideDameLiveIssue() {
+  if (dameLiveIssueTimer) {
+    window.clearTimeout(dameLiveIssueTimer);
+    dameLiveIssueTimer = null;
+  }
+  if (dameLiveIssueBanner) {
+    dameLiveIssueBanner.classList.add("hidden");
+  }
 }
 
 function buildDameHistoryRecordKey(roomData = {}) {
@@ -1073,6 +1140,10 @@ function replayDameActions(actions = []) {
       lastAppliedActionSeq = 0;
       replayResult = replayFromCurrentBoard(0);
     }
+    if (!replayResult.ok) {
+      showDameLiveIssue("Tablo a pa rive aplike denye mouvman yo. N ap relanse synchro a otomatikman.", { autoHide: false });
+      scheduleDameSyncRetry(800);
+    }
 
     const boardTurnValue = Number.isFinite(Number(boardEl?.turn))
       ? Math.trunc(Number(boardEl.turn))
@@ -1113,8 +1184,65 @@ function computeHtgBalance(profile = {}) {
 function setBoardInteractionEnabled(enabled) {
   if (!boardEl) return;
   const on = enabled === true;
+  lastBoardInteractionEnabled = on;
+  boardEl.dataset.dameInteraction = on ? "enabled" : "disabled";
   boardEl.style.pointerEvents = on ? "auto" : "none";
   boardEl.style.opacity = "1";
+}
+
+function syncDameInteractionGuard(reason = "guard") {
+  if (!boardEl || replayingRemoteAction || rebuildingBoardState) return;
+  if (!isDamePlaying(currentRoomData)) {
+    setBoardInteractionEnabled(false);
+    return;
+  }
+
+  const myTurn = isLocalPlayerTurn(currentRoomData);
+  if (!myTurn) {
+    setBoardInteractionEnabled(false);
+    return;
+  }
+
+  syncBoardTurnFromRoom(currentRoomData);
+  if (!dameActionSubmitting) {
+    const wasDisabled = lastBoardInteractionEnabled !== true || boardEl.style.pointerEvents === "none";
+    setBoardInteractionEnabled(true);
+    if (wasDisabled) {
+      console.warn("[DAME_GUARD] board interaction restored", {
+        roomId: currentRoomId,
+        reason,
+        mySeatIndex,
+        currentPlayer: getRoomCurrentPlayer(currentRoomData),
+      });
+    }
+  }
+}
+
+function recoverDameBoardFromServer(reason = "recover") {
+  if (!boardEl?.data || !isDamePlaying(currentRoomData)) return;
+  console.warn("[DAME_GUARD] recovering board from server actions", {
+    roomId: currentRoomId,
+    reason,
+    actionsCount: latestDameActionDocs.length,
+    lastAppliedActionSeq,
+  });
+  showDameLiveIssue("Synchro mouvman an pran reta. N ap rekonekte tablo a pou ou pa pedi san rezon.", { autoHide: false });
+  rebuildingBoardState = true;
+  try {
+    if (resetDameBoardState()) {
+      lastAppliedActionSeq = 0;
+      replayDameActions(latestDameActionDocs);
+    } else {
+      syncBoardTurnFromRoom(currentRoomData);
+    }
+  } finally {
+    rebuildingBoardState = false;
+  }
+  syncDameInteractionGuard(reason);
+  if (isLocalPlayerTurn(currentRoomData) && !dameActionSubmitting) {
+    showDameLiveIssue("Tablo a rekonekte. Se tou pa ou toujou, ou ka jwe kounye a.");
+  }
+  void syncRoomReady();
 }
 
 function clearSyncRetryTimer() {
@@ -1447,6 +1575,10 @@ function stopRoomSync() {
     window.clearInterval(turnSyncTimer);
     turnSyncTimer = null;
   }
+  if (uiWatchdogTimer) {
+    window.clearInterval(uiWatchdogTimer);
+    uiWatchdogTimer = null;
+  }
   if (balanceUnsub) {
     balanceUnsub();
     balanceUnsub = null;
@@ -1457,6 +1589,7 @@ function stopRoomSync() {
   dameResultShownForRoomId = "";
   updateBoardOrientation({ status: "" });
   renderTurnTimer({ status: "" });
+  hideDameLiveIssue();
 }
 
 function getFieldAt(line, column) {
@@ -1541,6 +1674,7 @@ function startActionsSync() {
   actionsUnsub = onSnapshot(
     actionsQuery,
     (snap) => {
+      lastActionSnapshotAtMs = Date.now();
       latestDameActionDocs = snap.docs || [];
       const seqList = latestDameActionDocs
         .map((docSnap) => Number(docSnap?.data?.()?.seq || 0))
@@ -1557,6 +1691,7 @@ function startActionsSync() {
     },
     (error) => {
       console.warn("[DAME] actions snapshot error", error);
+      showDameLiveIssue("Koneksyon tablo a ap pran reta. N ap rekonekte mouvman yo otomatikman.", { autoHide: false });
       if (String(error?.code || "") === "permission-denied") {
         scheduleDameSyncRetry();
       }
@@ -1628,6 +1763,7 @@ function startRoomSync() {
 
   const roomRef = doc(db, "dameRooms", currentRoomId);
   roomUnsub = onSnapshot(roomRef, async (snap) => {
+    lastRoomSnapshotAtMs = Date.now();
     if (!snap.exists()) {
       updateStatus("Sal la pa jwenn. Komanse yon nouvo pati.");
       setBoardInteractionEnabled(false);
@@ -1651,6 +1787,9 @@ function startRoomSync() {
     const previousStatus = String(previousRoomData?.status || "").trim().toLowerCase();
     if (status !== "ended") {
       dameFriendRematchPending = false;
+    }
+    if (status === "playing" && !dameActionSubmitting) {
+      hideDameLiveIssue();
     }
     if (previousStatus === "ended" && status === "playing") {
       prepareDameNextRoundStart();
@@ -1825,6 +1964,7 @@ function startRoomSync() {
     updateStatus(`Sal la aktif (${humanCount}/2).`);
   }, (error) => {
     console.warn("[DAME] room snapshot error", error);
+    showDameLiveIssue("Koneksyon pati a gen reta. Pa kite paj la, n ap rekonekte otomatikman.", { autoHide: false });
     if (String(error?.code || "") === "permission-denied") {
       scheduleDameSyncRetry();
     }
@@ -1840,7 +1980,25 @@ function startRoomSync() {
     if (String(currentRoomData?.status || "").trim().toLowerCase() !== "playing") return;
     syncBoardTurnFromRoom(currentRoomData);
     renderTurnTimer(currentRoomData);
+    syncDameInteractionGuard("turn-sync");
   }, 750);
+  uiWatchdogTimer = window.setInterval(() => {
+    if (!isDamePlaying(currentRoomData)) return;
+    const nowMs = Date.now();
+    if (dameActionSubmitting && dameActionSubmitStartedAtMs > 0) {
+      const pendingMs = nowMs - dameActionSubmitStartedAtMs;
+      if (pendingMs >= DAME_SLOW_SUBMIT_NOTICE_MS) {
+        showDameLiveIssue("Mouvman ou a ap voye, men rezo a pran reta. Pa kite paj la, n ap verifye li.");
+      }
+      return;
+    }
+    syncDameInteractionGuard("watchdog");
+    const lastRoomAgeMs = lastRoomSnapshotAtMs > 0 ? nowMs - lastRoomSnapshotAtMs : 0;
+    if (lastRoomAgeMs > 10000 && isLocalPlayerTurn(currentRoomData)) {
+      showDameLiveIssue("Nou pa resevwa nouvo synchro depi kek segond. Si tablo a pa reponn, n ap relanse synchro a.");
+      scheduleDameSyncRetry(500);
+    }
+  }, DAME_UI_WATCHDOG_INTERVAL_MS);
 
   void syncRoomReady();
   void touchPresence();
@@ -2106,6 +2264,7 @@ boardEl?.addEventListener("piecemove", async (event) => {
   });
 
   dameActionSubmitting = true;
+  dameActionSubmitStartedAtMs = Date.now();
   renderTurnTimer(currentRoomData);
   try {
     const result = await submitActionDameSecure({
@@ -2126,6 +2285,7 @@ boardEl?.addEventListener("piecemove", async (event) => {
       seq,
       nextPlayer,
     });
+    hideDameLiveIssue();
     if (Number.isFinite(nextPlayer)) {
       currentRoomData = {
         ...(currentRoomData || {}),
@@ -2142,10 +2302,14 @@ boardEl?.addEventListener("piecemove", async (event) => {
     }
   } catch (error) {
     console.warn("[DAME] submit action failed", error);
-    updateStatus("Kowodinasyon mouvman an echwe. Verifye koneksyon an epi jwe anko.");
+    showDameLiveIssue("Mouvman an pa rive verifye. N ap remet tablo a menm jan ak serveur a pou ou ka rejwe si se toujou tou pa ou.", { autoHide: false });
+    recoverDameBoardFromServer("submit-failed");
+    updateStatus("Mouvman an pa pase. Si se toujou tou pa ou, chwazi pion an epi jwe anko.");
   } finally {
     dameActionSubmitting = false;
+    dameActionSubmitStartedAtMs = 0;
     renderTurnTimer(currentRoomData);
+    syncDameInteractionGuard("submit-finally");
   }
 });
 
