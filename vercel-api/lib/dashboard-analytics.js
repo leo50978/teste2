@@ -577,6 +577,55 @@ async function fetchReviewedWithdrawalsAcrossClientsForRange(startMs = 0, endMs 
   };
 }
 
+async function fetchWithdrawalsForClientCreatedRange(clientId = "", startMs = 0, endMs = 0, fields = []) {
+  const normalizedClientId = String(clientId || "").trim();
+  if (!normalizedClientId) return [];
+
+  let query = db.collection(CLIENTS_COLLECTION)
+    .doc(normalizedClientId)
+    .collection("withdrawals")
+    .where("createdAtMs", ">=", startMs)
+    .where("createdAtMs", "<=", endMs)
+    .orderBy("createdAtMs", "asc");
+
+  if (Array.isArray(fields) && fields.length) {
+    query = query.select(...fields);
+  }
+
+  const snap = await query.get();
+  if (snap.empty) return [];
+
+  return snap.docs.map((docSnap) => ({
+    id: docSnap.id,
+    clientId: normalizedClientId,
+    ...(docSnap.data() || {}),
+  }));
+}
+
+async function fetchCreatedWithdrawalsAcrossClientsForRange(startMs = 0, endMs = 0, fields = [], maxDocs = DEPOSIT_ANALYTICS_DOC_LIMIT) {
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(maxDocs) || DEPOSIT_ANALYTICS_DOC_LIMIT));
+  const clientIds = await listClientIdsForOrderFallback();
+  const perClientRows = await mapWithConcurrency(
+    clientIds,
+    (clientId) => fetchWithdrawalsForClientCreatedRange(clientId, startMs, endMs, fields),
+    CLIENT_ORDER_FALLBACK_CONCURRENCY
+  );
+
+  const flattened = perClientRows.flat();
+  const rows = flattened
+    .sort((left, right) =>
+      (safeSignedInt(left?.createdAtMs) - safeSignedInt(right?.createdAtMs))
+      || String(left?.id || "").localeCompare(String(right?.id || ""), "fr")
+    )
+    .slice(0, docLimit);
+
+  return {
+    rows,
+    truncated: flattened.length > docLimit,
+    fallbackUsed: true,
+  };
+}
+
 function snapshotRecord(docSnap) {
   return {
     id: docSnap.id,
@@ -1290,6 +1339,309 @@ async function computeDepositAnalyticsSnapshot(options = {}) {
     buckets,
     scannedOrderDocs: safeInt(rowsResult.rows.length),
     truncated: rowsResult.truncated === true,
+    scanLimit: docLimit,
+  };
+}
+
+function normalizeWithdrawalAnalyticsStatus(withdrawal = {}) {
+  const values = [
+    withdrawal?.resolutionStatus,
+    withdrawal?.status,
+    withdrawal?.decisionStatus,
+  ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+  if (values.some((value) => value === "approved" || value === "paid" || value === "completed" || value === "resolved")) return "approved";
+  if (values.some((value) => value === "rejected" || value === "denied" || value === "cancelled" || value === "canceled" || value === "failed")) return "rejected";
+  if (values.some((value) => value === "review" || value === "pending_review" || value === "processing")) return "pending";
+  return values[0] || "pending";
+}
+
+function getWithdrawalRequestedAmountHtg(withdrawal = {}) {
+  return Math.max(
+    0,
+    safeInt(
+      withdrawal.requestedAmount
+      ?? withdrawal.requestedAmountHtg
+      ?? withdrawal.amountHtg
+      ?? withdrawal.amount
+      ?? withdrawal.approvedAmountHtg
+    )
+  );
+}
+
+function normalizeWithdrawalAnalyticsMethod(withdrawal = {}) {
+  const raw = `${String(withdrawal?.methodId || "")} ${String(withdrawal?.methodName || "")} ${String(withdrawal?.destinationType || "")}`.trim().toLowerCase();
+  if (!raw) return "other";
+  if (/mon\s*cash/.test(raw) || raw.includes("moncash")) return "moncash";
+  if (/nat\s*cash/.test(raw) || raw.includes("natcash")) return "natcash";
+  return "other";
+}
+
+async function fetchWithdrawalAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs = DEPOSIT_ANALYTICS_DOC_LIMIT) {
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(maxDocs) || DEPOSIT_ANALYTICS_DOC_LIMIT));
+  const fields = [
+    "status",
+    "resolutionStatus",
+    "decisionStatus",
+    "requestedAmount",
+    "requestedAmountHtg",
+    "amount",
+    "amountHtg",
+    "approvedAmountHtg",
+    "createdAtMs",
+    "createdAt",
+    "updatedAtMs",
+    "updatedAt",
+    "reviewedAtMs",
+    "resolvedAtMs",
+    "approvedAtMs",
+    "approvedAt",
+    "methodId",
+    "methodName",
+    "destinationType",
+    "destinationValue",
+  ];
+  const rows = [];
+  let lastDoc = null;
+  let truncated = false;
+
+  try {
+    while (rows.length < docLimit) {
+      let query = db.collectionGroup("withdrawals")
+        .where("createdAtMs", ">=", startMs)
+        .where("createdAtMs", "<=", endMs)
+        .orderBy("createdAtMs", "asc")
+        .select(...fields)
+        .limit(Math.min(250, DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE, docLimit - rows.length));
+
+      if (lastDoc) {
+        query = query.startAfter(lastDoc);
+      }
+
+      const snap = await query.get();
+      if (snap.empty) break;
+
+      snap.forEach((docSnap) => {
+        rows.push({
+          id: docSnap.id,
+          clientId: String(docSnap?.ref?.parent?.parent?.id || "").trim(),
+          ...(docSnap.data() || {}),
+        });
+      });
+
+      lastDoc = snap.docs[snap.docs.length - 1] || null;
+      if (snap.size < DEPOSIT_ANALYTICS_PAGE_FETCH_SIZE) break;
+    }
+
+    truncated = rows.length >= docLimit;
+
+    return { rows, truncated, fallbackUsed: false };
+  } catch (error) {
+    const code = safeSignedInt(error?.code);
+    if (code !== 9 && !String(error?.message || "").includes("FAILED_PRECONDITION")) {
+      throw error;
+    }
+    return fetchCreatedWithdrawalsAcrossClientsForRange(startMs, endMs, fields, docLimit);
+  }
+}
+
+async function computeWithdrawalAnalyticsSnapshot(options = {}) {
+  const nowMs = safeSignedInt(options.nowMs) || Date.now();
+  const range = normalizeDepositAnalyticsRange(options, nowMs);
+  const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(options.maxDocs || options.docLimit) || DEPOSIT_ANALYTICS_DEFAULT_DOC_LIMIT));
+  const rowsResult = await fetchWithdrawalAnalyticsRowsForRange(range.startMs, range.endMs, docLimit);
+  const bucketSeed = buildDepositAnalyticsBucketSeed(range.startMs, range.endMs, range.granularity);
+  const bucketMap = new Map(bucketSeed.map((item) => [item.key, item]));
+
+  const summary = {
+    requestedCount: 0,
+    approvedCount: 0,
+    rejectedCount: 0,
+    pendingCount: 0,
+    requestedHtg: 0,
+    approvedHtg: 0,
+    rejectedHtg: 0,
+    pendingHtg: 0,
+    moncashRequestedHtg: 0,
+    moncashApprovedHtg: 0,
+    moncashRejectedHtg: 0,
+    moncashRequestedCount: 0,
+    moncashApprovedCount: 0,
+    moncashRejectedCount: 0,
+    natcashRequestedHtg: 0,
+    natcashApprovedHtg: 0,
+    natcashRejectedHtg: 0,
+    natcashRequestedCount: 0,
+    natcashApprovedCount: 0,
+    natcashRejectedCount: 0,
+    otherRequestedHtg: 0,
+    otherApprovedHtg: 0,
+    otherRejectedHtg: 0,
+    otherRequestedCount: 0,
+    otherApprovedCount: 0,
+    otherRejectedCount: 0,
+  };
+
+  rowsResult.rows.forEach((row) => {
+    const createdAtMs = safeSignedInt(row.createdAtMs) || toMillis(row.createdAt);
+    if (createdAtMs < range.startMs || createdAtMs > range.endMs) return;
+
+    const bucket = bucketMap.get(getDepositAnalyticsBucketKey(createdAtMs, range.granularity));
+    if (!bucket) return;
+
+    const method = normalizeWithdrawalAnalyticsMethod(row);
+    const status = normalizeWithdrawalAnalyticsStatus(row);
+    const requestedHtg = getWithdrawalRequestedAmountHtg(row);
+    const approvedHtg = status === "approved" ? getApprovedWithdrawalAmountHtg(row) : 0;
+    const rejectedHtg = status === "rejected" ? requestedHtg : 0;
+    const pendingHtg = status === "pending" ? requestedHtg : 0;
+
+    summary.requestedCount += 1;
+    summary.requestedHtg += requestedHtg;
+    bucket.requestedCount += 1;
+    bucket.requestedHtg += requestedHtg;
+
+    if (status === "approved") {
+      summary.approvedCount += 1;
+      summary.approvedHtg += approvedHtg;
+      bucket.approvedCount += 1;
+      bucket.approvedHtg += approvedHtg;
+    } else if (status === "rejected") {
+      summary.rejectedCount += 1;
+      summary.rejectedHtg += rejectedHtg;
+      bucket.rejectedCount += 1;
+      bucket.rejectedHtg += rejectedHtg;
+    } else {
+      summary.pendingCount += 1;
+      summary.pendingHtg += pendingHtg;
+      bucket.pendingCount += 1;
+      bucket.pendingHtg += pendingHtg;
+    }
+
+    if (method === "moncash") {
+      summary.moncashRequestedCount += 1;
+      summary.moncashRequestedHtg += requestedHtg;
+      bucket.moncashRequestedHtg += requestedHtg;
+      if (status === "approved") {
+        summary.moncashApprovedCount += 1;
+        summary.moncashApprovedHtg += approvedHtg;
+        bucket.moncashApprovedHtg += approvedHtg;
+      } else if (status === "rejected") {
+        summary.moncashRejectedCount += 1;
+        summary.moncashRejectedHtg += rejectedHtg;
+        bucket.moncashRejectedHtg += rejectedHtg;
+      }
+    } else if (method === "natcash") {
+      summary.natcashRequestedCount += 1;
+      summary.natcashRequestedHtg += requestedHtg;
+      bucket.natcashRequestedHtg += requestedHtg;
+      if (status === "approved") {
+        summary.natcashApprovedCount += 1;
+        summary.natcashApprovedHtg += approvedHtg;
+        bucket.natcashApprovedHtg += approvedHtg;
+      } else if (status === "rejected") {
+        summary.natcashRejectedCount += 1;
+        summary.natcashRejectedHtg += rejectedHtg;
+        bucket.natcashRejectedHtg += rejectedHtg;
+      }
+    } else {
+      summary.otherRequestedCount += 1;
+      summary.otherRequestedHtg += requestedHtg;
+      bucket.otherRequestedHtg += requestedHtg;
+      if (status === "approved") {
+        summary.otherApprovedCount += 1;
+        summary.otherApprovedHtg += approvedHtg;
+        bucket.otherApprovedHtg += approvedHtg;
+      } else if (status === "rejected") {
+        summary.otherRejectedCount += 1;
+        summary.otherRejectedHtg += rejectedHtg;
+        bucket.otherRejectedHtg += rejectedHtg;
+      }
+    }
+  });
+
+  let cumulativeApprovedHtg = 0;
+  const buckets = bucketSeed.map((bucket) => {
+    cumulativeApprovedHtg += safeInt(bucket.approvedHtg);
+    return {
+      startMs: safeSignedInt(bucket.startMs),
+      key: String(bucket.key || ""),
+      label: String(bucket.label || "-"),
+      requestedCount: safeInt(bucket.requestedCount),
+      approvedCount: safeInt(bucket.approvedCount),
+      rejectedCount: safeInt(bucket.rejectedCount),
+      pendingCount: safeInt(bucket.pendingCount),
+      requestedHtg: safeInt(bucket.requestedHtg),
+      approvedHtg: safeInt(bucket.approvedHtg),
+      rejectedHtg: safeInt(bucket.rejectedHtg),
+      pendingHtg: safeInt(bucket.pendingHtg),
+      moncashRequestedHtg: safeInt(bucket.moncashRequestedHtg),
+      natcashRequestedHtg: safeInt(bucket.natcashRequestedHtg),
+      otherRequestedHtg: safeInt(bucket.otherRequestedHtg),
+      moncashApprovedHtg: safeInt(bucket.moncashApprovedHtg),
+      natcashApprovedHtg: safeInt(bucket.natcashApprovedHtg),
+      otherApprovedHtg: safeInt(bucket.otherApprovedHtg),
+      moncashRejectedHtg: safeInt(bucket.moncashRejectedHtg),
+      natcashRejectedHtg: safeInt(bucket.natcashRejectedHtg),
+      otherRejectedHtg: safeInt(bucket.otherRejectedHtg),
+      approvalRatePct: safeInt(bucket.requestedHtg) > 0
+        ? Number(((safeInt(bucket.approvedHtg) / safeInt(bucket.requestedHtg)) * 100).toFixed(2))
+        : 0,
+      cumulativeApprovedHtg,
+    };
+  });
+
+  const approvedRatePct = summary.requestedHtg > 0
+    ? Number(((summary.approvedHtg / summary.requestedHtg) * 100).toFixed(2))
+    : 0;
+  const rejectedRatePct = summary.requestedHtg > 0
+    ? Number(((summary.rejectedHtg / summary.requestedHtg) * 100).toFixed(2))
+    : 0;
+  const moncashApprovedSharePct = summary.approvedHtg > 0
+    ? Number(((summary.moncashApprovedHtg / summary.approvedHtg) * 100).toFixed(2))
+    : 0;
+  const natcashApprovedSharePct = summary.approvedHtg > 0
+    ? Number(((summary.natcashApprovedHtg / summary.approvedHtg) * 100).toFixed(2))
+    : 0;
+
+  return {
+    generatedAtMs: nowMs,
+    timezone: "UTC",
+    window: {
+      startMs: range.startMs,
+      endMs: range.endMs,
+      rangeMs: range.rangeMs,
+      granularity: range.granularity,
+    },
+    definitions: {
+      outflowRule: "Les sorties HTG correspondent aux retraits approuves dans la periode.",
+      rejectionRule: "Les montants rejetes reprennent le montant demande sur la demande de retrait.",
+      source: "Source: collectionGroup(withdrawals), date de creation de la demande.",
+    },
+    summary: {
+      ...summary,
+      approvedRatePct,
+      rejectedRatePct,
+      moncashApprovedSharePct,
+      natcashApprovedSharePct,
+    },
+    series: {
+      requestedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.requestedHtg })),
+      approvedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.approvedHtg })),
+      rejectedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.rejectedHtg })),
+      cumulativeApprovedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.cumulativeApprovedHtg })),
+      moncashApprovedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.moncashApprovedHtg })),
+      natcashApprovedHtg: buckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.natcashApprovedHtg })),
+      approvalsVsRejects: buckets.map((item) => ({
+        startMs: item.startMs,
+        label: item.label,
+        approvedHtg: item.approvedHtg,
+        rejectedHtg: item.rejectedHtg,
+      })),
+    },
+    buckets,
+    scannedWithdrawalDocs: safeInt(rowsResult.rows.length),
+    truncated: rowsResult.truncated === true,
+    fallbackUsed: rowsResult.fallbackUsed === true,
     scanLimit: docLimit,
   };
 }
@@ -3362,6 +3714,7 @@ module.exports = {
   computeClientAcquisitionSnapshot,
   computeApprovedDepositsSnapshot,
   computeDepositAnalyticsSnapshot,
+  computeWithdrawalAnalyticsSnapshot,
   computeGamesVolumeAnalyticsSnapshot,
   computeMorpionAnalyticsSnapshot,
   computePresenceAnalyticsSnapshot,
