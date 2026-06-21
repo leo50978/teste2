@@ -57,6 +57,8 @@ const ROUTE_LOADERS = Object.freeze({
   "pong/heartbeat": () => require("../../../routes/games/pong/heartbeat"),
   "pong/record-result": () => require("../../../routes/games/pong/record-result"),
   "history/list": () => require("../../../routes/games/history/list"),
+  "history/request-fairplay": () => require("../../../routes/games/history/request-fairplay"),
+  "history/respond-fairplay": () => require("../../../routes/games/history/respond-fairplay"),
 });
 
 module.exports = async function handler(req, res) {

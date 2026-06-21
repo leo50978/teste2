@@ -1096,6 +1096,24 @@ export async function getMyGameHistorySecure(payload = {}) {
   return invokeCallable("getMyGameHistorySecure", payload, fallbackError);
 }
 
+export async function requestGameFairplaySecure(payload = {}) {
+  const fallbackError = "Impossible d'envoyer la demande fairplay.";
+  return invokeBackendHttp("/api/games/history/request-fairplay", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
+export async function respondGameFairplaySecure(payload = {}) {
+  const fallbackError = "Impossible de repondre a la demande fairplay.";
+  return invokeBackendHttp("/api/games/history/respond-fairplay", {
+    payload,
+    requireAuth: true,
+    fallbackError,
+  });
+}
+
 export async function debugSimulateMorpionWinSecure(payload = {}) {
   return invokeCallable("debugSimulateMorpionWinSecure", payload, "Impossible de lancer le test de gain Morpion.");
 }

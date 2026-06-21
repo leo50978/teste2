@@ -25,6 +25,7 @@ const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
+const FAIRPLAY_WINDOW_MS = 60 * 60 * 1000;
 
 function normalizeDashboardGameFilter(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
@@ -183,6 +184,23 @@ function buildClientHistoryRecord(sourceKey = "", docSnap, clientId = "") {
       ? afterBalanceHtgByUid[clientUid]
       : data.afterBalanceHtg
   );
+  const fairplay = data.fairplay && typeof data.fairplay === "object" ? data.fairplay : {};
+  const fairplayStatus = String(fairplay.status || data.fairplayStatus || "").trim().toLowerCase();
+  const fairplayExpiresAtMs = safeSignedInt(fairplay.expiresAtMs || (endedAtMs > 0 ? endedAtMs + FAIRPLAY_WINDOW_MS : 0));
+  const fairplayRequesterUid = String(fairplay.requesterUid || data.fairplayRequesterUid || "").trim();
+  const fairplayApproverUid = String(fairplay.approverUid || data.fairplayApproverUid || winnerUid || "").trim();
+  const canRequestFairplay = lost
+    && opponentType === "human"
+    && !isNeutralResult
+    && !fairplayStatus
+    && endedAtMs > 0
+    && Date.now() <= fairplayExpiresAtMs;
+  const canRespondFairplay = won
+    && opponentType === "human"
+    && fairplayStatus === "pending"
+    && fairplayApproverUid === clientUid
+    && endedAtMs > 0
+    && Date.now() <= fairplayExpiresAtMs;
 
   return {
     id: String(docSnap?.id || "").trim(),
@@ -232,6 +250,23 @@ function buildClientHistoryRecord(sourceKey = "", docSnap, clientId = "") {
     resultLabel: isRefundResult ? "Rembourse" : isDrawResult ? "Nul" : won ? "Gagne" : lost ? "Perdu" : "Termine",
     won,
     lost,
+    fairplay: {
+      status: fairplayStatus,
+      requestId: String(fairplay.requestId || data.fairplayRequestId || "").trim(),
+      requesterUid: fairplayRequesterUid,
+      approverUid: fairplayApproverUid,
+      loserUid: String(fairplay.loserUid || "").trim(),
+      winnerUid: String(fairplay.winnerUid || winnerUid || "").trim(),
+      loserRefundHtg: safeInt(fairplay.loserRefundHtg || data.fairplayLoserRefundedHtg),
+      winnerProfitHtg: safeInt(fairplay.winnerProfitHtg || data.fairplayWinnerProfitDebitedHtg),
+      requestedAtMs: safeSignedInt(fairplay.requestedAtMs),
+      acceptedAtMs: safeSignedInt(fairplay.acceptedAtMs || data.fairplayAcceptedAtMs),
+      rejectedAtMs: safeSignedInt(fairplay.rejectedAtMs),
+      expiresAtMs: fairplayExpiresAtMs,
+      canRequest: canRequestFairplay,
+      canRespond: canRespondFairplay,
+      requestedByMe: fairplayRequesterUid === clientUid,
+    },
   };
 }
 

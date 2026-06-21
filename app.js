@@ -31,8 +31,10 @@ import {
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
+  requestGameFairplaySecure,
+  respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260607-chess-entry1";
+} from "./secure-functions.js?v=20260621-fairplay1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -5379,11 +5381,56 @@ function ensureHistoryModal() {
 
   const state = {
     loading: false,
+    actionBusy: false,
     offset: 0,
     pageSize: 3,
     total: 0,
     hasMore: true,
     rows: [],
+  };
+
+  const escapeHistoryAttr = (value = "") => String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  const renderFairplayControls = (row = {}) => {
+    const fairplay = row?.fairplay && typeof row.fairplay === "object" ? row.fairplay : {};
+    const status = String(fairplay.status || "").trim().toLowerCase();
+    const sourceKey = escapeHistoryAttr(row?.sourceKey || "");
+    const resultId = escapeHistoryAttr(row?.id || "");
+    const requestId = escapeHistoryAttr(fairplay.requestId || "");
+    if (fairplay.canRespond === true) {
+      const amount = formatHistoryAmount(fairplay.loserRefundHtg || row?.stakeHtg || 0);
+      return `
+        <div class="kobposh-history-card__fairplay">
+          <p>Demann fairplay resevwa. Si ou aksepte, perdant lan repran ${amount} epi ou remèt profit ou.</p>
+          <div class="kobposh-history-card__fairplay-actions">
+            <button type="button" class="kobposh-history-card__fairplay-btn is-accept" data-kobposh-fairplay-action="accept" data-fairplay-source="${sourceKey}" data-fairplay-result="${resultId}" data-fairplay-request="${requestId}">Aksepte</button>
+            <button type="button" class="kobposh-history-card__fairplay-btn" data-kobposh-fairplay-action="reject" data-fairplay-source="${sourceKey}" data-fairplay-result="${resultId}" data-fairplay-request="${requestId}">Refize</button>
+          </div>
+        </div>
+      `;
+    }
+    if (fairplay.canRequest === true) {
+      return `
+        <div class="kobposh-history-card__fairplay">
+          <p>Si match la fini mal akoz koneksyon oswa blokaj, ou ka mande gagnan an fairplay.</p>
+          <button type="button" class="kobposh-history-card__fairplay-btn is-request" data-kobposh-fairplay-action="request" data-fairplay-source="${sourceKey}" data-fairplay-result="${resultId}">Mande fairplay</button>
+        </div>
+      `;
+    }
+    if (status === "pending") {
+      return `<div class="kobposh-history-card__fairplay is-muted"><p>${fairplay.requestedByMe ? "Demann fairplay ou a ap tann repons gagnan an." : "Demann fairplay la ap tann repons."}</p></div>`;
+    }
+    if (status === "accepted") {
+      return '<div class="kobposh-history-card__fairplay is-success"><p>Fairplay aksepte. Rembousman an deja aplike.</p></div>';
+    }
+    if (status === "rejected") {
+      return '<div class="kobposh-history-card__fairplay is-muted"><p>Fairplay refize pou match sa a.</p></div>';
+    }
+    return "";
   };
 
   const close = () => {
@@ -5422,6 +5469,7 @@ function ensureHistoryModal() {
         const wonAmount = formatHistoryAmount(row?.wonHtg ?? 0);
         const netHtgRaw = Number.isFinite(Number(row?.netHtg)) ? Number(row.netHtg) : 0;
         const netHtg = formatHistorySignedAmount(netHtgRaw);
+        const fairplayControls = renderFairplayControls(row);
         return `
           <article class="kobposh-history-card">
             <div class="kobposh-history-card__top">
@@ -5435,6 +5483,7 @@ function ensureHistoryModal() {
               <span class="kobposh-history-card__amount ${netHtgRaw >= 0 ? "is-win" : "is-loss"}">${netHtg}</span>
               <span class="kobposh-history-card__details">Mise ${stake} · Gain ${wonAmount}</span>
             </div>
+            ${fairplayControls}
           </article>
         `;
       }).join("");
@@ -5480,6 +5529,43 @@ function ensureHistoryModal() {
     }
   };
 
+  const handleFairplayClick = async (event) => {
+    const button = event.target?.closest?.("[data-kobposh-fairplay-action]");
+    if (!button || state.actionBusy) return;
+    const action = String(button.getAttribute("data-kobposh-fairplay-action") || "").trim().toLowerCase();
+    const sourceKey = String(button.getAttribute("data-fairplay-source") || "").trim();
+    const resultId = String(button.getAttribute("data-fairplay-result") || "").trim();
+    const requestId = String(button.getAttribute("data-fairplay-request") || "").trim();
+    if (!sourceKey || !resultId || !action) return;
+
+    state.actionBusy = true;
+    const previousText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Tanpri tann...";
+    try {
+      if (action === "request") {
+        await requestGameFairplaySecure({ sourceKey, resultId });
+      } else {
+        await respondGameFairplaySecure({
+          sourceKey,
+          resultId,
+          requestId,
+          decision: action === "accept" ? "accept" : "reject",
+        });
+      }
+      await loadPage({ reset: true });
+    } catch (error) {
+      console.warn("[KOBPOSH_V2] fairplay action failed", error);
+      button.textContent = error?.message || "Aksyon an pa pase";
+      window.setTimeout(() => {
+        button.textContent = previousText;
+        button.disabled = false;
+      }, 1800);
+    } finally {
+      state.actionBusy = false;
+    }
+  };
+
   closeButtons.forEach((button) => button.addEventListener("click", close));
   modal.addEventListener("click", (event) => {
     if (event.target === modal) close();
@@ -5487,6 +5573,9 @@ function ensureHistoryModal() {
   loadMoreBtn?.addEventListener("click", () => {
     if (!state.hasMore || state.loading) return;
     void loadPage({ reset: false });
+  });
+  listEl?.addEventListener("click", (event) => {
+    void handleFairplayClick(event);
   });
 
   modal.__openHistory = () => {
