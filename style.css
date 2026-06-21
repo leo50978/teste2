@@ -2660,6 +2660,79 @@ img {
   opacity: 0.65;
 }
 
+.kobposh-fairplay-info-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 3600;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(20, 32, 28, 0.42);
+  backdrop-filter: blur(12px);
+}
+
+.kobposh-fairplay-info-modal.is-open {
+  display: flex;
+}
+
+.kobposh-fairplay-info-modal__panel {
+  width: min(100%, 420px);
+  border-radius: 26px;
+  border: 1px solid rgba(31, 174, 91, 0.16);
+  background:
+    radial-gradient(circle at top left, rgba(31, 174, 91, 0.14), transparent 38%),
+    #fffdf8;
+  padding: 22px;
+  box-shadow: 0 28px 70px rgba(9, 23, 17, 0.26);
+  color: var(--text);
+}
+
+.kobposh-fairplay-info-modal__eyebrow {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+}
+
+.kobposh-fairplay-info-modal__panel h2 {
+  margin: 0 0 12px;
+  font-size: clamp(24px, 7vw, 32px);
+  line-height: 1.02;
+}
+
+.kobposh-fairplay-info-modal__panel p {
+  margin: 10px 0 0;
+  color: #40564e;
+  font-size: 15px;
+  line-height: 1.52;
+}
+
+.kobposh-fairplay-info-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.kobposh-fairplay-info-modal__btn {
+  min-height: 48px;
+  border: 1px solid rgba(31, 174, 91, 0.18);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #214238;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.kobposh-fairplay-info-modal__btn.is-primary {
+  border-color: rgba(31, 174, 91, 0.42);
+  background: linear-gradient(180deg, #22bd66 0%, #178a48 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(31, 174, 91, 0.22);
+}
+
 .kobposh-history-modal__empty {
   margin: 12px 0 0;
   padding: 14px;

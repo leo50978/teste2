@@ -34,7 +34,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260621-fairplay2";
+} from "./secure-functions.js?v=20260621-fairplay3";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -5339,6 +5339,51 @@ function formatHistoryWhen(value) {
   }
 }
 
+function openFairplayInfoModal() {
+  return new Promise((resolve) => {
+    const modal = document.createElement("section");
+    modal.className = "kobposh-fairplay-info-modal is-open";
+    modal.setAttribute("aria-hidden", "false");
+    modal.innerHTML = `
+      <div class="kobposh-fairplay-info-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhFairplayInfoTitle">
+        <p class="kobposh-fairplay-info-modal__eyebrow">FAIRPLAY</p>
+        <h2 id="kobposhFairplayInfoTitle">Anvan ou voye demann lan</h2>
+        <p>
+          Si yon match fini mal akoz yon erè, koneksyon, oswa yon blokaj,
+          pale ak jwè ou t ap jwe avè l la.
+        </p>
+        <p>
+          Fairplay se yon demann pou ranbouse match la. Si ou voye demann lan,
+          lòt jwè a dwe ale nan <strong>ISTORIK</strong> pou li aksepte oswa refize fairplay la.
+        </p>
+        <div class="kobposh-fairplay-info-modal__actions">
+          <button type="button" class="kobposh-fairplay-info-modal__btn is-primary" data-fairplay-info-confirm>Voye demann lan</button>
+          <button type="button" class="kobposh-fairplay-info-modal__btn" data-fairplay-info-cancel>Anile</button>
+        </div>
+      </div>
+    `;
+
+    const cleanup = (confirmed) => {
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      modal.remove();
+      resolve(confirmed);
+    };
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal || event.target?.closest?.("[data-fairplay-info-cancel]")) {
+        cleanup(false);
+        return;
+      }
+      if (event.target?.closest?.("[data-fairplay-info-confirm]")) {
+        cleanup(true);
+      }
+    });
+
+    document.body.appendChild(modal);
+  });
+}
+
 function ensureHistoryModal() {
   if (historyModal) return historyModal;
 
@@ -5545,6 +5590,10 @@ function ensureHistoryModal() {
     const resultId = String(button.getAttribute("data-fairplay-result") || "").trim();
     const requestId = String(button.getAttribute("data-fairplay-request") || "").trim();
     if (!sourceKey || !resultId || !action) return;
+    if (action === "request") {
+      const confirmed = await openFairplayInfoModal();
+      if (!confirmed) return;
+    }
 
     state.actionBusy = true;
     const previousText = button.textContent;
