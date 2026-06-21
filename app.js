@@ -34,7 +34,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260621-fairplay1";
+} from "./secure-functions.js?v=20260621-fairplay2";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -5401,7 +5401,15 @@ function ensureHistoryModal() {
     const sourceKey = escapeHistoryAttr(row?.sourceKey || "");
     const resultId = escapeHistoryAttr(row?.id || "");
     const requestId = escapeHistoryAttr(fairplay.requestId || "");
-    if (fairplay.canRespond === true) {
+    const endedAtMs = Number(row?.endedAtMs || 0);
+    const fairplayExpiresAtMs = Number(fairplay.expiresAtMs || (endedAtMs > 0 ? endedAtMs + 60 * 60 * 1000 : 0));
+    const isRecentFairplayMatch = endedAtMs > 0 && Date.now() <= fairplayExpiresAtMs;
+    const isHumanMatch = row?.vsHuman === true || String(row?.opponentType || "").trim().toLowerCase() === "human";
+    const canRespondFairplay = fairplay.canRespond === true
+      || (row?.won === true && isHumanMatch && status === "pending" && isRecentFairplayMatch);
+    const canRequestFairplay = fairplay.canRequest === true
+      || (row?.lost === true && isHumanMatch && !status && isRecentFairplayMatch && !!sourceKey && !!resultId);
+    if (canRespondFairplay) {
       const amount = formatHistoryAmount(fairplay.loserRefundHtg || row?.stakeHtg || 0);
       return `
         <div class="kobposh-history-card__fairplay">
@@ -5413,7 +5421,7 @@ function ensureHistoryModal() {
         </div>
       `;
     }
-    if (fairplay.canRequest === true) {
+    if (canRequestFairplay) {
       return `
         <div class="kobposh-history-card__fairplay">
           <p>Si match la fini mal akoz koneksyon oswa blokaj, ou ka mande gagnan an fairplay.</p>

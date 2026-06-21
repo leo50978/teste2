@@ -8,6 +8,7 @@ const FAIRPLAY_REQUESTS_COLLECTION = "fairPlayRequests";
 const FAIRPLAY_WINDOW_MS = 60 * 60 * 1000;
 
 const RESULT_COLLECTIONS = Object.freeze({
+  roomResults: "roomResults",
   duelRoomResults: "duelRoomResults",
   duelRoomsV2: "duelRoomsV2",
   morpionRoomResults: "morpionRoomResults",
@@ -65,12 +66,19 @@ function resolveLoserUid(result = {}, winnerUid = "") {
 
 function isHumanVsHumanResult(sourceKey = "", result = {}) {
   const playerUids = resolvePlayerUids(result);
-  if (playerUids.length < 2) return false;
+  if (playerUids.length !== 2) return false;
   if (safeInt(result.botCount) > 0) return false;
   const roomMode = String(result.roomMode || result.gameMode || result.mode || "").trim().toLowerCase();
   if (roomMode.includes("bot") || roomMode.includes("ai")) return false;
   if (sourceKey === "ludoMatchResults") return roomMode === "ludo_friends" || roomMode.includes("friend");
-  if (sourceKey === "duelRoomResults" || sourceKey === "duelRoomsV2") return roomMode.includes("friend") || roomMode.includes("duel");
+  if (sourceKey === "duelRoomResults" || sourceKey === "duelRoomsV2" || sourceKey === "roomResults") {
+    return roomMode.includes("friend")
+      || roomMode.includes("duel")
+      || roomMode.includes("morpion")
+      || roomMode.includes("dame")
+      || roomMode.includes("chess")
+      || roomMode.includes("echec");
+  }
   return true;
 }
 
