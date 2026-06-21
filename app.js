@@ -34,7 +34,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260621-fairplay3";
+} from "./secure-functions.js?v=20260621-fairplay4";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -5339,6 +5339,24 @@ function formatHistoryWhen(value) {
   }
 }
 
+const FAIRPLAY_INFO_DISMISSED_KEY = "kobposh_fairplay_info_dismissed_v1";
+
+function shouldShowFairplayInfoModal() {
+  try {
+    return window.localStorage?.getItem(FAIRPLAY_INFO_DISMISSED_KEY) !== "1";
+  } catch {
+    return true;
+  }
+}
+
+function rememberFairplayInfoDismissed() {
+  try {
+    window.localStorage?.setItem(FAIRPLAY_INFO_DISMISSED_KEY, "1");
+  } catch {
+    // If storage is blocked, the modal can safely appear again later.
+  }
+}
+
 function openFairplayInfoModal() {
   return new Promise((resolve) => {
     const modal = document.createElement("section");
@@ -5347,36 +5365,37 @@ function openFairplayInfoModal() {
     modal.innerHTML = `
       <div class="kobposh-fairplay-info-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhFairplayInfoTitle">
         <p class="kobposh-fairplay-info-modal__eyebrow">FAIRPLAY</p>
-        <h2 id="kobposhFairplayInfoTitle">Anvan ou voye demann lan</h2>
+        <h2 id="kobposhFairplayInfoTitle">Kisa fairplay ye?</h2>
         <p>
           Si yon match fini mal akoz yon erè, koneksyon, oswa yon blokaj,
           pale ak jwè ou t ap jwe avè l la.
         </p>
         <p>
-          Fairplay se yon demann pou ranbouse match la. Si ou voye demann lan,
-          lòt jwè a dwe ale nan <strong>ISTORIK</strong> pou li aksepte oswa refize fairplay la.
+          Fairplay se yon demann pou ranbouse match la. Lè ou voye demann lan,
+          lòt jwè a dwe ouvri <strong>ISTORIK</strong> pou li aksepte oswa refize.
         </p>
         <div class="kobposh-fairplay-info-modal__actions">
-          <button type="button" class="kobposh-fairplay-info-modal__btn is-primary" data-fairplay-info-confirm>Voye demann lan</button>
-          <button type="button" class="kobposh-fairplay-info-modal__btn" data-fairplay-info-cancel>Anile</button>
+          <button type="button" class="kobposh-fairplay-info-modal__btn is-primary" data-fairplay-info-understand>Mwen konprann</button>
+          <button type="button" class="kobposh-fairplay-info-modal__btn" data-fairplay-info-hide>Pa montre mesaj sa ankò</button>
         </div>
       </div>
     `;
 
-    const cleanup = (confirmed) => {
+    const cleanup = () => {
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
       modal.remove();
-      resolve(confirmed);
+      resolve();
     };
 
     modal.addEventListener("click", (event) => {
-      if (event.target === modal || event.target?.closest?.("[data-fairplay-info-cancel]")) {
-        cleanup(false);
+      if (event.target === modal || event.target?.closest?.("[data-fairplay-info-understand]")) {
+        cleanup();
         return;
       }
-      if (event.target?.closest?.("[data-fairplay-info-confirm]")) {
-        cleanup(true);
+      if (event.target?.closest?.("[data-fairplay-info-hide]")) {
+        rememberFairplayInfoDismissed();
+        cleanup();
       }
     });
 
@@ -5590,10 +5609,6 @@ function ensureHistoryModal() {
     const resultId = String(button.getAttribute("data-fairplay-result") || "").trim();
     const requestId = String(button.getAttribute("data-fairplay-request") || "").trim();
     if (!sourceKey || !resultId || !action) return;
-    if (action === "request") {
-      const confirmed = await openFairplayInfoModal();
-      if (!confirmed) return;
-    }
 
     state.actionBusy = true;
     const previousText = button.textContent;
@@ -5639,6 +5654,9 @@ function ensureHistoryModal() {
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.classList.add("is-modal-open");
+    if (shouldShowFairplayInfoModal()) {
+      void openFairplayInfoModal();
+    }
     void loadPage({ reset: true });
   };
 
