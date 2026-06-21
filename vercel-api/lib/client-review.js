@@ -25,6 +25,7 @@ const CHESS_ROOM_RESULTS_COLLECTION = "chessRoomResults";
 const DOMINO_CLASSIC_MATCH_RESULTS_COLLECTION = "dominoClassicMatchResults";
 const PONG_MATCH_RESULTS_COLLECTION = "pongMatchResults";
 const LUDO_MATCH_RESULTS_COLLECTION = "ludoMatchResults";
+const FAIRPLAY_REQUESTS_COLLECTION = "fairPlayRequests";
 const FAIRPLAY_WINDOW_MS = 60 * 60 * 1000;
 
 function normalizeDashboardGameFilter(value = "") {
@@ -282,6 +283,135 @@ function buildClientHistoryDedupKey(record = {}) {
   return `${gameKey}|${roomId}|${endedAtMs}|${winnerUid}|${winnerSeat}|${endedReason}`;
 }
 
+function buildFairplayPendingHistoryRow(requestDoc, clientId = "") {
+  const data = requestDoc?.data && typeof requestDoc.data === "function" ? (requestDoc.data() || {}) : {};
+  const status = String(data.status || "").trim().toLowerCase();
+  const nowMs = Date.now();
+  const expiresAtMs = safeSignedInt(data.expiresAtMs);
+  if (status !== "pending" || (expiresAtMs > 0 && nowMs > expiresAtMs)) return null;
+  const approverUid = String(data.approverUid || data.winnerUid || "").trim();
+  if (!clientId || approverUid !== clientId) return null;
+
+  const sourceKey = String(data.sourceKey || "").trim();
+  const resultId = String(data.resultId || "").trim();
+  if (!sourceKey || !resultId) return null;
+
+  const stakeHtg = safeInt(data.stakeHtg);
+  const winnerProfitHtg = safeInt(data.winnerProfitHtg);
+  const loserRefundHtg = safeInt(data.loserRefundHtg || stakeHtg);
+  const requestedAtMs = safeSignedInt(data.requestedAtMs || data.createdAtMs || nowMs);
+  const gameKey = inferGameKeyFromHistoryDoc(sourceKey, data);
+
+  return {
+    id: resultId,
+    sourceKey,
+    gameKey,
+    gameLabel: getGameLabelFromKey(gameKey),
+    roomId: String(data.roomId || resultId).trim(),
+    matchId: resultId,
+    sessionId: "",
+    status: "ended",
+    endedAtMs: requestedAtMs,
+    startedAtMs: 0,
+    createdAtMs: requestedAtMs,
+    winnerUid: approverUid,
+    winnerType: "human",
+    participantUid: approverUid,
+    playerUids: [String(data.loserUid || "").trim(), approverUid].filter(Boolean),
+    roomMode: "fairplay_request",
+    fundingCurrency: "HTG",
+    leftScore: 0,
+    rightScore: 0,
+    scoreLabel: "",
+    stakeDoes: 0,
+    stakeHtg,
+    wageredDoes: 0,
+    wageredHtg: stakeHtg,
+    rewardAmountDoes: 0,
+    rewardAmountHtg: stakeHtg + winnerProfitHtg,
+    rewardExpectedHtg: stakeHtg + winnerProfitHtg,
+    wonDoes: 0,
+    wonHtg: stakeHtg + winnerProfitHtg,
+    netDoes: 0,
+    netHtg: winnerProfitHtg,
+    beforeBalanceHtg: null,
+    afterBalanceHtg: null,
+    winnerSeat: -1,
+    endedReason: "fairplay_pending",
+    opponentType: "human",
+    opponentLabel: "Humain",
+    vsBot: false,
+    vsHuman: true,
+    resultLabel: "Gagne",
+    won: true,
+    lost: false,
+    fairplay: {
+      status: "pending",
+      requestId: String(requestDoc?.id || data.requestId || "").trim(),
+      requesterUid: String(data.requesterUid || data.loserUid || "").trim(),
+      approverUid,
+      loserUid: String(data.loserUid || "").trim(),
+      winnerUid: approverUid,
+      loserRefundHtg,
+      winnerProfitHtg,
+      requestedAtMs,
+      acceptedAtMs: 0,
+      rejectedAtMs: 0,
+      expiresAtMs,
+      canRequest: false,
+      canRespond: true,
+      requestedByMe: false,
+    },
+  };
+}
+
+async function collectPendingFairplayRows(clientId = "") {
+  const normalizedClientId = sanitizeText(clientId || "", 160);
+  if (!normalizedClientId) return [];
+  try {
+    const snap = await db
+      .collection(FAIRPLAY_REQUESTS_COLLECTION)
+      .where("approverUid", "==", normalizedClientId)
+      .get();
+    return (snap?.docs || [])
+      .map((docSnap) => buildFairplayPendingHistoryRow(docSnap, normalizedClientId))
+      .filter(Boolean);
+  } catch (error) {
+    console.error("[CLIENT_HISTORY_FAIRPLAY_PENDING_FAILED]", {
+      clientId: normalizedClientId,
+      message: String(error?.message || error || "pending fairplay failed"),
+    });
+    return [];
+  }
+}
+
+function mergeFairplayPendingRows(rows = [], pendingRows = []) {
+  const merged = Array.isArray(rows) ? rows.slice() : [];
+  (Array.isArray(pendingRows) ? pendingRows : []).forEach((pending) => {
+    const existing = merged.find((row) =>
+      String(row?.sourceKey || "") === String(pending.sourceKey || "")
+      && String(row?.id || "") === String(pending.id || "")
+    );
+    if (existing) {
+      existing.fairplay = {
+        ...(existing.fairplay || {}),
+        ...(pending.fairplay || {}),
+        canRespond: true,
+      };
+      existing.vsHuman = true;
+      existing.opponentType = "human";
+      return;
+    }
+    merged.push(pending);
+  });
+  merged.sort((left, right) =>
+    safeSignedInt(right.fairplay?.requestedAtMs || right.endedAtMs) - safeSignedInt(left.fairplay?.requestedAtMs || left.endedAtMs)
+    || safeSignedInt(right.endedAtMs) - safeSignedInt(left.endedAtMs)
+    || String(right.id || "").localeCompare(String(left.id || ""), "fr")
+  );
+  return merged;
+}
+
 async function collectClientGameHistoryRows(clientId = "", {
   startMs = 0,
   endMs = 0,
@@ -364,7 +494,8 @@ async function collectClientGameHistoryRows(clientId = "", {
     dedupedRows.push(row);
   });
 
-  return dedupedRows;
+  const pendingFairplayRows = await collectPendingFairplayRows(normalizedClientId);
+  return mergeFairplayPendingRows(dedupedRows, pendingFairplayRows);
 }
 
 function summarizeClientFraudGameRows(rows = []) {
