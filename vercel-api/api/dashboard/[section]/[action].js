@@ -1,4 +1,4 @@
-const { handlePreflight, sendJson } = require("../../../lib/http");
+const { applyCors, handlePreflight, normalizeError, sendJson } = require("../../../lib/http");
 
 const ROUTES = Object.freeze({
   "acquisition/snapshot": require("../../../routes/dashboard/acquisition/snapshot"),
@@ -44,9 +44,11 @@ const ROUTES = Object.freeze({
 });
 
 module.exports = async function handler(req, res) {
+  applyCors(req, res);
   const section = String(req.query?.section || "").trim();
   const action = String(req.query?.action || "").trim();
-  const routeHandler = ROUTES[`${section}/${action}`];
+  const routeKey = `${section}/${action}`;
+  const routeHandler = ROUTES[routeKey];
   if (!routeHandler) {
     if (handlePreflight(req, res)) return;
     sendJson(req, res, 404, {
@@ -56,5 +58,21 @@ module.exports = async function handler(req, res) {
     });
     return;
   }
-  return routeHandler(req, res);
+  if (handlePreflight(req, res)) return;
+  try {
+    return await routeHandler(req, res);
+  } catch (error) {
+    console.error("[DASHBOARD_ROUTE_FAILED]", {
+      routeKey,
+      message: String(error?.message || error || "Route dashboard failed"),
+      stack: error?.stack || null,
+    });
+    const normalized = normalizeError(error, "Erreur dashboard.");
+    sendJson(req, res, normalized.httpStatus || 500, {
+      ok: false,
+      code: normalized.code || "internal",
+      message: normalized.message,
+      details: normalized.details || null,
+    });
+  }
 };
