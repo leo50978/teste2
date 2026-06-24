@@ -34,7 +34,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260621-fairplay4";
+} from "./secure-functions.js?v=20260624-chess-room1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;

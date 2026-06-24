@@ -1029,6 +1029,10 @@ export async function createFriendChessRoomSecure(payload = {}) {
   );
 }
 
+export async function createFriendChessRoom(payload = {}) {
+  return createFriendChessRoomSecure(payload);
+}
+
 export async function joinFriendChessRoomByCodeSecure(payload = {}) {
   return invokeChessHttpOnly(
     "/api/games/chess/join-friend-room",
