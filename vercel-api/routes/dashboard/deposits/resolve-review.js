@@ -21,6 +21,7 @@ const {
   readProvisionalHtg,
   readWithdrawableHtg,
 } = require("../../../lib/wallet-htg");
+const { applyDepositResolvedStatsTx } = require("../../../lib/deposit-flow-stats");
 
 async function resolveOrderDocument(orderId = "", clientId = "") {
   const safeOrderId = String(orderId || "").trim();
@@ -162,6 +163,10 @@ module.exports = async function handler(req, res) {
           };
 
       tx.set(orderSnap.ref, orderPatch, { merge: true });
+      applyDepositResolvedStatsTx(tx, {
+        ...orderData,
+        ...orderPatch,
+      }, decision, nowMs);
 
       const clientPatch = {
         ...balancesPatch,

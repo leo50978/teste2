@@ -1,5 +1,6 @@
 const { admin, db } = require("./firebase-admin");
 const { computeOrderAmount, getOrderResolutionStatus } = require("./deposits");
+const { computeDepositFlowStatsSnapshot } = require("./deposit-flow-stats");
 const { isWelcomeBonusOrder } = require("./player-wallet");
 const { RATE_HTG_TO_DOES } = require("./wallet-htg");
 const { safeInt, safeSignedInt } = require("./safe");
@@ -1142,6 +1143,10 @@ async function fetchDepositAnalyticsRowsForRange(startMs = 0, endMs = 0, maxDocs
 }
 
 async function computeDepositAnalyticsSnapshot(options = {}) {
+  if (options.liveScan !== true) {
+    return computeDepositFlowStatsSnapshot(options);
+  }
+
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = normalizeDepositAnalyticsRange(options, nowMs);
   const docLimit = Math.min(DEPOSIT_ANALYTICS_DOC_LIMIT, Math.max(100, safeInt(options.maxDocs || options.docLimit) || DEPOSIT_ANALYTICS_DEFAULT_DOC_LIMIT));

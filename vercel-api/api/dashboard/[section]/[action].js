@@ -6,6 +6,7 @@ const ROUTES = Object.freeze({
   "cashflow-htg/snapshot": require("../../../routes/dashboard/cashflow-htg/snapshot"),
   "deposits/resolve-review": require("../../../routes/dashboard/deposits/resolve-review"),
   "deposit-flow/snapshot": require("../../../routes/dashboard/deposit-flow/snapshot"),
+  "deposit-flow/rebuild": require("../../../routes/dashboard/deposit-flow/rebuild"),
   "withdrawal-flow/snapshot": require("../../../routes/dashboard/withdrawal-flow/snapshot"),
   "approved-deposits/snapshot": require("../../../routes/dashboard/approved-deposits/snapshot"),
   "games-volume/snapshot": require("../../../routes/dashboard/games-volume/snapshot"),

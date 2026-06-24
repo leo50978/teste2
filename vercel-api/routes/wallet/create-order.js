@@ -22,6 +22,7 @@ const {
   readProvisionalHtg,
   readWithdrawableHtg,
 } = require("../../lib/wallet-htg");
+const { applyDepositCreatedStatsTx } = require("../../lib/deposit-flow-stats");
 
 function assertClientCanCreateDeposit(clientData = {}) {
   if (clientData.accountFrozen === true || clientData.withdrawalHold === true) {
@@ -118,6 +119,7 @@ module.exports = async function handler(req, res) {
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
+      applyDepositCreatedStatsTx(tx, orderRecord, nowMs);
 
       tx.set(clientRef, {
         uid,
