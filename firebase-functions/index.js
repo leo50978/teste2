@@ -24,6 +24,20 @@ const {
   submitActionMorpionV3,
   touchRoomPresenceMorpionV3,
 } = require("./lib/morpion-v3");
+const {
+  createFriendLudoRoom,
+  getFriendLudoRoomState,
+  joinFriendLudoRoomByCode,
+  leaveFriendLudoRoom,
+  resumeFriendLudoRoom,
+  submitFriendLudoAction,
+  touchFriendLudoPresence,
+} = require("./lib/ludo");
+const {
+  recordLudoMatchResult,
+  startLudoWager,
+  touchLudoWagerHeartbeat,
+} = require("./lib/ludo-wager");
 
 const DAME_FUNCTION_OPTIONS = {
   region: "us-central1",
@@ -34,6 +48,14 @@ const DAME_FUNCTION_OPTIONS = {
 };
 
 const MORPION_V3_FUNCTION_OPTIONS = {
+  region: "us-central1",
+  memory: "512MiB",
+  timeoutSeconds: 30,
+  minInstances: 0,
+  concurrency: 80,
+};
+
+const LUDO_FUNCTION_OPTIONS = {
   region: "us-central1",
   memory: "512MiB",
   timeoutSeconds: 30,
@@ -90,6 +112,10 @@ function morpionV3Callable(handler, fallbackMessage) {
   return gameCallable(handler, fallbackMessage, MORPION_V3_FUNCTION_OPTIONS);
 }
 
+function ludoCallable(handler, fallbackMessage) {
+  return gameCallable(handler, fallbackMessage, LUDO_FUNCTION_OPTIONS);
+}
+
 function gameCallable(handler, fallbackMessage, options = DAME_FUNCTION_OPTIONS) {
   return onCall(options, async (request) => {
     try {
@@ -127,3 +153,14 @@ exports.touchRoomPresenceMorpionV3 = morpionV3Callable(touchRoomPresenceMorpionV
 exports.leaveRoomMorpionV3 = morpionV3Callable(leaveRoomMorpionV3, "Impossible de quitter la salle mopyon.");
 exports.submitActionMorpionV3 = morpionV3Callable(submitActionMorpionV3, "Impossible d'envoyer l'action mopyon.");
 exports.requestFriendMorpionRematchV3 = morpionV3Callable(requestFriendMorpionRematchV3, "Impossible de relanse rematch prive Mopyon an.");
+
+exports.startLudoWagerSecure = ludoCallable(startLudoWager, "Impossible de demarrer la partie Ludo.");
+exports.touchLudoWagerHeartbeatSecure = ludoCallable(touchLudoWagerHeartbeat, "Impossible de mettre a jour la session Ludo.");
+exports.recordLudoMatchResultSecure = ludoCallable(recordLudoMatchResult, "Impossible d'enregistrer le resultat Ludo.");
+exports.createFriendLudoRoom = ludoCallable(createFriendLudoRoom, "Impossible de kreye salon prive Ludo a.");
+exports.joinFriendLudoRoomByCode = ludoCallable(joinFriendLudoRoomByCode, "Impossible d'entrer nan salon prive Ludo a.");
+exports.resumeFriendLudoRoom = ludoCallable(resumeFriendLudoRoom, "Impossible de reprann salon prive Ludo a.");
+exports.getFriendLudoRoomState = ludoCallable(getFriendLudoRoomState, "Impossible de chaje eta salon prive Ludo a.");
+exports.touchFriendLudoPresence = ludoCallable(touchFriendLudoPresence, "Impossible de mete prezans Ludo prive a ajou.");
+exports.submitFriendLudoAction = ludoCallable(submitFriendLudoAction, "Impossible d'envoye aksyon Ludo prive a.");
+exports.leaveFriendLudoRoom = ludoCallable(leaveFriendLudoRoom, "Impossible de kite salon prive Ludo a.");

@@ -4,7 +4,7 @@ import {
   createOrderSecure,
   getDepositFundingStatusSecure,
   getPublicPaymentOptionsSecure,
-} from './secure-functions.js?v=20260625-morpion-firebase1';
+} from './secure-functions.js?v=20260625-ludo-firebase1';
 import { SUPPORT_WHATSAPP_PHONE, SUPPORT_WHATSAPP_LABEL, buildSupportWhatsAppUrl } from './support-contact.js';
 import {
   buildWhatsappUrlForKey,
@@ -2635,7 +2635,7 @@ class PaymentModal {
     await this.loadFundingStatus();
 
     try {
-      const { ensureXchangeState } = await import('./xchange.js?v=20260625-morpion-firebase1');
+      const { ensureXchangeState } = await import('./xchange.js?v=20260625-ludo-firebase1');
       await ensureXchangeState(this.options.client?.uid || this.options.client?.id || '');
     } catch (error) {
       console.warn('Impossible de rafraichir l état Xchange après bonus:', error);

@@ -1,4 +1,4 @@
-import { auth, onAuthStateChanged } from '../firebase-init.js?v=20260515-ludo-searchpage1';
+import { auth, onAuthStateChanged } from '../firebase-init.js?v=20260625-ludo-firebase1';
 import {
     createFriendLudoRoomSecure,
     getFriendLudoRoomStateSecure,
@@ -11,9 +11,9 @@ import {
     submitFriendLudoActionSecure,
     touchFriendLudoPresenceSecure,
     touchLudoWagerHeartbeatSecure,
-} from '../secure-functions.js?v=20260515-ludo-searchpage1';
+} from '../secure-functions.js?v=20260625-ludo-firebase1';
 import { PLAYERS, STATE } from './ludo/constants.js?v=20260523-ludo-frienddice2';
-import { Ludo } from './ludo/Ludo.js?v=20260603-ludo-botfo2';
+import { Ludo } from './ludo/Ludo.js?v=20260625-ludo-firebase1';
 import { UI } from './ludo/UI.js?v=20260523-ludo-frienddice2';
 import { mountNetworkQualityIndicator } from '../network-quality-indicator.js?v=20260605-network2';
 

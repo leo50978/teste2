@@ -3,7 +3,7 @@ import {
   onAuthStateChanged,
 } from "./firebase-init.js";
 import { withButtonLoading } from "./loading-ui.js";
-import { getDepositFundingStatusSecure, walletMutateSecure } from "./secure-functions.js?v=20260625-morpion-firebase1";
+import { getDepositFundingStatusSecure, walletMutateSecure } from "./secure-functions.js?v=20260625-ludo-firebase1";
 
 const RATE_HTG_TO_DOES = 20;
 const BALANCE_DEBUG = false;

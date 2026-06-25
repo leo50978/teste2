@@ -532,174 +532,107 @@ export async function recordDominoClassicMatchResultSecure(payload = {}) {
   return invokeCallable("recordDominoClassicMatchResultSecure", payload, fallbackError);
 }
 
-export async function startLudoWagerSecure(payload = {}) {
-  const fallbackError = "Impossible de demarrer la partie Ludo.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/start-wager", {
+async function invokeLudoCallableFirst(callableName, httpPath, payload = {}, fallbackError = "Erreur Ludo") {
+  try {
+    return await invokeCallable(callableName, payload, fallbackError);
+  } catch (callableError) {
+    if (!getConfiguredApiBaseUrl()) throw callableError;
+    return invokeBackendHttp(httpPath, {
       payload,
       requireAuth: true,
       fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("startLudoWagerSecure", payload, fallbackError);
-      }
-      throw error;
     });
   }
-  return invokeCallable("startLudoWagerSecure", payload, fallbackError);
+}
+
+export async function startLudoWagerSecure(payload = {}) {
+  return invokeLudoCallableFirst(
+    "startLudoWagerSecure",
+    "/api/games/ludo/start-wager",
+    payload,
+    "Impossible de demarrer la partie Ludo."
+  );
 }
 
 export async function touchLudoWagerHeartbeatSecure(payload = {}) {
-  const fallbackError = "Impossible de mettre a jour la session Ludo.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/heartbeat", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("touchLudoWagerHeartbeatSecure", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("touchLudoWagerHeartbeatSecure", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "touchLudoWagerHeartbeatSecure",
+    "/api/games/ludo/heartbeat",
+    payload,
+    "Impossible de mettre a jour la session Ludo."
+  );
 }
 
 export async function recordLudoMatchResultSecure(payload = {}) {
-  const fallbackError = "Impossible d'enregistrer le resultat Ludo.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/record-result", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("recordLudoMatchResultSecure", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("recordLudoMatchResultSecure", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "recordLudoMatchResultSecure",
+    "/api/games/ludo/record-result",
+    payload,
+    "Impossible d'enregistrer le resultat Ludo."
+  );
 }
 
 export async function createFriendLudoRoomSecure(payload = {}) {
-  const fallbackError = "Impossible de kreye salon prive Ludo a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/create-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("createFriendLudoRoom", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("createFriendLudoRoom", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "createFriendLudoRoom",
+    "/api/games/ludo/create-friend-room",
+    payload,
+    "Impossible de kreye salon prive Ludo a."
+  );
 }
 
 export async function joinFriendLudoRoomByCodeSecure(payload = {}) {
-  const fallbackError = "Impossible d'entrer nan salon prive Ludo a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/join-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("joinFriendLudoRoomByCode", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("joinFriendLudoRoomByCode", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "joinFriendLudoRoomByCode",
+    "/api/games/ludo/join-friend-room",
+    payload,
+    "Impossible d'entrer nan salon prive Ludo a."
+  );
 }
 
 export async function resumeFriendLudoRoomSecure(payload = {}) {
-  const fallbackError = "Impossible de reprann salon prive Ludo a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/resume-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("resumeFriendLudoRoom", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("resumeFriendLudoRoom", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "resumeFriendLudoRoom",
+    "/api/games/ludo/resume-friend-room",
+    payload,
+    "Impossible de reprann salon prive Ludo a."
+  );
 }
 
 export async function getFriendLudoRoomStateSecure(payload = {}) {
-  const fallbackError = "Impossible de chaje eta salon prive Ludo a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/get-room-state", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("getFriendLudoRoomState", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("getFriendLudoRoomState", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "getFriendLudoRoomState",
+    "/api/games/ludo/get-room-state",
+    payload,
+    "Impossible de chaje eta salon prive Ludo a."
+  );
 }
 
 export async function touchFriendLudoPresenceSecure(payload = {}) {
-  const fallbackError = "Impossible de mete prezans Ludo prive a ajou.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/touch-presence", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("touchFriendLudoPresence", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("touchFriendLudoPresence", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "touchFriendLudoPresence",
+    "/api/games/ludo/touch-presence",
+    payload,
+    "Impossible de mete prezans Ludo prive a ajou."
+  );
 }
 
 export async function submitFriendLudoActionSecure(payload = {}) {
-  const fallbackError = "Impossible d'envoye aksyon Ludo prive a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/submit-action", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("submitFriendLudoAction", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("submitFriendLudoAction", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "submitFriendLudoAction",
+    "/api/games/ludo/submit-action",
+    payload,
+    "Impossible d'envoye aksyon Ludo prive a."
+  );
 }
 
 export async function leaveFriendLudoRoomSecure(payload = {}) {
-  const fallbackError = "Impossible de kite salon prive Ludo a.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/ludo/leave-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch((error) => {
-      if (shouldFallbackToCallable(error)) {
-        return invokeCallable("leaveFriendLudoRoom", payload, fallbackError);
-      }
-      throw error;
-    });
-  }
-  return invokeCallable("leaveFriendLudoRoom", payload, fallbackError);
+  return invokeLudoCallableFirst(
+    "leaveFriendLudoRoom",
+    "/api/games/ludo/leave-room",
+    payload,
+    "Impossible de kite salon prive Ludo a."
+  );
 }
 
 async function invokeDameCallableFirst(callableName, httpPath, payload = {}, fallbackError = "Erreur Dame") {

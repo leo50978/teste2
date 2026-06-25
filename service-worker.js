@@ -1,9 +1,9 @@
-const KOBPOSH_CACHE = "kobposh-shell-v43";
+const KOBPOSH_CACHE = "kobposh-shell-v44";
 const KOBPOSH_CORE_ASSETS = [
   "/",
   "/index.html",
   "/style.css",
-  "/app.js?v=20260625-morpion-firebase1",
+  "/app.js?v=20260625-ludo-firebase1",
   "/site.webmanifest",
   "/apple-touch-icon.png",
   "/favicon-96x96.png",
