@@ -596,6 +596,11 @@ import {
     activeRoomId = String(state.roomId || activeRoomId || "").trim();
     const status = String(state.status || "").trim().toLowerCase();
 
+    if (status === "ended") {
+      handleEndedState(state);
+      return;
+    }
+
     if (status === "waiting") {
       updateOpponent("Ap tann lot jwe a", "Salon prive");
       updateStatus("Salon prive a kreye. N ap tann lot jwe a.");
@@ -612,6 +617,11 @@ import {
         roomCodeBadgeEl.textContent = code ? `Room ${code}` : "Room prive";
       }
       persistFriendRoomState();
+      return;
+    }
+
+    if (status !== "playing") {
+      updateStatus("N ap senkronize salon prive a.");
       return;
     }
 
@@ -632,9 +642,6 @@ import {
       }
     }
 
-    if (status === "ended") {
-      handleEndedState(state);
-    }
   }
 
   function startPresenceHeartbeat() {
@@ -834,17 +841,20 @@ import {
         return;
       }
       let result = null;
-      const persistedRoom = !FRIEND_ROOM_ID ? readPersistedFriendRoomState() : null;
-      if (FRIEND_ROOM_ID) {
-        result = await resumeFriendChessRoomSecure({ roomId: FRIEND_ROOM_ID });
-      } else if (persistedRoom?.roomId) {
-        result = await resumeFriendChessRoomSecure({ roomId: String(persistedRoom.roomId || "").trim() });
-      } else if (FRIEND_ACTION === "join" && INVITE_CODE) {
+      if (FRIEND_ACTION === "join" && INVITE_CODE) {
+        clearPersistedFriendRoomState();
         result = await joinFriendChessRoomByCodeSecure({ inviteCode: INVITE_CODE });
       } else {
-        clearPersistedFriendRoomState();
-        window.location.href = "../index.html";
-        return;
+        const persistedRoom = !FRIEND_ROOM_ID ? readPersistedFriendRoomState() : null;
+        if (FRIEND_ROOM_ID) {
+          result = await resumeFriendChessRoomSecure({ roomId: FRIEND_ROOM_ID });
+        } else if (persistedRoom?.roomId) {
+          result = await resumeFriendChessRoomSecure({ roomId: String(persistedRoom.roomId || "").trim() });
+        } else {
+          clearPersistedFriendRoomState();
+          window.location.href = "../index.html";
+          return;
+        }
       }
       activeRoomId = String(result?.roomId || "").trim();
       activeSeatIndex = Number.isFinite(Number(result?.seatIndex)) ? Number(result.seatIndex) : 0;
