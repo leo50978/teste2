@@ -1138,61 +1138,62 @@ export async function joinMatchmakingMorpionV2Secure(payload = {}) {
   return invokeCallable("joinMatchmakingMorpionV2", payload, "Impossible de rejoindre une partie de morpion.");
 }
 
-export async function joinMatchmakingMorpionV3Secure(payload = {}) {
-  const fallbackError = "Impossible de rejoindre une partie de mopyon.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/join-matchmaking", {
+async function invokeMorpionV3CallableFirst(callableName, httpPath, payload = {}, fallbackError = "Erreur Mopyon") {
+  try {
+    return await invokeCallable(callableName, payload, fallbackError);
+  } catch (callableError) {
+    if (!getConfiguredApiBaseUrl()) throw callableError;
+    return invokeBackendHttp(httpPath, {
       payload,
       requireAuth: true,
       fallbackError,
     });
   }
-  return invokeCallable("joinMatchmakingMorpionV3", payload, fallbackError);
+}
+
+export async function joinMatchmakingMorpionV3Secure(payload = {}) {
+  return invokeMorpionV3CallableFirst(
+    "joinMatchmakingMorpionV3",
+    "/api/games/morpion-v3/join-matchmaking",
+    payload,
+    "Impossible de rejoindre une partie de mopyon."
+  );
 }
 
 export async function createFriendMorpionRoomV3Secure(payload = {}) {
-  const fallbackError = "Impossible de kreye salon prive Mopyon an.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/create-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("createFriendMorpionRoomV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "createFriendMorpionRoomV3",
+    "/api/games/morpion-v3/create-friend-room",
+    payload,
+    "Impossible de kreye salon prive Mopyon an."
+  );
 }
 
 export async function resumeFriendMorpionRoomV3Secure(payload = {}) {
-  const fallbackError = "Impossible de reprann salon prive Mopyon an.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/resume-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("resumeFriendMorpionRoomV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "resumeFriendMorpionRoomV3",
+    "/api/games/morpion-v3/resume-friend-room",
+    payload,
+    "Impossible de reprann salon prive Mopyon an."
+  );
 }
 
 export async function joinFriendMorpionRoomByCodeV3Secure(payload = {}) {
-  const fallbackError = "Impossible de antre nan salon prive Mopyon an.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/join-friend-room-by-code", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("joinFriendMorpionRoomByCodeV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "joinFriendMorpionRoomByCodeV3",
+    "/api/games/morpion-v3/join-friend-room-by-code",
+    payload,
+    "Impossible de antre nan salon prive Mopyon an."
+  );
 }
 
 export async function requestFriendMorpionRematchV3Secure(payload = {}) {
-  const fallbackError = "Impossible de relanse rematch prive Mopyon an.";
-  return invokeBackendHttp("/api/games/morpion-v3/request-friend-rematch", {
+  return invokeMorpionV3CallableFirst(
+    "requestFriendMorpionRematchV3",
+    "/api/games/morpion-v3/request-friend-rematch",
     payload,
-    requireAuth: true,
-    fallbackError,
-  });
+    "Impossible de relanse rematch prive Mopyon an."
+  );
 }
 
 export async function joinMatchmakingMorpionSecure(payload = {}) {
@@ -1204,27 +1205,21 @@ export async function ensureRoomReadyMorpionV2Secure(payload = {}) {
 }
 
 export async function getMorpionV3RoomStateSecure(payload = {}) {
-  const fallbackError = "Impossible de charger la salle de mopyon.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/get-room-state", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("getMorpionV3RoomState", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "getMorpionV3RoomState",
+    "/api/games/morpion-v3/get-room-state",
+    payload,
+    "Impossible de charger la salle de mopyon."
+  );
 }
 
 export async function touchRoomPresenceMorpionV3Secure(payload = {}) {
-  const fallbackError = "Impossible de mettre a jou prezans mopyon an.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/touch-presence", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("touchRoomPresenceMorpionV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "touchRoomPresenceMorpionV3",
+    "/api/games/morpion-v3/touch-presence",
+    payload,
+    "Impossible de mettre a jou prezans mopyon an."
+  );
 }
 
 export async function ensureRoomReadyMorpionSecure(payload = {}) {
@@ -1248,15 +1243,12 @@ export async function leaveRoomMorpionV2Secure(payload = {}) {
 }
 
 export async function leaveRoomMorpionV3Secure(payload = {}) {
-  const fallbackError = "Impossible de quitter la salle mopyon.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/leave-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("leaveRoomMorpionV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "leaveRoomMorpionV3",
+    "/api/games/morpion-v3/leave-room",
+    payload,
+    "Impossible de quitter la salle mopyon."
+  );
 }
 
 export async function leaveRoomMorpionSecure(payload = {}) {
@@ -1268,15 +1260,12 @@ export async function submitActionMorpionV2Secure(payload = {}) {
 }
 
 export async function submitActionMorpionV3Secure(payload = {}) {
-  const fallbackError = "Impossible d'envoyer l'action mopyon.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/morpion-v3/submit-action", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    });
-  }
-  return invokeCallable("submitActionMorpionV3", payload, fallbackError);
+  return invokeMorpionV3CallableFirst(
+    "submitActionMorpionV3",
+    "/api/games/morpion-v3/submit-action",
+    payload,
+    "Impossible d'envoyer l'action mopyon."
+  );
 }
 
 export async function submitActionMorpionSecure(payload = {}) {

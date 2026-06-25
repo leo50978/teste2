@@ -12,7 +12,7 @@ import {
   resumeFriendMorpionRoomV3Secure,
   submitActionMorpionV3Secure,
   touchRoomPresenceMorpionV3Secure,
-} from "./secure-functions.js";
+} from "./secure-functions.js?v=20260625-morpion-firebase1";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
 
 const BOARD_SIZE = 15;

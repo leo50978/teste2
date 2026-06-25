@@ -14,15 +14,15 @@
   signInWithEmailAndPassword,
   where,
 } from "./firebase-init.js";
-import PaymentModal from "./payment.js?v=20260625-dame-firebase1";
-import { ensureXchangeState, getXchangeState } from "./xchange.js?v=20260625-dame-firebase1";
+import PaymentModal from "./payment.js?v=20260625-morpion-firebase1";
+import { ensureXchangeState, getXchangeState } from "./xchange.js?v=20260625-morpion-firebase1";
 import {
   buildHomeHeroImagePath,
   DEFAULT_HOME_HERO_SLIDES,
   refreshHomeHeroSlides,
 } from "./home-hero-config.js";
 import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
-import { mountRetraitModal } from "./retrait.js?v=20260625-dame-firebase1";
+import { mountRetraitModal } from "./retrait.js?v=20260625-morpion-firebase1";
 import { buildWhatsappUrlForKey, getWhatsappContactLabel } from "./whatsapp-modal-config.js";
 import {
   createFriendLudoRoomSecure,
@@ -34,7 +34,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260625-dame-firebase1";
+} from "./secure-functions.js?v=20260625-morpion-firebase1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;

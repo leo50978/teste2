@@ -8,7 +8,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "check": "node --check index.js && node --check lib/dame.js && node --check lib/firebase-admin.js && node --check lib/domino-classic.js && node --check lib/player-wallet.js && node --check lib/wallet-htg.js"
+    "check": "node --check index.js && node --check lib/dame.js && node --check lib/morpion-v3.js && node --check lib/firebase-admin.js && node --check lib/domino-classic.js && node --check lib/player-wallet.js && node --check lib/wallet-htg.js"
   },
   "dependencies": {
     "firebase-admin": "^12.7.0",

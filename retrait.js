@@ -12,7 +12,7 @@ import {
   createWithdrawalSecure,
   getDepositFundingStatusSecure,
   getPublicPaymentOptionsSecure,
-} from "./secure-functions.js?v=20260625-dame-firebase1";
+} from "./secure-functions.js?v=20260625-morpion-firebase1";
 import { SUPPORT_WHATSAPP_PHONE } from "./support-contact.js";
 import {
   buildWhatsappUrlForKey,

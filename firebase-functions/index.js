@@ -13,12 +13,31 @@ const {
   submitActionDame,
   touchRoomPresenceDame,
 } = require("./lib/dame");
+const {
+  createFriendMorpionRoomV3,
+  getMorpionV3RoomState,
+  joinFriendMorpionRoomByCodeV3,
+  joinMatchmakingMorpionV3,
+  leaveRoomMorpionV3,
+  requestFriendMorpionRematchV3,
+  resumeFriendMorpionRoomV3,
+  submitActionMorpionV3,
+  touchRoomPresenceMorpionV3,
+} = require("./lib/morpion-v3");
 
 const DAME_FUNCTION_OPTIONS = {
   region: "us-central1",
   memory: "512MiB",
   timeoutSeconds: 30,
-  minInstances: 1,
+  minInstances: 0,
+  concurrency: 80,
+};
+
+const MORPION_V3_FUNCTION_OPTIONS = {
+  region: "us-central1",
+  memory: "512MiB",
+  timeoutSeconds: 30,
+  minInstances: 0,
   concurrency: 80,
 };
 
@@ -64,7 +83,15 @@ function requireCallableAuth(request) {
 }
 
 function dameCallable(handler, fallbackMessage) {
-  return onCall(DAME_FUNCTION_OPTIONS, async (request) => {
+  return gameCallable(handler, fallbackMessage, DAME_FUNCTION_OPTIONS);
+}
+
+function morpionV3Callable(handler, fallbackMessage) {
+  return gameCallable(handler, fallbackMessage, MORPION_V3_FUNCTION_OPTIONS);
+}
+
+function gameCallable(handler, fallbackMessage, options = DAME_FUNCTION_OPTIONS) {
+  return onCall(options, async (request) => {
     try {
       const decoded = requireCallableAuth(request);
       return await handler({
@@ -90,3 +117,13 @@ exports.finalizeDameMatchSecure = dameCallable(finalizeDameMatch, "Impossible de
 exports.restartDameAfterDrawSecure = dameCallable(restartDameAfterDraw, "Impossible de rejouer la partie nulle.");
 exports.requestFriendDameRematch = dameCallable(requestFriendDameRematch, "Impossible de relanse revanche prive Dame la.");
 exports.recordDameMatchResultSecure = dameCallable(recordDameMatchResult, "Impossible d'enregistrer le resultat dame.");
+
+exports.joinMatchmakingMorpionV3 = morpionV3Callable(joinMatchmakingMorpionV3, "Impossible de rejoindre une partie de mopyon.");
+exports.createFriendMorpionRoomV3 = morpionV3Callable(createFriendMorpionRoomV3, "Impossible de kreye salon prive Mopyon an.");
+exports.resumeFriendMorpionRoomV3 = morpionV3Callable(resumeFriendMorpionRoomV3, "Impossible de reprann salon prive Mopyon an.");
+exports.joinFriendMorpionRoomByCodeV3 = morpionV3Callable(joinFriendMorpionRoomByCodeV3, "Impossible de antre nan salon prive Mopyon an.");
+exports.getMorpionV3RoomState = morpionV3Callable(getMorpionV3RoomState, "Impossible de charger la salle de mopyon.");
+exports.touchRoomPresenceMorpionV3 = morpionV3Callable(touchRoomPresenceMorpionV3, "Impossible de mettre a jou prezans mopyon an.");
+exports.leaveRoomMorpionV3 = morpionV3Callable(leaveRoomMorpionV3, "Impossible de quitter la salle mopyon.");
+exports.submitActionMorpionV3 = morpionV3Callable(submitActionMorpionV3, "Impossible d'envoyer l'action mopyon.");
+exports.requestFriendMorpionRematchV3 = morpionV3Callable(requestFriendMorpionRematchV3, "Impossible de relanse rematch prive Mopyon an.");
