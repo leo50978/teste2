@@ -31,10 +31,14 @@ import {
   getDepositFundingStatusSecure,
   getMyGameHistorySecure,
   getPublicRuntimeConfigSecure,
+  previewFriendLudoRoomByCodeSecure,
+  previewFriendDameRoomByCodeSecure,
+  previewFriendDuelRoomByCodeV2Secure,
+  previewFriendChessRoomByCodeSecure,
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260625-ludo-firebase1";
+} from "./secure-functions.js?v=20260625-room-preview1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
@@ -230,6 +234,133 @@ const CHESS_PUBLIC_ENTRY_HTG = 25;
 const CHESS_PRIVATE_MIN_STAKE_HTG = 25;
 const LUDO_PUBLIC_ENTRY_DOES = 500;
 const LUDO_FRIEND_STAKE_OPTIONS_HTG = Object.freeze([25, 50, 100, 250, 500]);
+
+let friendRoomPreviewModal = null;
+
+function normalizeFriendInviteCode(value = "") {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").trim();
+}
+
+function normalizeFriendStakeHtg(value, fallback = 25) {
+  const parsed = Math.trunc(Number(value));
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return Math.max(1, Math.trunc(Number(fallback) || 25));
+}
+
+function getFriendRoomPreviewText(preview = {}) {
+  const gameLabel = String(preview?.gameLabel || "Jeu").trim();
+  const stakeHtg = normalizeFriendStakeHtg(preview?.stakeHtg, 25);
+  const rewardHtg = Math.max(0, Math.trunc(Number(preview?.rewardAmountHtg) || 0));
+  return {
+    title: "Konfime salon prive",
+    eyebrow: gameLabel,
+    stake: `${stakeHtg} HTG`,
+    copy: rewardHtg > 0
+      ? `Salon sa a gen yon mise ${stakeHtg} HTG. Gayan an ka resevwa ${rewardHtg} HTG selon regle jwèt la.`
+      : `Salon sa a gen yon mise ${stakeHtg} HTG. Si ou kontinye, backend la ap verifye balans ou anvan li fè w antre.`,
+  };
+}
+
+function ensureFriendRoomPreviewModal() {
+  if (friendRoomPreviewModal?.overlay?.isConnected) return friendRoomPreviewModal;
+
+  const overlay = document.createElement("section");
+  overlay.className = "kobposh-friend-preview";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-labelledby", "kobposhFriendPreviewTitle");
+  overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="kobposh-friend-preview__backdrop" data-friend-preview-cancel></div>
+    <article class="kobposh-friend-preview__card">
+      <button type="button" class="kobposh-friend-preview__close" aria-label="Fèmen" data-friend-preview-cancel>×</button>
+      <p class="kobposh-friend-preview__eyebrow" data-friend-preview-eyebrow>Jeu</p>
+      <h2 class="kobposh-friend-preview__title" id="kobposhFriendPreviewTitle" data-friend-preview-title>Konfime salon prive</h2>
+      <div class="kobposh-friend-preview__stake">
+        <span>Mise salon an</span>
+        <strong data-friend-preview-stake>25 HTG</strong>
+      </div>
+      <p class="kobposh-friend-preview__copy" data-friend-preview-copy></p>
+      <p class="kobposh-friend-preview__status" data-friend-preview-status></p>
+      <div class="kobposh-friend-preview__actions">
+        <button type="button" class="kobposh-friend-preview__btn kobposh-friend-preview__btn--ghost" data-friend-preview-cancel>Anile</button>
+        <button type="button" class="kobposh-friend-preview__btn kobposh-friend-preview__btn--primary" data-friend-preview-confirm>Kontinye</button>
+      </div>
+    </article>
+  `.trim();
+  document.body.appendChild(overlay);
+
+  friendRoomPreviewModal = {
+    overlay,
+    eyebrow: overlay.querySelector("[data-friend-preview-eyebrow]"),
+    title: overlay.querySelector("[data-friend-preview-title]"),
+    stake: overlay.querySelector("[data-friend-preview-stake]"),
+    copy: overlay.querySelector("[data-friend-preview-copy]"),
+    status: overlay.querySelector("[data-friend-preview-status]"),
+    confirm: overlay.querySelector("[data-friend-preview-confirm]"),
+    onConfirm: null,
+  };
+
+  overlay.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target?.closest("[data-friend-preview-cancel]")) {
+      overlay.hidden = true;
+      friendRoomPreviewModal.onConfirm = null;
+    }
+  });
+  friendRoomPreviewModal.confirm?.addEventListener("click", () => {
+    const handler = friendRoomPreviewModal.onConfirm;
+    friendRoomPreviewModal.onConfirm = null;
+    overlay.hidden = true;
+    if (typeof handler === "function") handler();
+  });
+
+  return friendRoomPreviewModal;
+}
+
+async function readFriendRoomPreview(gameKey = "", inviteCode = "") {
+  const safeCode = normalizeFriendInviteCode(inviteCode);
+  if (!safeCode) throw new Error("Mete kod salon prive a anvan ou kontinye.");
+  const payload = { inviteCode: safeCode };
+  switch (String(gameKey || "").trim()) {
+    case "ludo":
+      return previewFriendLudoRoomByCodeSecure(payload);
+    case "dame":
+      return previewFriendDameRoomByCodeSecure(payload);
+    case "domino-duel":
+      return previewFriendDuelRoomByCodeV2Secure(payload);
+    case "chess":
+      return previewFriendChessRoomByCodeSecure(payload);
+    default:
+      throw new Error("Jeu sa a poko sipote preview salon prive.");
+  }
+}
+
+async function confirmFriendRoomPreview({ gameKey = "", inviteCode = "", onConfirm, onError } = {}) {
+  const modal = ensureFriendRoomPreviewModal();
+  modal.overlay.hidden = false;
+  modal.confirm.disabled = true;
+  modal.status.textContent = "M ap verifye mise salon an...";
+  modal.copy.textContent = "";
+  modal.stake.textContent = "...";
+  try {
+    const preview = await readFriendRoomPreview(gameKey, inviteCode);
+    const text = getFriendRoomPreviewText(preview);
+    modal.eyebrow.textContent = text.eyebrow;
+    modal.title.textContent = text.title;
+    modal.stake.textContent = text.stake;
+    modal.copy.textContent = text.copy;
+    modal.status.textContent = "";
+    modal.confirm.disabled = false;
+    modal.onConfirm = () => onConfirm?.(preview);
+    return preview;
+  } catch (error) {
+    modal.overlay.hidden = true;
+    modal.onConfirm = null;
+    onError?.(error);
+    throw error;
+  }
+}
 const UPCOMING_GAME_LABELS = {
   ludo: "Ludo",
   chess: "Echec",
@@ -841,13 +972,19 @@ function ensureLudoStakeModal() {
       }
       if (currentStep === "privateJoin") {
         if (!validateJoinCode()) return;
-        launch({
-          autostart: false,
-          roomMode: "ludo_friends",
-          friendAction: "join",
-          inviteCode: normalizeInviteCode(joinCodeInput?.value || ""),
-          includeStake: false,
-        });
+        const inviteCode = normalizeInviteCode(joinCodeInput?.value || "");
+        void confirmFriendRoomPreview({
+          gameKey: "ludo",
+          inviteCode,
+          onConfirm: () => launch({
+            autostart: false,
+            roomMode: "ludo_friends",
+            friendAction: "join",
+            inviteCode,
+            includeStake: false,
+          }),
+          onError: (error) => setJoinStatus(error?.message || "Nou pa rive verifye mise salon Ludo a."),
+        }).catch(() => null);
       }
     }
     if (target?.closest("[data-kobposh-ludo-copy-code]")) {
@@ -1382,12 +1519,17 @@ function ensureDominoDuelStakeModal() {
     }
     if (joinCodeInput) joinCodeInput.value = inviteCode;
     setJoinStatus("");
-    launch({
-      roomMode: "duel_v2_friends",
-      friendAction: "join",
+    void confirmFriendRoomPreview({
+      gameKey: "domino-duel",
       inviteCode,
-      stakeHtg: PUBLIC_DUEL_STAKE_HTG,
-    });
+      onConfirm: (preview) => launch({
+        roomMode: "duel_v2_friends",
+        friendAction: "join",
+        inviteCode,
+        stakeHtg: normalizeStakeHtg(preview?.stakeHtg, PUBLIC_DUEL_STAKE_HTG),
+      }),
+      onError: (error) => setJoinStatus(error?.message || "Nou pa rive verifye mise salon Duel la."),
+    }).catch(() => null);
   };
   const handleCreateFriendRoom = async () => {
     const stakeState = validatePrivateStake();
@@ -1923,11 +2065,17 @@ function ensureDameStakeModal() {
       joinCodeInput.value = inviteCode;
     }
     setJoinStatus("");
-    launch({
-      roomMode: "dame_friends",
-      friendAction: "join",
+    void confirmFriendRoomPreview({
+      gameKey: "dame",
       inviteCode,
-    });
+      onConfirm: (preview) => launch({
+        roomMode: "dame_friends",
+        friendAction: "join",
+        inviteCode,
+        stakeHtg: normalizeStakeHtg(preview?.stakeHtg, PUBLIC_DAME_STAKE_HTG),
+      }),
+      onError: (error) => setJoinStatus(error?.message || "Nou pa rive verifye mise salon Dame la."),
+    }).catch(() => null);
   };
   const handleBack = () => {
     if (currentStep === "public" || currentStep === "private") {
@@ -5122,14 +5270,23 @@ function ensureChessStakeModal() {
         return;
       }
       if (joinStatusEl) joinStatusEl.textContent = "";
-      close();
-      window.location.href = buildChessUrl({
-        roomMode: "chess_friends",
-        friendAction: "join",
+      void confirmFriendRoomPreview({
+        gameKey: "chess",
         inviteCode,
-        stakeHtg: CHESS_PRIVATE_MIN_STAKE_HTG,
-        botDifficulty: "fo",
-      });
+        onConfirm: (preview) => {
+          close();
+          window.location.href = buildChessUrl({
+            roomMode: "chess_friends",
+            friendAction: "join",
+            inviteCode,
+            stakeHtg: normalizeFriendStakeHtg(preview?.stakeHtg, CHESS_PRIVATE_MIN_STAKE_HTG),
+            botDifficulty: "fo",
+          });
+        },
+        onError: (error) => {
+          if (joinStatusEl) joinStatusEl.textContent = error?.message || "Nou pa rive verifye mise salon Echec la.";
+        },
+      }).catch(() => null);
     }
   });
 

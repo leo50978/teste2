@@ -581,6 +581,14 @@ export async function createFriendLudoRoomSecure(payload = {}) {
   );
 }
 
+export async function previewFriendLudoRoomByCodeSecure(payload = {}) {
+  return invokeCallable(
+    "previewFriendLudoRoomByCode",
+    payload,
+    "Impossible de lire la mise du salon prive Ludo a."
+  );
+}
+
 export async function joinFriendLudoRoomByCodeSecure(payload = {}) {
   return invokeLudoCallableFirst(
     "joinFriendLudoRoomByCode",
@@ -663,6 +671,14 @@ export async function createFriendDameRoomSecure(payload = {}) {
     "/api/games/dame/create-friend-room",
     payload,
     "Impossible de kreye salon prive Dame la."
+  );
+}
+
+export async function previewFriendDameRoomByCodeSecure(payload = {}) {
+  return invokeCallable(
+    "previewFriendDameRoomByCode",
+    payload,
+    "Impossible de lire la mise du salon prive Dame."
   );
 }
 
@@ -886,6 +902,14 @@ export async function joinFriendDuelRoomByCodeV2Secure(payload = {}) {
   );
 }
 
+export async function previewFriendDuelRoomByCodeV2Secure(payload = {}) {
+  return invokeDuelV2HttpOnly(
+    "/api/games/duel-v2/preview-friend-room",
+    payload,
+    "Impossible de lire la mise du salon prive Duel."
+  );
+}
+
 export async function requestFriendDuelRematchV2Secure(payload = {}) {
   return invokeDuelV2HttpOnly(
     "/api/games/duel-v2/request-friend-rematch",
@@ -951,6 +975,14 @@ export async function joinFriendChessRoomByCodeSecure(payload = {}) {
     "/api/games/chess/join-friend-room",
     payload,
     "Impossible de antre nan salon prive Echec la."
+  );
+}
+
+export async function previewFriendChessRoomByCodeSecure(payload = {}) {
+  return invokeChessHttpOnly(
+    "/api/games/chess/preview-friend-room",
+    payload,
+    "Impossible de lire la mise du salon prive Echec."
   );
 }
 
@@ -1117,6 +1149,14 @@ export async function joinFriendMorpionRoomByCodeV3Secure(payload = {}) {
     "/api/games/morpion-v3/join-friend-room-by-code",
     payload,
     "Impossible de antre nan salon prive Mopyon an."
+  );
+}
+
+export async function previewFriendMorpionRoomByCodeV3Secure(payload = {}) {
+  return invokeCallable(
+    "previewFriendMorpionRoomByCodeV3",
+    payload,
+    "Impossible de lire la mise du salon prive Mopyon an."
   );
 }
 

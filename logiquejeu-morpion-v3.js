@@ -8,11 +8,12 @@ import {
   joinFriendMorpionRoomByCodeV3Secure,
   joinMatchmakingMorpionV3Secure,
   leaveRoomMorpionV3Secure,
+  previewFriendMorpionRoomByCodeV3Secure,
   requestFriendMorpionRematchV3Secure,
   resumeFriendMorpionRoomV3Secure,
   submitActionMorpionV3Secure,
   touchRoomPresenceMorpionV3Secure,
-} from "./secure-functions.js?v=20260625-ludo-firebase1";
+} from "./secure-functions.js?v=20260625-room-preview1";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
 
 const BOARD_SIZE = 15;
@@ -510,9 +511,27 @@ function openFriendJoinConfirmModal(inviteCode, stakeHtg) {
   pendingJoinStakeHtg = normalizeStakeHtg(stakeHtg, DEFAULT_STAKE_HTG);
   if (dom.inviteTitle) dom.inviteTitle.textContent = "Konfime antre ou";
   if (dom.inviteCopy) {
-    dom.inviteCopy.textContent = `Ou pral eseye antre nan salon ${pendingJoinInviteCode} ak yon miz ${formatHtg(pendingJoinStakeHtg)}. Non kreyatè sal la ak miz serve a poko ekspoze pa backend aktyèl la, kidonk mande zanmi ou konfime yo si sa nesesè.`;
+    dom.inviteCopy.textContent = `Salon ${pendingJoinInviteCode} gen yon mise ${formatHtg(pendingJoinStakeHtg)}. Si ou kontinye, backend la ap verifye balans ou epi antre w nan menm salon zanmi ou a.`;
   }
   openModal(dom.inviteModal);
+}
+
+async function previewFriendRoomByCode(inviteCodeArg = "") {
+  const inviteCode = normalizeCode(inviteCodeArg || dom.friendJoinCodeInput?.value || "");
+  if (!inviteCode) {
+    setFriendJoinStatus("Tanpri mete kod salon an.", true);
+    return;
+  }
+  setFriendJoinStatus("M ap verifye mise salon an...");
+  try {
+    const preview = await previewFriendMorpionRoomByCodeV3Secure({ inviteCode });
+    const roomStakeHtg = normalizeStakeHtg(preview?.stakeHtg, DEFAULT_STAKE_HTG);
+    setFriendJoinStatus("");
+    closeModal(dom.friendJoinModal);
+    openFriendJoinConfirmModal(inviteCode, roomStakeHtg);
+  } catch (error) {
+    setFriendJoinStatus(error?.message || "Nou pa rive verifye mise salon prive a.", true);
+  }
 }
 
 function ensurePrivateFlowUi() {
@@ -1353,7 +1372,21 @@ function bindEvents() {
       setFriendJoinStatus("Tanpri mete kod salon an.", true);
       return;
     }
-    void joinFriendRoomByCode(inviteCode);
+    void previewFriendRoomByCode(inviteCode);
+  });
+  dom.inviteAcceptBtn?.addEventListener("click", () => {
+    const inviteCode = normalizeCode(pendingJoinInviteCode || "");
+    closeModal(dom.inviteModal);
+    if (!inviteCode) {
+      openModal(dom.friendJoinModal);
+      setFriendJoinStatus("Tanpri mete kod salon an.", true);
+      return;
+    }
+    void joinFriendRoomByCode(inviteCode, pendingJoinStakeHtg);
+  });
+  dom.inviteRefuseBtn?.addEventListener("click", () => {
+    closeModal(dom.inviteModal);
+    openModal(dom.friendJoinModal);
   });
 
   dom.waitingHomeBtn?.addEventListener("click", () => {

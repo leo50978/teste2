@@ -1130,6 +1130,75 @@ async function joinFriendDameRoomByCode({ uid, email, payload = {} }) {
   });
 }
 
+async function previewFriendDameRoomByCode({ uid, payload = {} }) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw makeHttpError(401, "missing-auth-token", "Connexion requise.");
+  }
+
+  const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
+  if (!inviteCodeNormalized) {
+    throw makeHttpError(400, "missing-invite-code", "Code de salle requis.");
+  }
+
+  const matchingSnap = await db
+    .collection(DAME_ROOMS_COLLECTION)
+    .where("inviteCodeNormalized", "==", inviteCodeNormalized)
+    .limit(6)
+    .get();
+  const roomDoc = matchingSnap.docs.find((docSnap) => isFriendDameRoom(docSnap.data() || {})) || null;
+  if (!roomDoc) {
+    throw makeHttpError(404, "room-not-found", "Code de dame introuvable.");
+  }
+
+  const room = roomDoc.data() || {};
+  const status = String(room.status || "").trim().toLowerCase();
+  const nowMs = Date.now();
+  const waitingDeadlineMs = resolveDameWaitingDeadlineMs(room, nowMs);
+  const playerUids = Array.isArray(room.playerUids)
+    ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+    : ["", ""];
+  const humans = playerUids.filter(Boolean).length;
+  const alreadyMember = playerUids.includes(safeUid);
+
+  if (status === "ended" || status === "closed") {
+    throw makeHttpError(412, "room-unavailable", "Cette salle dame est terminee.");
+  }
+  if (status === "playing" && !alreadyMember) {
+    throw makeHttpError(412, "room-already-started", "Cette salle dame a deja demarre.");
+  }
+  if (status === "waiting" && waitingDeadlineMs > 0 && humans < 2 && nowMs >= waitingDeadlineMs) {
+    throw makeHttpError(412, "room-expired", "Ce code a expire.");
+  }
+  if (!alreadyMember && humans >= 2) {
+    throw makeHttpError(412, "room-full", "Cette salle dame est complete.");
+  }
+  if (getBlockedRejoinSet(room).has(safeUid)) {
+    throw makeHttpError(403, "blocked-rejoin", "Tu ne peux plus rejoindre cette salle dame.");
+  }
+
+  const stakeDoes = safeInt(room.entryCostDoes || room.stakeDoes);
+  const rewardAmountDoes = safeInt(room.rewardAmountDoes || buildPrivateDameRewardDoes(stakeDoes));
+  return {
+    ok: true,
+    canJoin: true,
+    alreadyMember,
+    gameKey: "dame",
+    gameLabel: "Dame",
+    roomId: roomDoc.id,
+    roomMode: "dame_friends",
+    status,
+    inviteCode: String(room.inviteCode || inviteCodeNormalized || "").trim(),
+    stakeDoes,
+    stakeHtg: resolveRoomStakeHtg(room),
+    rewardAmountDoes,
+    rewardAmountHtg: resolveRoomRewardHtg(room),
+    humanCount: humans,
+    requiredHumans: 2,
+    waitingDeadlineMs,
+  };
+}
+
 async function ensureRoomReadyDame({ uid, payload = {} }) {
   const roomId = String(payload.roomId || "").trim();
   if (!roomId) {
@@ -2046,6 +2115,7 @@ module.exports = {
   joinFriendDameRoomByCode,
   joinMatchmakingDame,
   leaveRoomDame,
+  previewFriendDameRoomByCode,
   recordDameMatchResult,
   requestFriendDameRematch,
   restartDameAfterDraw,

@@ -745,6 +745,65 @@ async function resumeFriendChessRoom({ uid = "", payload = {} } = {}) {
   };
 }
 
+async function previewFriendChessRoomByCode({ uid = "", payload = {} } = {}) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw makeHttpError(401, "missing-auth-token", "Connexion requise.");
+  }
+
+  const inviteCode = normalizeCode(payload.inviteCode || payload.code);
+  if (!inviteCode) {
+    throw makeHttpError(400, "missing-invite-code", "Code salon prive requis.");
+  }
+
+  const roomSnap = await db.collection(CHESS_ROOMS_COLLECTION)
+    .where("inviteCodeNormalized", "==", inviteCode)
+    .limit(1)
+    .get();
+  if (roomSnap.empty) {
+    throw makeHttpError(404, "chess-friend-room-not-found", "Salon prive Echec introuvable.");
+  }
+
+  const roomDoc = roomSnap.docs[0];
+  const room = roomDoc.data() || {};
+  if (!isFriendChessRoom(room)) {
+    throw makeHttpError(409, "chess-friend-room-invalid", "Salon prive Echec la pa valab.");
+  }
+
+  const playerUids = Array.isArray(room.playerUids)
+    ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+    : ["", ""];
+  const humans = playerUids.filter(Boolean).length;
+  const alreadyMember = playerUids.includes(safeUid);
+  const status = String(room.status || "").trim().toLowerCase();
+  if (status !== "waiting" && !alreadyMember) {
+    throw makeHttpError(409, "chess-friend-room-not-waiting", "Salon prive Echec la pa disponib anko.");
+  }
+  if (status === "waiting" && getWaitingDeadlineMs(room) <= Date.now()) {
+    throw makeHttpError(409, "chess-friend-room-expired", "Code salon prive Echec sa a ekspire.");
+  }
+  if (!alreadyMember && humans >= 2) {
+    throw makeHttpError(409, "chess-friend-room-full", "Salon prive Echec la deja konple.");
+  }
+
+  return {
+    ok: true,
+    canJoin: true,
+    alreadyMember,
+    gameKey: "chess",
+    gameLabel: "Echec",
+    roomId: roomDoc.id,
+    roomMode: "chess_friends",
+    status,
+    inviteCode: String(room.inviteCode || inviteCode || "").trim(),
+    stakeHtg: getRoomStakeHtg(room),
+    rewardAmountHtg: getRoomRewardHtg(room),
+    humanCount: humans,
+    requiredHumans: 2,
+    waitingDeadlineMs: getWaitingDeadlineMs(room),
+  };
+}
+
 async function getChessRoomState({ uid = "", payload = {} } = {}) {
   const safeUid = String(uid || "").trim();
   if (!safeUid) {
@@ -1177,6 +1236,7 @@ module.exports = {
   joinFriendChessRoomByCode,
   joinMatchmakingChess,
   leaveRoomChess,
+  previewFriendChessRoomByCode,
   recordChessMatchResult,
   resumeFriendChessRoom,
   submitActionChess,

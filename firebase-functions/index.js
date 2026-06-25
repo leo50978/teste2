@@ -6,6 +6,7 @@ const {
   joinFriendDameRoomByCode,
   joinMatchmakingDame,
   leaveRoomDame,
+  previewFriendDameRoomByCode,
   recordDameMatchResult,
   requestFriendDameRematch,
   restartDameAfterDraw,
@@ -19,6 +20,7 @@ const {
   joinFriendMorpionRoomByCodeV3,
   joinMatchmakingMorpionV3,
   leaveRoomMorpionV3,
+  previewFriendMorpionRoomByCodeV3,
   requestFriendMorpionRematchV3,
   resumeFriendMorpionRoomV3,
   submitActionMorpionV3,
@@ -29,6 +31,7 @@ const {
   getFriendLudoRoomState,
   joinFriendLudoRoomByCode,
   leaveFriendLudoRoom,
+  previewFriendLudoRoomByCode,
   resumeFriendLudoRoom,
   submitFriendLudoAction,
   touchFriendLudoPresence,
@@ -133,6 +136,7 @@ function gameCallable(handler, fallbackMessage, options = DAME_FUNCTION_OPTIONS)
 
 exports.joinMatchmakingDame = dameCallable(joinMatchmakingDame, "Impossible de rejoindre une partie de dame.");
 exports.createFriendDameRoom = dameCallable(createFriendDameRoom, "Impossible de kreye salon prive Dame la.");
+exports.previewFriendDameRoomByCode = dameCallable(previewFriendDameRoomByCode, "Impossible de lire la mise du salon prive Dame.");
 exports.joinFriendDameRoomByCode = dameCallable(joinFriendDameRoomByCode, "Impossible de antre nan salon prive Dame la.");
 exports.resumeFriendDameRoom = dameCallable(resumeFriendDameRoom, "Impossible de reprendre la salle dame privee.");
 exports.ensureRoomReadyDame = dameCallable(ensureRoomReadyDame, "Impossible de demarrer la partie de dame.");
@@ -147,6 +151,7 @@ exports.recordDameMatchResultSecure = dameCallable(recordDameMatchResult, "Impos
 exports.joinMatchmakingMorpionV3 = morpionV3Callable(joinMatchmakingMorpionV3, "Impossible de rejoindre une partie de mopyon.");
 exports.createFriendMorpionRoomV3 = morpionV3Callable(createFriendMorpionRoomV3, "Impossible de kreye salon prive Mopyon an.");
 exports.resumeFriendMorpionRoomV3 = morpionV3Callable(resumeFriendMorpionRoomV3, "Impossible de reprann salon prive Mopyon an.");
+exports.previewFriendMorpionRoomByCodeV3 = morpionV3Callable(previewFriendMorpionRoomByCodeV3, "Impossible de lire la mise du salon prive Mopyon an.");
 exports.joinFriendMorpionRoomByCodeV3 = morpionV3Callable(joinFriendMorpionRoomByCodeV3, "Impossible de antre nan salon prive Mopyon an.");
 exports.getMorpionV3RoomState = morpionV3Callable(getMorpionV3RoomState, "Impossible de charger la salle de mopyon.");
 exports.touchRoomPresenceMorpionV3 = morpionV3Callable(touchRoomPresenceMorpionV3, "Impossible de mettre a jou prezans mopyon an.");
@@ -158,6 +163,7 @@ exports.startLudoWagerSecure = ludoCallable(startLudoWager, "Impossible de demar
 exports.touchLudoWagerHeartbeatSecure = ludoCallable(touchLudoWagerHeartbeat, "Impossible de mettre a jour la session Ludo.");
 exports.recordLudoMatchResultSecure = ludoCallable(recordLudoMatchResult, "Impossible d'enregistrer le resultat Ludo.");
 exports.createFriendLudoRoom = ludoCallable(createFriendLudoRoom, "Impossible de kreye salon prive Ludo a.");
+exports.previewFriendLudoRoomByCode = ludoCallable(previewFriendLudoRoomByCode, "Impossible de lire la mise du salon prive Ludo a.");
 exports.joinFriendLudoRoomByCode = ludoCallable(joinFriendLudoRoomByCode, "Impossible d'entrer nan salon prive Ludo a.");
 exports.resumeFriendLudoRoom = ludoCallable(resumeFriendLudoRoom, "Impossible de reprann salon prive Ludo a.");
 exports.getFriendLudoRoomState = ludoCallable(getFriendLudoRoomState, "Impossible de chaje eta salon prive Ludo a.");

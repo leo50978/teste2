@@ -1915,6 +1915,74 @@ async function leaveFriendLudoRoom({ uid, payload = {} }) {
   });
 }
 
+async function previewFriendLudoRoomByCode({ uid, payload = {} }) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw makeHttpError(401, "missing-auth-token", "Connexion requise.");
+  }
+
+  const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
+  if (!inviteCodeNormalized) {
+    throw makeHttpError(400, "ludo-friend-missing-invite-code", "Kod salon prive a obligatwa.");
+  }
+
+  const matchingSnap = await db
+    .collection(LUDO_FRIEND_ROOMS_COLLECTION)
+    .where("inviteCodeNormalized", "==", inviteCodeNormalized)
+    .limit(4)
+    .get();
+  const roomDoc = matchingSnap.docs.find((docSnap) => isFriendLudoRoom(docSnap.data() || {})) || null;
+  if (!roomDoc) {
+    throw makeHttpError(404, "ludo-friend-room-not-found", "Nou pa jwenn salon prive Ludo sa a.");
+  }
+
+  const room = roomDoc.data() || {};
+  const nowMs = Date.now();
+  const status = String(room.status || "").trim().toLowerCase();
+  const waitingDeadlineMs = resolveLudoFriendWaitingDeadlineMs(room, nowMs);
+  const playerUids = Array.isArray(room.playerUids)
+    ? room.playerUids.slice(0, 2).map((value) => String(value || "").trim())
+    : ["", ""];
+  const humans = playerUids.filter(Boolean).length;
+  const alreadyMember = playerUids.includes(safeUid);
+
+  if ((status === "closed" || status === "ended") && !alreadyMember) {
+    throw makeHttpError(412, "ludo-friend-room-closed", "Salon prive Ludo sa a pa disponib anko.");
+  }
+  if (status === "playing" && !alreadyMember) {
+    throw makeHttpError(412, "ludo-friend-room-already-started", "Pati Ludo sa a deja komanse.");
+  }
+  if (status === "waiting" && humans < 2 && nowMs >= waitingDeadlineMs) {
+    throw makeHttpError(412, "ludo-friend-room-expired", "Salon prive Ludo sa a ekspire.");
+  }
+  if (!alreadyMember && humans >= 2) {
+    throw makeHttpError(409, "ludo-friend-room-full", "Salon prive Ludo sa a deja gen 2 jwe.");
+  }
+  if (!alreadyMember && String(room.hostUid || playerUids[0] || "").trim() === safeUid) {
+    throw makeHttpError(409, "ludo-friend-self-join-forbidden", "Ou pa ka antre nan pwop salon pa w ak menm kont la.");
+  }
+
+  const stakeDoes = safeInt(room.stakeDoes || room.entryCostDoes);
+  return {
+    ok: true,
+    canJoin: true,
+    alreadyMember,
+    gameKey: "ludo",
+    gameLabel: "Ludo",
+    roomId: roomDoc.id,
+    roomMode: "ludo_friends",
+    status,
+    inviteCode: String(room.inviteCode || inviteCodeNormalized || "").trim(),
+    stakeDoes,
+    stakeHtg: resolveLudoFriendStakeHtg(room),
+    rewardAmountDoes: safeInt(room.rewardAmountDoes || resolveLudoFriendRewardDoes(stakeDoes)),
+    rewardAmountHtg: resolveLudoFriendRewardHtg(room),
+    humanCount: humans,
+    requiredHumans: 2,
+    waitingDeadlineMs,
+  };
+}
+
 async function resumeFriendLudoRoom({ uid, payload = {} }) {
   const roomId = String(payload.roomId || "").trim();
   if (!roomId) {
@@ -1983,6 +2051,7 @@ module.exports = {
   getFriendLudoRoomState,
   isFriendLudoRoom,
   joinFriendLudoRoomByCode,
+  previewFriendLudoRoomByCode,
   normalizeCode,
   getConfiguredLudoBotDifficulty,
   getLudoBotPilotSnapshot,

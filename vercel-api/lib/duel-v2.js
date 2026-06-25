@@ -2507,6 +2507,74 @@ async function getDuelV2RoomState({ uid, payload = {} }) {
   return result;
 }
 
+async function previewFriendDuelRoomByCodeV2({ uid, payload = {} }) {
+  assertDuelV2HardAvailable();
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw new HttpsError("unauthenticated", "Connexion requise.");
+  }
+
+  const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
+  if (!inviteCodeNormalized) {
+    throw new HttpsError("invalid-argument", "Kod salon an obligatwa.");
+  }
+
+  const matchingSnap = await db
+    .collection(DUEL_V2_ROOMS_COLLECTION)
+    .where("inviteCodeNormalized", "==", inviteCodeNormalized)
+    .limit(8)
+    .get();
+  const roomDoc = matchingSnap.docs.find((docSnap) => isFriendDuelV2Room(docSnap.data() || {})) || null;
+  if (!roomDoc) {
+    throw new HttpsError("not-found", "Kod salon prive Duel sa a pa egziste oswa li ekspire.");
+  }
+
+  const room = roomDoc.data() || {};
+  const nowMs = Date.now();
+  const status = String(room.status || "").trim().toLowerCase();
+  const playerUids = Array.isArray(room.playerUids)
+    ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+    : ["", ""];
+  const humans = playerUids.filter(Boolean).length;
+  const alreadyMember = playerUids.includes(safeUid);
+  const waitingDeadlineMs = resolveDuelV2WaitDeadlineMs(room, nowMs);
+
+  if (status === "ended" || status === "closed") {
+    throw new HttpsError("failed-precondition", "Kod salon prive Duel sa a deja fini. Mande zanmi ou kreye yon nouvo kod.");
+  }
+  if (status !== "waiting" && !alreadyMember) {
+    throw new HttpsError("failed-precondition", "Salon prive Duel sa a pa disponib anko.");
+  }
+  if (status === "waiting" && waitingDeadlineMs > 0 && nowMs >= waitingDeadlineMs && humans < 2) {
+    throw new HttpsError("failed-precondition", "Kod salon prive Duel sa a ekspire.");
+  }
+  if (!alreadyMember && humans >= 2) {
+    throw new HttpsError("failed-precondition", "Salon prive Duel sa a deja ranpli.");
+  }
+
+  const stakeHtg = safeInt(room.stakeHtg || resolveDuelV2StakeHtgFromRoom(room) || 25);
+  const stakeDoes = safeInt(room.entryCostDoes || room.stakeDoes || (stakeHtg * RATE_HTG_TO_DOES));
+  const rewardAmountDoes = safeInt(room.rewardAmountDoes || Math.floor(stakeDoes * 1.85));
+  return {
+    ok: true,
+    canJoin: true,
+    alreadyMember,
+    gameKey: "domino-duel",
+    gameLabel: "Domino duel",
+    roomId: roomDoc.id,
+    roomMode: "duel_friends",
+    status,
+    inviteCode: String(room.inviteCode || inviteCodeNormalized || "").trim(),
+    stakeHtg,
+    stakeDoes,
+    rewardAmountDoes,
+    rewardAmountHtg: safeInt(room.rewardAmountHtg || buildRewardAmountHtg(stakeDoes, rewardAmountDoes)),
+    humanCount: humans,
+    requiredHumans: 2,
+    waitingDeadlineMs,
+  };
+}
+
 async function touchRoomPresenceDuelV2({ uid, payload = {} }) {
   const roomId = String(payload.roomId || "").trim();
   if (!roomId) {
@@ -2917,6 +2985,7 @@ module.exports = {
   joinFriendDuelRoomByCodeV2,
   joinMatchmakingDuelV2,
   leaveRoomDuelV2,
+  previewFriendDuelRoomByCodeV2,
   requestFriendDuelRematchV2,
   resumeFriendDuelRoomV2,
   submitActionDuelV2,

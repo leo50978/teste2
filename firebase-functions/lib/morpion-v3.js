@@ -1518,6 +1518,72 @@ async function joinFriendMorpionRoomByCodeV3({ uid = "", email = "", payload = {
   });
 }
 
+async function previewFriendMorpionRoomByCodeV3({ uid = "", payload = {} } = {}) {
+  const safeUid = String(uid || "").trim();
+  if (!safeUid) {
+    throw makeHttpError(401, "missing-auth-token", "Connexion requise.");
+  }
+
+  const inviteCodeNormalized = normalizeCode(payload.inviteCode || payload.code || "");
+  if (!inviteCodeNormalized) {
+    throw makeHttpError(400, "missing-invite-code", "Kod salon an obligatwa.");
+  }
+
+  const matchingSnap = await db
+    .collection(MORPION_V3_ROOMS_COLLECTION)
+    .where("inviteCodeNormalized", "==", inviteCodeNormalized)
+    .limit(8)
+    .get();
+  const roomDoc = matchingSnap.docs.find((docSnap) => isFriendMorpionV3Room(docSnap.data() || {})) || null;
+  if (!roomDoc) {
+    throw makeHttpError(404, "morpion-v3-invite-not-found", "Kod salon prive Mopyon sa a pa egziste.");
+  }
+
+  const room = roomDoc.data() || {};
+  const status = String(room.status || "").trim().toLowerCase();
+  const nowMs = Date.now();
+  const playerUids = Array.isArray(room.playerUids)
+    ? room.playerUids.slice(0, 2).map((item) => String(item || "").trim())
+    : ["", ""];
+  const humans = playerUids.filter(Boolean).length;
+  const waitingDeadlineMs = resolveMorpionWaitingDeadlineMs(room, nowMs);
+  const alreadyMember = playerUids.includes(safeUid);
+
+  if (status === "playing" && !alreadyMember) {
+    throw makeHttpError(409, "morpion-v3-room-already-started", "Salon prive sa a deja komanse.");
+  }
+  if (status !== "waiting" && !alreadyMember) {
+    throw makeHttpError(409, "morpion-v3-room-not-available", "Salon prive sa a pa disponib anko.");
+  }
+  if (waitingDeadlineMs > 0 && humans < 2 && nowMs >= waitingDeadlineMs) {
+    throw makeHttpError(409, "morpion-v3-room-expired", "Kod salon prive sa a ekspire.");
+  }
+  if (!alreadyMember && humans >= 2) {
+    throw makeHttpError(409, "morpion-v3-room-full", "Salon prive sa a gentan plen.");
+  }
+
+  const stakeHtg = safeInt(room.stakeHtg || 25);
+  return {
+    ok: true,
+    canJoin: true,
+    alreadyMember,
+    gameKey: "morpion-v3",
+    gameLabel: "Morpion",
+    roomId: roomDoc.id,
+    roomMode: "morpion_friends_v3",
+    status,
+    inviteCode: String(room.inviteCode || inviteCodeNormalized || "").trim(),
+    stakeHtg,
+    stakeDoes: safeInt(room.entryCostDoes || room.stakeDoes || htgToDoes(stakeHtg)),
+    rewardAmountDoes: safeInt(room.rewardAmountDoes || buildRewardAmountDoes(stakeHtg)),
+    rewardAmountHtg: safeInt(room.rewardAmountHtg || buildRewardAmountHtg(stakeHtg)),
+    humanCount: humans,
+    requiredHumans: 2,
+    waitingDeadlineMs,
+    engineVersion: 3,
+  };
+}
+
 async function getMorpionV3RoomState({ uid = "", payload = {} } = {}) {
   const safeUid = String(uid || "").trim();
   if (!safeUid) {
@@ -1961,6 +2027,7 @@ module.exports = {
   joinFriendMorpionRoomByCodeV3,
   joinMatchmakingMorpionV3,
   leaveRoomMorpionV3,
+  previewFriendMorpionRoomByCodeV3,
   requestFriendMorpionRematchV3,
   resumeFriendMorpionRoomV3,
   submitActionMorpionV3,
