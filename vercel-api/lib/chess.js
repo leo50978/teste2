@@ -263,6 +263,10 @@ async function generateUniqueFriendChessInviteCode(size = FRIEND_ROOM_CODE_SIZE,
 
 async function debitStakeTx(tx, uid = "", stakeHtg = 0) {
   const walletSnap = await tx.get(walletRef(uid));
+  return debitStakeFromWalletSnapTx(tx, uid, stakeHtg, walletSnap);
+}
+
+function debitStakeFromWalletSnapTx(tx, uid = "", stakeHtg = 0, walletSnap = null) {
   const walletData = walletSnap.exists ? (walletSnap.data() || {}) : {};
   assertWalletNotFrozen(walletData);
   const walletMutation = applyHtgStakeDebit(walletData, { stakeHtg });
@@ -674,8 +678,11 @@ async function joinFriendChessRoomByCode({ uid = "", email = "", payload = {} } 
       throw makeHttpError(409, "chess-friend-room-full", "Salon prive Echec la deja konple.");
     }
 
-    const hostEntryFunding = await debitStakeTx(tx, hostUid, getRoomStakeHtg(room));
-    const guestEntryFunding = await debitStakeTx(tx, safeUid, getRoomStakeHtg(room));
+    const stakeHtg = getRoomStakeHtg(room);
+    const hostWalletSnap = await tx.get(walletRef(hostUid));
+    const guestWalletSnap = await tx.get(walletRef(safeUid));
+    const hostEntryFunding = debitStakeFromWalletSnapTx(tx, hostUid, stakeHtg, hostWalletSnap);
+    const guestEntryFunding = debitStakeFromWalletSnapTx(tx, safeUid, stakeHtg, guestWalletSnap);
     const nowMs = Date.now();
     const nextPlayerUids = currentPlayerUids.slice(0, 2);
     const nextPlayerNames = currentPlayerNames.slice(0, 2);
