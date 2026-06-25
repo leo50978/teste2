@@ -290,9 +290,10 @@
         </p>
         <div class="stake-grid" style="margin-top:16px;">
           <button type="button" id="orientationStartContinueBtn" class="stake-btn" disabled>Mwen mete l an peyizaj</button>
+          <button type="button" id="orientationStartBypassBtn" class="stake-btn stake-btn-alt">Mwen pa kapab</button>
           <button type="button" id="orientationStartHomeBtn" class="stake-btn stake-btn-alt">Tounen nan akey</button>
         </div>
-        <div id="orientationStartNote" class="panel-note">Si ekran an rete vètikal, jwèt la pap demare.</div>
+        <div id="orientationStartNote" class="panel-note">Si ekran an rete vètikal, ou ka peze Mwen pa kapab pou kontinye konsa.</div>
       </div>
     </div>
 
@@ -352,6 +353,7 @@
       const stakeOverlay = document.getElementById("stakeOverlay");
       const orientationStartOverlay = document.getElementById("orientationStartOverlay");
       const orientationStartContinueBtn = document.getElementById("orientationStartContinueBtn");
+      const orientationStartBypassBtn = document.getElementById("orientationStartBypassBtn");
       const orientationStartHomeBtn = document.getElementById("orientationStartHomeBtn");
       const orientationStartNote = document.getElementById("orientationStartNote");
       const turnWarningOverlay = document.getElementById("turnWarningOverlay");
@@ -392,6 +394,8 @@
       let pendingOrientationAction = null;
       let pendingOrientationStake = 0;
       let orientationStartAutoContinueTimer = 0;
+      const ORIENTATION_BYPASS_STORAGE_KEY = "kobposh_domino_classic_orientation_bypass_session";
+      let orientationStartBypassed = readOrientationStartBypass();
 
       function safeNumber(value, fallback = 0) {
         const n = Number(value);
@@ -423,7 +427,22 @@
       }
 
       function requiresLandscapeBeforeStart() {
-        return isSmartphoneMobileDevice() && !isLandscapeViewport();
+        return !orientationStartBypassed && isSmartphoneMobileDevice() && !isLandscapeViewport();
+      }
+
+      function readOrientationStartBypass() {
+        try {
+          return window.sessionStorage?.getItem(ORIENTATION_BYPASS_STORAGE_KEY) === "1";
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function saveOrientationStartBypass() {
+        try {
+          window.sessionStorage?.setItem(ORIENTATION_BYPASS_STORAGE_KEY, "1");
+        } catch (_) {
+        }
       }
 
       function clearOrientationStartAutoContinueTimer() {
@@ -506,6 +525,7 @@
         });
         if (refreshBalanceBtn) refreshBalanceBtn.disabled = !!busy;
         if (orientationStartContinueBtn) orientationStartContinueBtn.disabled = !!busy || requiresLandscapeBeforeStart();
+        if (orientationStartBypassBtn) orientationStartBypassBtn.disabled = !!busy;
         if (orientationStartHomeBtn) orientationStartHomeBtn.disabled = !!busy;
         if (turnWarningContinueBtn) turnWarningContinueBtn.disabled = !!busy;
         if (turnWarningHomeBtn) turnWarningHomeBtn.disabled = !!busy;
@@ -526,7 +546,7 @@
         if (orientationStartNote) {
           orientationStartNote.textContent = ready
             ? "Bon. Telefòn nan an peyizaj. Ou ka kontinye kounye a."
-            : "Vire telefòn ou an orizontal epi aktive wotasyon oto si sa nesesè. Jwèt la pap demare toutotan ekran an rete vètikal.";
+            : "Vire telefòn ou an orizontal si ou kapab. Si telefòn nan pa vle vire, peze Mwen pa kapab pou kontinye an vètikal.";
         }
         if (ready && !launchBusy) {
           if (orientationStartNote) {
@@ -565,6 +585,12 @@
         if (!requiresLandscapeBeforeStart()) return false;
         openOrientationStartOverlay(stakeDoes, onReady);
         return true;
+      }
+
+      function bypassOrientationStartGuard() {
+        orientationStartBypassed = true;
+        saveOrientationStartBypass();
+        resumeOrientationStartFlow();
       }
 
       function openBranchChoiceGuideOverlay() {
@@ -1071,6 +1097,10 @@
 
       orientationStartContinueBtn?.addEventListener("click", () => {
         resumeOrientationStartFlow();
+      });
+
+      orientationStartBypassBtn?.addEventListener("click", () => {
+        bypassOrientationStartGuard();
       });
 
       orientationStartHomeBtn?.addEventListener("click", () => {

@@ -31,6 +31,7 @@ const TURN_LIMIT_MS = 90000;
 const WAIT_SECONDS = 7;
 const WHATSAPP_GROUP_URL = "https://chat.whatsapp.com/IENi1LH9hn0JWrLfaZwwv1";
 const URL_PARAMS = new URLSearchParams(window.location.search);
+const ORIENTATION_BYPASS_STORAGE_KEY = "kobposh_duel_orientation_bypass_session";
 
 let currentUser = null;
 let currentRoomId = "";
@@ -66,6 +67,7 @@ let duelBootStarted = false;
 let duelBranchChoiceHelpSeen = false;
 let orientationGuardDeferredAction = null;
 let orientationGuardAutoContinueTimer = 0;
+let orientationGuardBypassed = readOrientationGuardBypass();
 let duelTurnWarningAccepted = false;
 let duelBranchChoiceGuideAccepted = false;
 let lotModalOpen = false;
@@ -256,7 +258,22 @@ function isSmartphoneMobileDevice() {
 }
 
 function requiresLandscapeGuard() {
-  return isSmartphoneMobileDevice() && !isLandscapeViewport();
+  return !orientationGuardBypassed && isSmartphoneMobileDevice() && !isLandscapeViewport();
+}
+
+function readOrientationGuardBypass() {
+  try {
+    return window.sessionStorage?.getItem(ORIENTATION_BYPASS_STORAGE_KEY) === "1";
+  } catch (_) {
+    return false;
+  }
+}
+
+function saveOrientationGuardBypass() {
+  try {
+    window.sessionStorage?.setItem(ORIENTATION_BYPASS_STORAGE_KEY, "1");
+  } catch (_) {
+  }
 }
 
 function clearOrientationGuardAutoContinueTimer() {
@@ -268,6 +285,18 @@ function clearOrientationGuardAutoContinueTimer() {
 function closeOrientationGuard() {
   clearOrientationGuardAutoContinueTimer();
   closeOverlay("OrientationGuardOverlay");
+}
+
+function bypassOrientationGuard() {
+  orientationGuardBypassed = true;
+  saveOrientationGuardBypass();
+  const deferred = orientationGuardDeferredAction;
+  orientationGuardDeferredAction = null;
+  clearOrientationGuardAutoContinueTimer();
+  closeOrientationGuard();
+  if (typeof deferred === "function") {
+    deferred();
+  }
 }
 
 function hideDuelPrelaunchOverlays() {
@@ -1862,6 +1891,14 @@ function bindButtons() {
   if (branchChoiceGuideHomeBtn) {
     branchChoiceGuideHomeBtn.addEventListener("click", () => {
       goHome();
+    });
+  }
+
+  const orientationBypassBtn = $("OrientationGuardBypassBtn");
+  if (orientationBypassBtn && orientationBypassBtn.dataset.bound !== "1") {
+    orientationBypassBtn.dataset.bound = "1";
+    orientationBypassBtn.addEventListener("click", () => {
+      bypassOrientationGuard();
     });
   }
 

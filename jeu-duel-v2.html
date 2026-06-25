@@ -43,7 +43,7 @@
         <script src="./Domino_Partida_Duel.js?v=20260604-duel-launch-fix1"></script>        
         <script src="./Domino.js"></script>        
 
-        <script type="module" src="./logiquejeu-duel-v2.js?v=20260617-turn90-1"></script>
+        <script type="module" src="./logiquejeu-duel-v2.js?v=20260625-orientation-bypass1"></script>
         <style>
             :root {
                 --kob-bg-0: #f4fbf6;
@@ -1035,7 +1035,10 @@
                 <p id="OrientationGuardRisk" class="mt-5 rounded-xl border border-amber-300/35 bg-amber-500/10 p-3 text-sm font-semibold leading-relaxed text-amber-100 hidden sm:text-base">
                     Attention: la partie continue. Remets vite le telephone en mode horizontal, sinon tu risques de perdre la partie et ton argent.
                 </p>
-                <p class="mt-4 text-xs leading-relaxed text-white/75 sm:text-sm">Le jeu continuera automatiquement quand ton ecran sera horizontal.</p>
+                <button id="OrientationGuardBypassBtn" type="button" class="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border border-white/25 bg-white/12 px-5 py-3 text-sm font-bold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition hover:bg-white/18 sm:text-base">
+                    Mwen pa kapab, kite m jwe konsa
+                </button>
+                <p class="mt-4 text-xs leading-relaxed text-white/75 sm:text-sm">Si ou pa ka vire ekran an, peze bouton an pou kontinye an vetikal.</p>
             </div>
         </div>
 
