@@ -987,12 +987,12 @@ function ensureDominoDuelStakeModal() {
   const HTG_TO_DOES_RATE = 20;
 
   const overlay = document.createElement("div");
-  overlay.className = "fixed inset-0 z-[4205] hidden items-end justify-center bg-black/55 px-4 py-6 backdrop-blur-sm sm:items-center";
+  overlay.className = "kobposh-domino-duel-modal fixed inset-0 z-[4205] hidden items-end justify-center bg-black/55 px-4 py-6 backdrop-blur-sm sm:items-center";
   overlay.setAttribute("data-kobposh-domino-duel-stake-modal", "");
   overlay.innerHTML = `
-    <div class="w-full max-w-2xl overflow-hidden rounded-[36px] border border-white/40 bg-[linear-gradient(180deg,rgba(255,252,247,0.98)_0%,rgba(248,251,247,0.96)_100%)] shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
-      <div class="border-b border-[#e7ece6] px-6 py-6 sm:px-8 sm:py-7">
-        <div class="flex items-start justify-between gap-4">
+    <div class="kobposh-domino-duel-modal__panel w-full max-w-2xl overflow-hidden rounded-[36px] border border-white/40 bg-[linear-gradient(180deg,rgba(255,252,247,0.98)_0%,rgba(248,251,247,0.96)_100%)] shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+      <div class="kobposh-domino-duel-modal__header border-b border-[#e7ece6] px-6 py-6 sm:px-8 sm:py-7">
+        <div class="kobposh-domino-duel-modal__header-row flex items-start justify-between gap-4">
           <div class="min-w-0">
             <p class="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#6f7f76]">Domino duel</p>
             <h2 class="mt-2 text-[30px] font-black leading-tight text-[#18212b]">Domino 2 joueurs</h2>
@@ -1010,7 +1010,7 @@ function ensureDominoDuelStakeModal() {
           <span class="rounded-full border border-[#dbe4dc] bg-white px-3 py-1.5 text-xs font-semibold text-[#32423c]">2 joueurs</span>
         </div>
       </div>
-      <div class="px-6 py-6 sm:px-8 sm:py-7">
+      <div class="kobposh-domino-duel-modal__body px-6 py-6 sm:px-8 sm:py-7">
         <div data-domino-duel-step-panel="mode" class="space-y-4">
           <div>
             <h3 class="text-[24px] font-black text-[#18212b]">Salon prive sèlman</h3>
@@ -1121,7 +1121,7 @@ function ensureDominoDuelStakeModal() {
           </div>
         </div>
       </div>
-      <div class="flex items-center justify-between gap-3 border-t border-[#e7ece6] px-6 py-5 sm:px-8">
+      <div class="kobposh-domino-duel-modal__footer flex items-center justify-between gap-3 border-t border-[#e7ece6] px-6 py-5 sm:px-8">
         <button type="button" class="hidden rounded-full border border-[#dce5df] bg-white px-5 py-3 text-sm font-semibold text-[#42524c] transition hover:bg-[#f7fbf8]" data-domino-duel-step-back>
           Retounen
         </button>
@@ -4830,10 +4830,10 @@ function ensureChessStakeModal() {
   if (chessStakeModal) return chessStakeModal;
 
   const modal = document.createElement("section");
-  modal.className = "kobposh-forgot-modal";
+  modal.className = "kobposh-forgot-modal kobposh-chess-mode-modal";
   modal.setAttribute("aria-hidden", "true");
   modal.innerHTML = `
-    <div class="kobposh-forgot-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhChessModeTitle">
+    <div class="kobposh-forgot-modal__panel kobposh-chess-mode-modal__panel" role="dialog" aria-modal="true" aria-labelledby="kobposhChessModeTitle">
       <button class="kobposh-forgot-modal__close" type="button" aria-label="Femen modal la" data-kobposh-chess-mode-close>
         <i data-lucide="x" class="icon" aria-hidden="true"></i>
       </button>
@@ -4851,7 +4851,7 @@ function ensureChessStakeModal() {
         </button>
       </div>
       <p class="mt-3 text-sm font-semibold text-[#5f6f67]" data-kobposh-chess-public-status></p>
-      <div class="mt-5 hidden rounded-[24px] border border-[#dce5df] bg-[#f8fcf9] p-4 text-left" data-kobposh-chess-private-panel>
+      <div class="kobposh-chess-mode-modal__private mt-5 hidden rounded-[24px] border border-[#dce5df] bg-[#f8fcf9] p-4 text-left" data-kobposh-chess-private-panel>
         <div class="grid gap-3 sm:grid-cols-2">
           <button class="rounded-[18px] border border-[#cfe4d7] bg-white px-4 py-4 text-left" type="button" data-kobposh-chess-private-action="create">
             <span class="block text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7b8a83]">Create</span>

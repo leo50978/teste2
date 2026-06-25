@@ -3767,6 +3767,154 @@ body.kobposh-route-transition .site-footer {
   font-weight: 800;
 }
 
+.kobposh-forgot-modal__secondary {
+  margin-top: 0.65rem;
+  width: 100%;
+  min-height: 2.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(15, 120, 67, 0.28);
+  background: #ffffff;
+  color: #0e5c34;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.kobposh-domino-duel-modal {
+  padding: 0.55rem;
+}
+
+.kobposh-domino-duel-modal__panel {
+  max-height: calc(100dvh - 1.1rem);
+  border-radius: 1.35rem 1.35rem 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.kobposh-domino-duel-modal__header {
+  flex: 0 0 auto;
+  padding: 1rem 0.9rem 0.9rem !important;
+}
+
+.kobposh-domino-duel-modal__header-row {
+  gap: 0.75rem;
+}
+
+.kobposh-domino-duel-modal__header h2 {
+  font-size: clamp(1.45rem, 8vw, 2rem) !important;
+}
+
+.kobposh-domino-duel-modal__header [data-domino-duel-step-copy] {
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.kobposh-domino-duel-modal__header [data-domino-duel-step-progress] {
+  display: none;
+}
+
+.kobposh-domino-duel-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem 0.9rem !important;
+}
+
+.kobposh-domino-duel-modal__body h3 {
+  font-size: clamp(1.25rem, 6vw, 1.75rem) !important;
+}
+
+.kobposh-domino-duel-modal__body button,
+.kobposh-domino-duel-modal__body input {
+  border-radius: 1.05rem !important;
+}
+
+.kobposh-domino-duel-modal__body [data-domino-duel-created-code] {
+  font-size: clamp(1.35rem, 9vw, 1.9rem) !important;
+  letter-spacing: 0.12em !important;
+  word-break: break-word;
+}
+
+.kobposh-domino-duel-modal__footer {
+  flex: 0 0 auto;
+  padding: 0.85rem 0.9rem calc(0.85rem + env(safe-area-inset-bottom)) !important;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.kobposh-domino-duel-modal__footer button {
+  min-height: 2.9rem;
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.kobposh-chess-mode-modal {
+  align-items: flex-end;
+  padding: 0.55rem;
+}
+
+.kobposh-chess-mode-modal__panel {
+  width: min(100%, 30rem);
+  max-height: calc(100dvh - 1.1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.35rem 1.35rem 0 0;
+  padding: 1rem 0.9rem calc(1rem + env(safe-area-inset-bottom));
+}
+
+.kobposh-chess-mode-modal .kobposh-forgot-modal__title {
+  padding-right: 2.7rem;
+  font-size: clamp(1.35rem, 7vw, 1.9rem);
+  line-height: 1.08;
+}
+
+.kobposh-chess-mode-modal .kobposh-forgot-modal__text {
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.kobposh-chess-mode-modal .kobposh-forgot-modal__action,
+.kobposh-chess-mode-modal .kobposh-forgot-modal__secondary {
+  width: 100%;
+  min-height: 2.95rem;
+  border-radius: 1rem;
+}
+
+.kobposh-chess-mode-modal__private {
+  max-height: none;
+  padding: 0.85rem !important;
+  border-radius: 1.1rem !important;
+}
+
+.kobposh-chess-mode-modal__private strong[data-kobposh-chess-created-code] {
+  font-size: clamp(1.45rem, 10vw, 1.9rem) !important;
+  letter-spacing: 0.12em !important;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .kobposh-domino-duel-modal {
+    padding: 1.5rem;
+  }
+
+  .kobposh-domino-duel-modal__panel,
+  .kobposh-chess-mode-modal__panel {
+    border-radius: 2rem;
+    max-height: min(88vh, 46rem);
+  }
+
+  .kobposh-domino-duel-modal__header [data-domino-duel-step-progress] {
+    display: inline-flex;
+  }
+
+  .kobposh-domino-duel-modal__footer button {
+    flex: 0 0 auto;
+  }
+
+  .kobposh-chess-mode-modal {
+    align-items: center;
+  }
+}
+
 .kobposh-tournament-rules-modal__panel {
   width: min(94vw, 40rem);
   max-height: min(86vh, 52rem);
