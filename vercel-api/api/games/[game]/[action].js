@@ -19,6 +19,7 @@ const ROUTE_LOADERS = Object.freeze({
   "morpion-v3/join-friend-room-by-code": () => require("../../../routes/games/morpion-v3/join-friend-room-by-code"),
   "morpion-v3/join-matchmaking": () => require("../../../routes/games/morpion-v3/join-matchmaking"),
   "morpion-v3/leave-room": () => require("../../../routes/games/morpion-v3/leave-room"),
+  "morpion-v3/preview-friend-room": () => require("../../../routes/games/morpion-v3/preview-friend-room"),
   "morpion-v3/request-friend-rematch": () => require("../../../routes/games/morpion-v3/request-friend-rematch"),
   "morpion-v3/resume-friend-room": () => require("../../../routes/games/morpion-v3/resume-friend-room"),
   "morpion-v3/submit-action": () => require("../../../routes/games/morpion-v3/submit-action"),

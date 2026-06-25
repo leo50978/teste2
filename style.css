@@ -38,7 +38,7 @@ body {
 .kobposh-friend-preview {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 99999;
   display: grid;
   place-items: end center;
   padding: 14px;

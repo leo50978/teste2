@@ -1153,10 +1153,13 @@ export async function joinFriendMorpionRoomByCodeV3Secure(payload = {}) {
 }
 
 export async function previewFriendMorpionRoomByCodeV3Secure(payload = {}) {
-  return invokeCallable(
-    "previewFriendMorpionRoomByCodeV3",
+  return invokeBackendHttp(
+    "/api/games/morpion-v3/preview-friend-room",
+    {
     payload,
-    "Impossible de lire la mise du salon prive Mopyon an."
+      requireAuth: true,
+      fallbackError: "Impossible de lire la mise du salon prive Mopyon an.",
+    }
   );
 }
 

@@ -38,7 +38,7 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260625-room-preview1";
+} from "./secure-functions.js?v=20260625-room-preview2";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;

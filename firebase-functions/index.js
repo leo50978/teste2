@@ -44,6 +44,7 @@ const {
 
 const DAME_FUNCTION_OPTIONS = {
   region: "us-central1",
+  cors: true,
   memory: "512MiB",
   timeoutSeconds: 30,
   minInstances: 0,
@@ -52,6 +53,7 @@ const DAME_FUNCTION_OPTIONS = {
 
 const MORPION_V3_FUNCTION_OPTIONS = {
   region: "us-central1",
+  cors: true,
   memory: "512MiB",
   timeoutSeconds: 30,
   minInstances: 0,
@@ -60,6 +62,7 @@ const MORPION_V3_FUNCTION_OPTIONS = {
 
 const LUDO_FUNCTION_OPTIONS = {
   region: "us-central1",
+  cors: true,
   memory: "512MiB",
   timeoutSeconds: 30,
   minInstances: 0,
