@@ -702,145 +702,125 @@ export async function leaveFriendLudoRoomSecure(payload = {}) {
   return invokeCallable("leaveFriendLudoRoom", payload, fallbackError);
 }
 
-export async function joinMatchmakingDameSecure(payload = {}) {
-  const fallbackError = "Impossible de rejoindre une partie de dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/join-matchmaking", {
+async function invokeDameCallableFirst(callableName, httpPath, payload = {}, fallbackError = "Erreur Dame") {
+  try {
+    return await invokeCallable(callableName, payload, fallbackError);
+  } catch (callableError) {
+    if (!getConfiguredApiBaseUrl()) throw callableError;
+    return invokeBackendHttp(httpPath, {
       payload,
       requireAuth: true,
       fallbackError,
-    }).catch(() => invokeCallable("joinMatchmakingDame", payload, fallbackError));
+    });
   }
-  return invokeCallable("joinMatchmakingDame", payload, fallbackError);
+}
+
+export async function joinMatchmakingDameSecure(payload = {}) {
+  return invokeDameCallableFirst(
+    "joinMatchmakingDame",
+    "/api/games/dame/join-matchmaking",
+    payload,
+    "Impossible de rejoindre une partie de dame."
+  );
 }
 
 export async function createFriendDameRoomSecure(payload = {}) {
-  const fallbackError = "Impossible de kreye salon prive Dame la.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/create-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("createFriendDameRoom", payload, fallbackError));
-  }
-  return invokeCallable("createFriendDameRoom", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "createFriendDameRoom",
+    "/api/games/dame/create-friend-room",
+    payload,
+    "Impossible de kreye salon prive Dame la."
+  );
 }
 
 export async function joinFriendDameRoomByCodeSecure(payload = {}) {
-  const fallbackError = "Impossible de antre nan salon prive Dame la.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/join-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("joinFriendDameRoomByCode", payload, fallbackError));
-  }
-  return invokeCallable("joinFriendDameRoomByCode", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "joinFriendDameRoomByCode",
+    "/api/games/dame/join-friend-room",
+    payload,
+    "Impossible de antre nan salon prive Dame la."
+  );
 }
 
 export async function resumeFriendDameRoomSecure(payload = {}) {
-  const fallbackError = "Impossible de reprendre la salle dame privee.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/resume-friend-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("resumeFriendDameRoom", payload, fallbackError));
-  }
-  return invokeCallable("resumeFriendDameRoom", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "resumeFriendDameRoom",
+    "/api/games/dame/resume-friend-room",
+    payload,
+    "Impossible de reprendre la salle dame privee."
+  );
 }
 
 export async function ensureRoomReadyDameSecure(payload = {}) {
-  const fallbackError = "Impossible de demarrer la partie de dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/ensure-ready", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("ensureRoomReadyDame", payload, fallbackError));
-  }
-  return invokeCallable("ensureRoomReadyDame", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "ensureRoomReadyDame",
+    "/api/games/dame/ensure-ready",
+    payload,
+    "Impossible de demarrer la partie de dame."
+  );
 }
 
 export async function touchRoomPresenceDameSecure(payload = {}) {
-  const fallbackError = "Impossible de mettre a jour la presence dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/touch-presence", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("touchRoomPresenceDame", payload, fallbackError));
-  }
-  return invokeCallable("touchRoomPresenceDame", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "touchRoomPresenceDame",
+    "/api/games/dame/touch-presence",
+    payload,
+    "Impossible de mettre a jour la presence dame."
+  );
 }
 
 export async function leaveRoomDameSecure(payload = {}) {
-  const fallbackError = "Impossible de quitter la salle dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/leave-room", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("leaveRoomDame", payload, fallbackError));
-  }
-  return invokeCallable("leaveRoomDame", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "leaveRoomDame",
+    "/api/games/dame/leave-room",
+    payload,
+    "Impossible de quitter la salle dame."
+  );
 }
 
 export async function submitActionDameSecure(payload = {}) {
-  const fallbackError = "Impossible d'envoyer l'action dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/submit-action", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("submitActionDame", payload, fallbackError));
-  }
-  return invokeCallable("submitActionDame", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "submitActionDame",
+    "/api/games/dame/submit-action",
+    payload,
+    "Impossible d'envoyer l'action dame."
+  );
 }
 
 export async function finalizeDameMatchSecure(payload = {}) {
-  const fallbackError = "Impossible de finaliser le resultat dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/finalize-match", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("finalizeDameMatchSecure", payload, fallbackError));
-  }
-  return invokeCallable("finalizeDameMatchSecure", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "finalizeDameMatchSecure",
+    "/api/games/dame/finalize-match",
+    payload,
+    "Impossible de finaliser le resultat dame."
+  );
 }
 
 export async function restartDameAfterDrawSecure(payload = {}) {
-  const fallbackError = "Impossible de rejouer la partie nulle.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/restart-after-draw", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("restartDameAfterDrawSecure", payload, fallbackError));
-  }
-  return invokeCallable("restartDameAfterDrawSecure", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "restartDameAfterDrawSecure",
+    "/api/games/dame/restart-after-draw",
+    payload,
+    "Impossible de rejouer la partie nulle."
+  );
 }
 
 export async function requestFriendDameRematchSecure(payload = {}) {
-  const fallbackError = "Impossible de relanse revanche prive Dame la.";
-  return invokeBackendHttp("/api/games/dame/request-friend-rematch", {
+  return invokeDameCallableFirst(
+    "requestFriendDameRematch",
+    "/api/games/dame/request-friend-rematch",
     payload,
-    requireAuth: true,
-    fallbackError,
-  });
+    "Impossible de relanse revanche prive Dame la."
+  );
 }
 
 export async function recordDameMatchResultSecure(payload = {}) {
-  const fallbackError = "Impossible d'enregistrer le resultat dame.";
-  if (getConfiguredApiBaseUrl()) {
-    return invokeBackendHttp("/api/games/dame/record-result", {
-      payload,
-      requireAuth: true,
-      fallbackError,
-    }).catch(() => invokeCallable("recordDameMatchResultSecure", payload, fallbackError));
-  }
-  return invokeCallable("recordDameMatchResultSecure", payload, fallbackError);
+  return invokeDameCallableFirst(
+    "recordDameMatchResultSecure",
+    "/api/games/dame/record-result",
+    payload,
+    "Impossible d'enregistrer le resultat dame."
+  );
 }
 
 export async function getPublicWhatsappModalConfigSecure(payload = {}) {

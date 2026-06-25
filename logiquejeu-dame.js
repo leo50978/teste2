@@ -23,7 +23,7 @@ import {
   recordDameMatchResultSecure,
   getPublicWhatsappModalConfigSecure,
   updateClientProfileSecure,
-} from "./secure-functions.js";
+} from "./secure-functions.js?v=20260625-dame-firebase1";
 import { ensureXchangeState, getXchangeState } from "./xchange.js";
 import { mountNetworkQualityIndicator } from "./network-quality-indicator.js?v=20260605-network2";
 

@@ -8,7 +8,7 @@ import {
   resumeFriendChessRoomSecure,
   submitActionChessSecure,
   touchRoomPresenceChessSecure,
-} from "../secure-functions.js?v=20260607-chess-entry1";
+} from "../secure-functions.js?v=20260625-dame-firebase1";
 
 (function () {
   const params = new URLSearchParams(window.location.search);

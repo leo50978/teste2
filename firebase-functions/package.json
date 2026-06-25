@@ -1,0 +1,18 @@
+{
+  "name": "kobposh-firebase-game-functions",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Firebase callable functions for latency-sensitive Kobposh games",
+  "engines": {
+    "node": "22"
+  },
+  "main": "index.js",
+  "scripts": {
+    "check": "node --check index.js && node --check lib/dame.js && node --check lib/firebase-admin.js && node --check lib/domino-classic.js && node --check lib/player-wallet.js && node --check lib/wallet-htg.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^5.1.1",
+    "jose": "^4.15.4"
+  }
+}
