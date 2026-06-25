@@ -828,14 +828,14 @@ async function touchRoomPresenceChess({ uid = "", payload = {} } = {}) {
 
     const deadlineMs = safeSignedInt(room.turnDeadlineMs, 0);
     if (deadlineMs > 0 && deadlineMs <= nowMs) {
-      const winnerSeat = safeSignedInt(room.currentTurnSeat, 0) === 0 ? 1 : 0;
-      const endedReason = "timeout";
+      const endedReason = shouldRefundBeforeOpening(room) ? "timeout_refund" : "timeout";
+      const winnerSeat = endedReason === "timeout_refund" ? -1 : (safeSignedInt(room.currentTurnSeat, 0) === 0 ? 1 : 0);
       const nextRoom = {
         ...room,
         status: "ended",
         endedReason,
         winnerSeat,
-        winnerUid: String((room.playerUids || [])[winnerSeat] || "").trim(),
+        winnerUid: winnerSeat >= 0 ? String((room.playerUids || [])[winnerSeat] || "").trim() : "",
         endedAtMs: nowMs,
         roomPresenceMs,
       };

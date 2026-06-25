@@ -80,6 +80,7 @@ import {
   let bootstrapStarted = false;
   let privateGameStarted = false;
   let suppressMoveSync = false;
+  let activeLastMoveSeq = 0;
   let pendingMovePromise = Promise.resolve();
   const FRIEND_ROOM_STORAGE_KEY = "kobposh_chess_friend_room_v1";
 
@@ -305,6 +306,12 @@ import {
   function describeEndedState(state = {}) {
     const winnerSeat = Number.isFinite(Number(state?.winnerSeat)) ? Number(state.winnerSeat) : -1;
     const endedReason = String(state?.endedReason || "").trim().toLowerCase();
+    if (endedReason === "timeout_refund" || endedReason === "quit_refund_before_opening") {
+      return {
+        title: "Remboursement",
+        text: "Pati a pa t ouvri nèt paske chak jwe poko fè premye kou pa yo. Mize yo remèt.",
+      };
+    }
     const isDraw = winnerSeat < 0 || endedReason.startsWith("draw") || endedReason === "stalemate";
     if (isDraw) {
       return {
@@ -583,9 +590,17 @@ import {
     const to = String(record?.to || "").trim();
     if (!from || !to || typeof window.move !== "function") return;
     suppressMoveSync = true;
+    const previousPossibleMoves = Array.isArray(window.possibleMoves) ? window.possibleMoves.slice() : [];
+    const previousCanMove = window.canMove;
     try {
+      window.possibleMoves = [to];
+      window.canMove = true;
       window.move(from, to);
     } finally {
+      window.possibleMoves = previousPossibleMoves;
+      if (typeof previousCanMove !== "undefined") {
+        window.canMove = previousCanMove;
+      }
       suppressMoveSync = false;
     }
   }
@@ -631,14 +646,15 @@ import {
     applyTurnState(state);
 
     const moveHistory = Array.isArray(state.moveHistory) ? state.moveHistory : [];
-    if (moveHistory.length > activeMoveHistoryLength) {
-      const missingMoves = moveHistory.slice(activeMoveHistoryLength);
+    const missingMoves = moveHistory.filter((moveRecord) => Number(moveRecord?.seq || 0) > activeLastMoveSeq);
+    if (missingMoves.length) {
       for (const moveRecord of missingMoves) {
         const isOwnMove = Number(moveRecord?.seatIndex) === activeSeatIndex;
         if (!isOwnMove) {
           await applyRemoteMoveRecord(moveRecord);
         }
-        activeMoveHistoryLength += 1;
+        activeLastMoveSeq = Math.max(activeLastMoveSeq, Number(moveRecord?.seq || 0));
+        activeMoveHistoryLength = Math.max(activeMoveHistoryLength, activeLastMoveSeq);
       }
     }
 
@@ -731,6 +747,8 @@ import {
             handleEndedState(syncResult);
             return;
           }
+          activeLastMoveSeq = Math.max(activeLastMoveSeq, Number(syncResult?.seq || afterMoveNumber || 0));
+          activeMoveHistoryLength = Math.max(activeMoveHistoryLength, activeLastMoveSeq);
           applyTurnState(syncResult);
         });
       }
@@ -749,6 +767,7 @@ import {
     activeRoomEnded = false;
     activeRoomFinalized = false;
     activeMoveHistoryLength = 0;
+    activeLastMoveSeq = 0;
     privateGameStarted = false;
     updateOpponent("Ap tann advese", "N ap prepare pati a");
     updateStatus("N ap chache yon lot jwe");
@@ -825,6 +844,7 @@ import {
     activeRoomEnded = false;
     activeRoomFinalized = false;
     activeMoveHistoryLength = 0;
+    activeLastMoveSeq = 0;
     privateGameStarted = false;
     updateOpponent("Salon prive", "N ap prepare room la");
     updateStatus("N ap prepare salon prive a");
