@@ -10,6 +10,9 @@ const {
   computeDepositBonusSnapshot,
   getAgentDepositMethodMeta,
 } = require("../../../lib/agent-deposits");
+const {
+  applyApprovedDepositStatsTx,
+} = require("../../../lib/deposit-flow-stats");
 const { sanitizeEmail } = require("../../../lib/deposits");
 const { safeInt, sanitizeText } = require("../../../lib/safe");
 
@@ -74,6 +77,7 @@ module.exports = async function handler(req, res) {
         ...orderData,
         createdAtServer: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
+      applyApprovedDepositStatsTx(tx, orderData, nowMs);
       tx.set(clientRef, {
         uid: clientId,
         email: sanitizeEmail(clientData.email || "", 160),

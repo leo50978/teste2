@@ -96,6 +96,24 @@ function getOrderMethod(order = {}) {
   return normalizeMethod(`${String(order.methodId || "")} ${String(order.methodName || "")}`);
 }
 
+function isAgentDepositOrder(order = {}) {
+  const raw = [
+    order.agentAssisted,
+    order.source,
+    order.methodId,
+    order.methodName,
+    order.extractedTextStatus,
+    order.creditedByAgentUid,
+    order.creditedByAgentEmail,
+  ].map((value) => String(value || "").trim().toLowerCase()).join(" ");
+  return order.agentAssisted === true
+    || raw.includes("agent_assisted")
+    || raw.includes("agent credit")
+    || raw.includes("agent_credit")
+    || String(order.creditedByAgentUid || "").trim().length > 0
+    || String(order.creditedByAgentEmail || "").trim().length > 0;
+}
+
 function getBucketInfo(ms = Date.now(), granularity = "day") {
   const parts = localParts(ms);
   const dayKey = dayKeyFromParts(parts);
@@ -136,6 +154,16 @@ function incrementPatch(prefix = "", amountHtg = 0, method = "other", countDelta
   };
 }
 
+function incrementSourcePatch(prefix = "", amountHtg = 0, source = "direct", countDelta = 1) {
+  const safeAmount = safeInt(amountHtg);
+  const safeCount = safeInt(countDelta);
+  const sourceKey = source === "agent" ? "agent" : "direct";
+  return {
+    [`${sourceKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Count`]: admin.firestore.FieldValue.increment(safeCount),
+    [`${sourceKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Htg`]: admin.firestore.FieldValue.increment(safeAmount),
+  };
+}
+
 function buildBasePatch(bucket = {}, nowMs = Date.now()) {
   return {
     granularity: bucket.granularity,
@@ -161,9 +189,12 @@ function applyDepositCreatedStatsTx(tx, order = {}, nowMs = Date.now()) {
   const amountHtg = Math.max(0, computeOrderAmount(order) || safeInt(order.amountHtg || order.amount));
   if (amountHtg <= 0) return;
   const method = getOrderMethod(order);
+  const source = isAgentDepositOrder(order) ? "agent" : "direct";
   const patch = {
     ...incrementPatch("requested", amountHtg, method, 1),
     ...incrementPatch("pending", amountHtg, method, 1),
+    ...incrementSourcePatch("requested", amountHtg, source, 1),
+    ...incrementSourcePatch("pending", amountHtg, source, 1),
   };
   setBucketIncrement(tx, getBucketInfo(createdAtMs, "hour"), patch, nowMs);
   setBucketIncrement(tx, getBucketInfo(createdAtMs, "day"), patch, nowMs);
@@ -177,10 +208,30 @@ function applyDepositResolvedStatsTx(tx, order = {}, decision = "", nowMs = Date
   const amountHtg = Math.max(0, computeOrderAmount(order));
   if (amountHtg <= 0) return;
   const method = getOrderMethod(order);
+  const source = isAgentDepositOrder(order) ? "agent" : "direct";
   const statusPrefix = normalizedDecision === "approve" ? "approved" : "rejected";
   const patch = {
     ...incrementPatch("pending", -amountHtg, method, -1),
     ...incrementPatch(statusPrefix, amountHtg, method, 1),
+    ...incrementSourcePatch("pending", -amountHtg, source, -1),
+    ...incrementSourcePatch(statusPrefix, amountHtg, source, 1),
+  };
+  setBucketIncrement(tx, getBucketInfo(createdAtMs, "hour"), patch, nowMs);
+  setBucketIncrement(tx, getBucketInfo(createdAtMs, "day"), patch, nowMs);
+}
+
+function applyApprovedDepositStatsTx(tx, order = {}, nowMs = Date.now()) {
+  if (isWelcomeBonusOrder(order)) return;
+  const createdAtMs = safeSignedInt(order.createdAtMs) || nowMs;
+  const amountHtg = Math.max(0, computeOrderAmount(order));
+  if (amountHtg <= 0) return;
+  const method = getOrderMethod(order);
+  const source = isAgentDepositOrder(order) ? "agent" : "direct";
+  const patch = {
+    ...incrementPatch("requested", amountHtg, method, 1),
+    ...incrementPatch("approved", amountHtg, method, 1),
+    ...incrementSourcePatch("requested", amountHtg, source, 1),
+    ...incrementSourcePatch("approved", amountHtg, source, 1),
   };
   setBucketIncrement(tx, getBucketInfo(createdAtMs, "hour"), patch, nowMs);
   setBucketIncrement(tx, getBucketInfo(createdAtMs, "day"), patch, nowMs);
@@ -239,6 +290,22 @@ function makeEmptyBucket(bucket = {}) {
     otherApprovedHtg: 0,
     otherRejectedHtg: 0,
     otherPendingHtg: 0,
+    directRequestedCount: 0,
+    directApprovedCount: 0,
+    directRejectedCount: 0,
+    directPendingCount: 0,
+    directRequestedHtg: 0,
+    directApprovedHtg: 0,
+    directRejectedHtg: 0,
+    directPendingHtg: 0,
+    agentRequestedCount: 0,
+    agentApprovedCount: 0,
+    agentRejectedCount: 0,
+    agentPendingCount: 0,
+    agentRequestedHtg: 0,
+    agentApprovedHtg: 0,
+    agentRejectedHtg: 0,
+    agentPendingHtg: 0,
   };
 }
 
@@ -279,6 +346,95 @@ async function getStatsDocsForBuckets(buckets = [], granularity = "day") {
   return db.getAll(...refs);
 }
 
+async function readAgentApprovedSupplement(range = {}, buckets = []) {
+  const needsSupplement = buckets.some((bucket) => (
+    safeInt(bucket.approvedHtg) > 0
+    && (safeInt(bucket.directApprovedHtg) + safeInt(bucket.agentApprovedHtg)) < safeInt(bucket.approvedHtg)
+  ));
+  if (!needsSupplement) return { scanned: 0, applied: false };
+
+  const bucketMap = new Map(buckets.map((bucket) => [String(bucket.key || ""), bucket]));
+  let scanned = 0;
+  const agentByBucket = new Map();
+  const collectAgentRow = (row = {}) => {
+    const createdAtMs = safeSignedInt(row.createdAtMs);
+    if (!createdAtMs || createdAtMs < safeSignedInt(range.startMs) || createdAtMs > safeSignedInt(range.endMs)) return;
+    if (getOrderResolutionStatus(row) !== "approved") return;
+    const bucketInfo = getBucketInfo(createdAtMs, range.granularity);
+    const amountHtg = Math.max(0, computeOrderAmount(row));
+    if (amountHtg <= 0) return;
+    const current = agentByBucket.get(bucketInfo.key) || { count: 0, amountHtg: 0 };
+    agentByBucket.set(bucketInfo.key, {
+      count: current.count + 1,
+      amountHtg: current.amountHtg + amountHtg,
+    });
+  };
+  const applyAgentBuckets = () => {
+    agentByBucket.forEach((agentStats, key) => {
+      const bucket = bucketMap.get(key);
+      if (!bucket) return;
+      const approvedHtg = safeInt(bucket.approvedHtg);
+      const approvedCount = safeInt(bucket.approvedCount);
+      const agentApprovedHtg = Math.min(approvedHtg, Math.max(safeInt(bucket.agentApprovedHtg), safeInt(agentStats.amountHtg)));
+      const agentApprovedCount = Math.min(approvedCount, Math.max(safeInt(bucket.agentApprovedCount), safeInt(agentStats.count)));
+      bucket.agentApprovedHtg = agentApprovedHtg;
+      bucket.agentApprovedCount = agentApprovedCount;
+      bucket.directApprovedHtg = Math.max(0, approvedHtg - agentApprovedHtg);
+      bucket.directApprovedCount = Math.max(0, approvedCount - agentApprovedCount);
+    });
+    buckets.forEach((bucket) => {
+      const approvedHtg = safeInt(bucket.approvedHtg);
+      const approvedCount = safeInt(bucket.approvedCount);
+      if (approvedHtg <= 0) return;
+      const currentSourceHtg = safeInt(bucket.directApprovedHtg) + safeInt(bucket.agentApprovedHtg);
+      const currentSourceCount = safeInt(bucket.directApprovedCount) + safeInt(bucket.agentApprovedCount);
+      if (currentSourceHtg < approvedHtg) {
+        bucket.directApprovedHtg = Math.max(0, approvedHtg - safeInt(bucket.agentApprovedHtg));
+      }
+      if (currentSourceCount < approvedCount) {
+        bucket.directApprovedCount = Math.max(0, approvedCount - safeInt(bucket.agentApprovedCount));
+      }
+    });
+  };
+  try {
+    const snap = await db.collectionGroup("orders")
+      .where("agentAssisted", "==", true)
+      .where("createdAtMs", ">=", safeSignedInt(range.startMs))
+      .where("createdAtMs", "<=", safeSignedInt(range.endMs))
+      .select("amount", "amountHtg", "approvedAmountHtg", "createdAtMs", "status", "resolutionStatus", "agentAssisted")
+      .limit(1000)
+      .get();
+    snap.forEach((docSnap) => {
+      scanned += 1;
+      collectAgentRow(docSnap.data() || {});
+    });
+
+    applyAgentBuckets();
+    return { scanned, applied: agentByBucket.size > 0 };
+  } catch (error) {
+    try {
+      const fallbackSnap = await db.collectionGroup("orders")
+        .where("agentAssisted", "==", true)
+        .select("amount", "amountHtg", "approvedAmountHtg", "createdAtMs", "status", "resolutionStatus", "agentAssisted")
+        .limit(1000)
+        .get();
+      fallbackSnap.forEach((docSnap) => {
+        scanned += 1;
+        collectAgentRow(docSnap.data() || {});
+      });
+      applyAgentBuckets();
+      return {
+        scanned,
+        applied: agentByBucket.size > 0,
+        fallbackUsed: true,
+        errorCode: error?.code || error?.message || "agent-supplement-fallback",
+      };
+    } catch (fallbackError) {
+      return { scanned, applied: false, errorCode: fallbackError?.code || error?.code || "agent-supplement-failed" };
+    }
+  }
+}
+
 async function computeDepositFlowStatsSnapshot(options = {}) {
   const nowMs = safeSignedInt(options.nowMs) || Date.now();
   const range = normalizeRange(options, nowMs);
@@ -294,6 +450,7 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
     addStatsToBucket(bucket, doc);
   });
 
+  const agentSupplement = await readAgentApprovedSupplement(range, buckets);
   const summary = makeEmptyBucket({ key: "summary", label: "summary", startMs: 0 });
   buckets.forEach((bucket) => addStatsToBucket(summary, bucket));
   let cumulativeApprovedHtg = 0;
@@ -319,6 +476,8 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
   const rejectedRatePct = requestedHtg > 0 ? Number(((safeInt(summary.rejectedHtg) / requestedHtg) * 100).toFixed(2)) : 0;
   const moncashApprovedSharePct = approvedHtg > 0 ? Number(((safeInt(summary.moncashApprovedHtg) / approvedHtg) * 100).toFixed(2)) : 0;
   const natcashApprovedSharePct = approvedHtg > 0 ? Number(((safeInt(summary.natcashApprovedHtg) / approvedHtg) * 100).toFixed(2)) : 0;
+  const directApprovedSharePct = approvedHtg > 0 ? Number(((safeInt(summary.directApprovedHtg) / approvedHtg) * 100).toFixed(2)) : 0;
+  const agentApprovedSharePct = approvedHtg > 0 ? Number(((safeInt(summary.agentApprovedHtg) / approvedHtg) * 100).toFixed(2)) : 0;
 
   return {
     generatedAtMs: nowMs,
@@ -333,6 +492,8 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
       inflowRule: "Les entrees HTG de l'entreprise correspondent aux montants de depots reels approuves.",
       rejectionRule: "Les bonus bienvenue sont exclus. Les montants rejetes reprennent le montant demande sur la commande.",
       source: "Source: dashboardDepositFlowStats pre-agrege.",
+      agentRule: "Un depot agent direct est un order approuve avec agentAssisted=true ou un marqueur de credit agent.",
+      directRule: "Un depot direct est un order approuve sans marqueur agent.",
     },
     summary: {
       ...summary,
@@ -345,6 +506,8 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
       rejectedRatePct,
       moncashApprovedSharePct,
       natcashApprovedSharePct,
+      directApprovedSharePct,
+      agentApprovedSharePct,
     },
     series: {
       requestedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.requestedHtg })),
@@ -353,6 +516,8 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
       cumulativeApprovedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.cumulativeApprovedHtg })),
       moncashApprovedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.moncashApprovedHtg })),
       natcashApprovedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.natcashApprovedHtg })),
+      directApprovedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.directApprovedHtg })),
+      agentApprovedHtg: normalizedBuckets.map((item) => ({ startMs: item.startMs, label: item.label, value: item.agentApprovedHtg })),
       approvalsVsRejects: normalizedBuckets.map((item) => ({
         startMs: item.startMs,
         label: item.label,
@@ -360,9 +525,19 @@ async function computeDepositFlowStatsSnapshot(options = {}) {
         rejectedHtg: item.rejectedHtg,
       })),
     },
+    sourceMix: [
+      { key: "direct", label: "Depot direct", count: safeInt(summary.directApprovedCount), amountHtg: safeInt(summary.directApprovedHtg) },
+      { key: "agent", label: "Depot agent direct", count: safeInt(summary.agentApprovedCount), amountHtg: safeInt(summary.agentApprovedHtg) },
+    ],
+    methodMix: [
+      { key: "moncash", label: "MonCash", count: safeInt(summary.moncashApprovedCount), amountHtg: safeInt(summary.moncashApprovedHtg) },
+      { key: "natcash", label: "NatCash", count: safeInt(summary.natcashApprovedCount), amountHtg: safeInt(summary.natcashApprovedHtg) },
+      { key: "other", label: "Autres", count: safeInt(summary.otherApprovedCount), amountHtg: safeInt(summary.otherApprovedHtg) },
+    ],
     buckets: normalizedBuckets,
     scannedOrderDocs: 0,
     aggregateDocs,
+    agentSupplement,
     truncated: false,
     scanLimit: 0,
     precomputed: true,
@@ -376,14 +551,16 @@ function computeStatsObjectFromRows(rows = []) {
     const requestedHtg = Math.max(0, computeOrderAmount(row));
     if (requestedHtg <= 0) return;
     const method = getOrderMethod(row);
+    const source = isAgentDepositOrder(row) ? "agent" : "direct";
     const resolution = getOrderResolutionStatus(row);
     addStatsToBucket(stats, {
       ...incrementPlain("requested", requestedHtg, method, 1),
+      ...incrementPlainSource("requested", requestedHtg, source, 1),
       ...(resolution === "approved"
-        ? incrementPlain("approved", requestedHtg, method, 1)
+        ? { ...incrementPlain("approved", requestedHtg, method, 1), ...incrementPlainSource("approved", requestedHtg, source, 1) }
         : resolution === "rejected"
-          ? incrementPlain("rejected", requestedHtg, method, 1)
-          : incrementPlain("pending", requestedHtg, method, 1)),
+          ? { ...incrementPlain("rejected", requestedHtg, method, 1), ...incrementPlainSource("rejected", requestedHtg, source, 1) }
+          : { ...incrementPlain("pending", requestedHtg, method, 1), ...incrementPlainSource("pending", requestedHtg, source, 1) }),
     });
   });
   return stats;
@@ -396,6 +573,14 @@ function incrementPlain(prefix = "", amountHtg = 0, method = "other", countDelta
     [`${prefix}Htg`]: safeInt(amountHtg),
     [`${methodKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Count`]: safeInt(countDelta),
     [`${methodKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Htg`]: safeInt(amountHtg),
+  };
+}
+
+function incrementPlainSource(prefix = "", amountHtg = 0, source = "direct", countDelta = 1) {
+  const sourceKey = source === "agent" ? "agent" : "direct";
+  return {
+    [`${sourceKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Count`]: safeInt(countDelta),
+    [`${sourceKey}${prefix[0].toUpperCase()}${prefix.slice(1)}Htg`]: safeInt(amountHtg),
   };
 }
 
@@ -415,6 +600,11 @@ async function rebuildDepositFlowStatsForRange(options = {}) {
     "methodName",
     "orderType",
     "kind",
+    "source",
+    "agentAssisted",
+    "extractedTextStatus",
+    "creditedByAgentUid",
+    "creditedByAgentEmail",
   ];
   let query = db.collectionGroup("orders")
     .where("createdAtMs", ">=", range.startMs)
@@ -462,6 +652,7 @@ async function rebuildDepositFlowStatsForRange(options = {}) {
 }
 
 module.exports = {
+  applyApprovedDepositStatsTx,
   applyDepositCreatedStatsTx,
   applyDepositResolvedStatsTx,
   computeDepositFlowStatsSnapshot,
