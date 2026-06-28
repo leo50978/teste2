@@ -38,15 +38,15 @@ import {
   requestGameFairplaySecure,
   respondGameFairplaySecure,
   walletMutateSecure,
-} from "./secure-functions.js?v=20260625-room-preview2";
+} from "./secure-functions.js?v=20260628-assistance-alert1";
 
 const HERO_ROTATION_MS = 5000;
 const AGENT_ONLY_DEPOSIT_THRESHOLD_HTG = 1000;
 const PWA_MODAL_STORAGE_KEY = "kobposh_pwa_install_dismissed";
 const PWA_MODAL_INITIAL_DELAY_MS = 1600;
-const WELCOME_COORDINATOR_MODAL_STORAGE_KEY = "kobposh_welcome_championna_dismissed_v1";
+const WELCOME_COORDINATOR_MODAL_STORAGE_KEY = "kobposh_assistance_outage_notice_20260628_v1";
 const WELCOME_COORDINATOR_MODAL_DELAY_MS = 700;
-const CHAMPIONNA_COORDINATOR_WHATSAPP = "50943160977";
+const CHAMPIONNA_COORDINATOR_WHATSAPP = "50941752992";
 const pageParams = new URLSearchParams(window.location.search);
 let heroRotationTimer = null;
 const homeNetworkQualityIndicator = mountNetworkQualityIndicator({
@@ -6204,7 +6204,7 @@ function rememberWelcomeCoordinatorDismiss() {
 }
 
 function buildChampionnaCoordinatorWhatsappUrl() {
-  const message = "Bonjou, mwen sou Kobposh pou Championna a. Mwen bezwen pale ak yon kowodonate.";
+  const message = "Bonjou, mwen sou Kobposh. Mwen te ekri assistance lan epi mwen bezwen pale ak yon ajan.";
   return `https://wa.me/${CHAMPIONNA_COORDINATOR_WHATSAPP}?text=${encodeURIComponent(message)}`;
 }
 
@@ -6241,25 +6241,25 @@ function ensureWelcomeCoordinatorModal() {
       </button>
       <div class="kobposh-welcome-modal__hero" aria-hidden="true">
         <img src="./assets/images/championna.png" alt="" class="kobposh-welcome-modal__hero-img" />
-        <span class="kobposh-welcome-modal__live-pill">Championna Kobposh</span>
+        <span class="kobposh-welcome-modal__live-pill">Assistance Kobposh</span>
       </div>
       <div class="kobposh-welcome-modal__content">
-        <p class="kobposh-welcome-modal__eyebrow">Byenveni sou Kobposh</p>
-        <h2 class="kobposh-welcome-modal__title" id="kobposhWelcomeTitle">Ou la pou yon championna?</h2>
+        <p class="kobposh-welcome-modal__eyebrow">Avi assistance</p>
+        <h2 class="kobposh-welcome-modal__title" id="kobposhWelcomeTitle">Pwoblèm teknik sou WhatsApp ajan an</h2>
         <p class="kobposh-welcome-modal__text">
-          Si ou nouvo sou sit la oswa ou vini pou championna a, yon kowodonate ka ede ou konprann kijan pou enskri,
-          kijan pou jwe, epi kijan pou antre nan gwoup WhatsApp ofisyel la.
+          Depi avan yè, kont WhatsApp ajan assistance lan gen yon pwoblèm teknik. Si ou te ekri epi ou pa jwenn repons,
+          tanpri ekri ajan an sou nouvo nimewo sa a: <strong>+509 41 75 2992</strong>.
         </p>
-        <div class="kobposh-welcome-modal__highlights" aria-label="Sa kowodonate a ka ede ou fe">
-          <span><i data-lucide="message-circle" class="icon" aria-hidden="true"></i> Pale ak kowodonate a</span>
-          <span><i data-lucide="trophy" class="icon" aria-hidden="true"></i> Konprann championna a</span>
+        <div class="kobposh-welcome-modal__highlights" aria-label="Information assistance">
+          <span><i data-lucide="message-circle" class="icon" aria-hidden="true"></i> Nouveau WhatsApp: +509 41 75 2992</span>
+          <span><i data-lucide="headphones" class="icon" aria-hidden="true"></i> Pou tout mesaj ki poko jwenn repons</span>
         </div>
         <div class="kobposh-welcome-modal__actions">
           <a class="kobposh-welcome-modal__button kobposh-welcome-modal__button--primary" href="${buildChampionnaCoordinatorWhatsappUrl()}" data-kobposh-welcome-whatsapp>
-            Kontakte sou WhatsApp
+            Ekri ajan an sou WhatsApp
           </a>
           <button class="kobposh-welcome-modal__button kobposh-welcome-modal__button--secondary" type="button" data-kobposh-welcome-dismiss>
-            Pa montre mesaj sa anko
+            Mwen konprann
           </button>
         </div>
       </div>
